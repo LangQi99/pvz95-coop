@@ -970,6 +970,17 @@ void GameSelector::Update()
 	TrackButton(mZombatarButton, "woodsign3", 0.f, 0.f);
 	TrackButton(mAchievementsButton, "SelectorScreen_BG_Left", 20.f, 480.f);
 	PvzMultiplayer::LanMode aLanMode = mApp->mLanCoordinator->GetMode();
+	bool aClientWaitingForHost = PvzMultiplayer::IsLanClientWaitingForHost(aLanMode);
+	if (!mStartingGame)
+	{
+		// A joined client may browse the lobby UI, but only the host can create
+		// the board and broadcast SESSION_START.
+		mAdventureButton->SetDisabled(aClientWaitingForHost);
+		mMinigameButton->SetDisabled(aClientWaitingForHost);
+		mPuzzleButton->SetDisabled(aClientWaitingForHost);
+		mSurvivalButton->SetDisabled(aClientWaitingForHost);
+		mZenGardenButton->SetDisabled(aClientWaitingForHost || !mZenGardenButton->mVisible);
+	}
 	mHostLanButton->SetLabel(aLanMode == PvzMultiplayer::LanMode::HOSTING ? "Stop Hosting" : "Host LAN");
 	mJoinLanButton->SetLabel(
 		aLanMode == PvzMultiplayer::LanMode::SEARCHING || aLanMode == PvzMultiplayer::LanMode::JOINING ||
@@ -1177,6 +1188,15 @@ void GameSelector::ButtonPress(int theId)
 
 void GameSelector::ClickedAdventure()
 {
+	// Joining clients may only enter gameplay through the host's SESSION_START.
+	// Keep this guard at the mutation point as well as in ButtonDepress so an
+	// already queued/alternate UI path cannot start the local transition.
+	if (PvzMultiplayer::IsLanClientWaitingForHost(mApp->mLanCoordinator->GetMode()))
+	{
+		mApp->PlaySample(Sexy::SOUND_BUZZER);
+		return;
+	}
+
 	if (mApp->IsTrialStageLocked() && (mLevel >= 25 || mApp->HasFinishedAdventure()))
 	{
 		if (mApp->LawnMessageBox(
@@ -1231,7 +1251,7 @@ void GameSelector::ButtonDepress(int theId)
 {
 	if (mSlideCounter > 0)
 		return;
-	if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::CONNECTED &&
+	if (PvzMultiplayer::IsLanClientWaitingForHost(mApp->mLanCoordinator->GetMode()) &&
 		theId != GameSelector::GameSelector_JoinLan)
 		return;
 

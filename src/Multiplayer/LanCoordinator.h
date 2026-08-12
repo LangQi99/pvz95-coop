@@ -25,6 +25,12 @@ namespace PvzMultiplayer
 		FAILED
 	};
 
+	constexpr bool IsLanClientWaitingForHost(LanMode theMode)
+	{
+		return theMode == LanMode::SEARCHING || theMode == LanMode::JOINING ||
+			theMode == LanMode::CONNECTED;
+	}
+
 	class LanCoordinator
 	{
 	public:

@@ -2027,6 +2027,7 @@ void SexyAppBase::RehupFocus()
 
 		if (mHasFocus)
 		{
+			EnforceCursor();
 			if (mMuteOnLostFocus)
 				Unmute(true);
 
@@ -2492,6 +2493,12 @@ void SexyAppBase::ResetCustomCursorCache()
 
 void SexyAppBase::EnforceCursor()
 {
+	// Desktop cursor state is shared beyond this app's inactive window. Do not
+	// let a background Host/Client overwrite the focused peer's cursor using a
+	// stale mouse position.
+	if (!mActive || mMinimized)
+		return;
+
 	int aCursorNum = mSEHOccured ? CURSOR_POINTER : mCursorNum;
 	if (aCursorNum < 0 || aCursorNum >= NUM_CURSORS)
 		aCursorNum = CURSOR_POINTER;

@@ -488,6 +488,14 @@ void LawnApp::PreNewGame(GameMode theGameMode, bool theLookForSavedGame)
 		NewGame();
 		return;
 	}
+	PvzMultiplayer::LanMode aLanMode = mLanCoordinator->GetMode();
+	if (PvzMultiplayer::IsLanClientWaitingForHost(aLanMode))
+	{
+		LanTrace("blocked client local game start mode=%u gameMode=%u\n",
+			static_cast<unsigned>(aLanMode), static_cast<unsigned>(theGameMode));
+		PlaySample(Sexy::SOUND_BUZZER);
+		return;
+	}
 	if (BeginLanGame(theGameMode))
 		return;
 

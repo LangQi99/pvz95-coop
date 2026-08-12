@@ -33,6 +33,9 @@
 #ifndef SDL_HINT_APP_ID // SDL2 compatibility (already defined in SDL3.2+)
 #define SDL_HINT_APP_ID "SDL_APP_ID"
 #endif
+#ifndef SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH
+#define SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH "SDL_MOUSE_FOCUS_CLICKTHROUGH"
+#endif
 
 using namespace Sexy;
 
@@ -44,6 +47,10 @@ void SexyAppBase::MakeWindow()
 	}
 	else
 	{
+		// SDL normally consumes the click which merely focuses an inactive
+		// window. Keep that first click when switching between LAN instances.
+		SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+
 		// For Wayland's icon support on the game window
 		SDL_SetHint(SDL_HINT_APP_ID, "io.github.wszqkzqk.pvz-portable");
 

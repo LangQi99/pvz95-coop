@@ -25,6 +25,13 @@ namespace
 int main()
 {
 	using namespace PvzMultiplayer;
+	if (IsLanClientWaitingForHost(LanMode::OFFLINE) ||
+		IsLanClientWaitingForHost(LanMode::HOSTING) ||
+		!IsLanClientWaitingForHost(LanMode::SEARCHING) ||
+		!IsLanClientWaitingForHost(LanMode::JOINING) ||
+		!IsLanClientWaitingForHost(LanMode::CONNECTED) ||
+		IsLanClientWaitingForHost(LanMode::FAILED))
+		Fail("client waiting-mode classification is incorrect");
 
 	LanCoordinator aHost;
 	if (!aHost.StartHosting("Test Garden", "Host", 0x50563935))
