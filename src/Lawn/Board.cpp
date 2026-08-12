@@ -3636,7 +3636,10 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		return;
 	}
 
-	if (mApp->IsIZombieLevel())
+	if (PvzRules::ShouldUseIZombieCursorBehavior(
+		mApp->mBoard != nullptr,
+		mApp->mBoard == nullptr ? SeedType::SEED_NONE : mApp->mBoard->mCursorObject->mType,
+		mApp->IsIZombieLevel()))
 	{
 		mChallenge->IZombieMouseDownWithZombie(x, y, theClickCount);
 		return;

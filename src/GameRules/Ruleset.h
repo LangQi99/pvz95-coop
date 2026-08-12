@@ -267,4 +267,6 @@ namespace PvzRules
 	int ResolveKillAllZombiesInRadiusNonBurnDamage(int theOriginalValue);
 	bool IsMagnetShroomFootballHelmetEligible(HelmType theHelmType, bool theOriginalValue);
 	int ResolveBowlingShieldDamage(int theOriginalValue);
+	bool ShouldUseIZombieCursorBehavior(
+		bool theBoardExists, SeedType theCursorSeedType, bool theOriginalValue);
 }

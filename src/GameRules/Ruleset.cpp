@@ -1189,4 +1189,14 @@ namespace PvzRules
 	{
 		return gActiveRuleset == RulesetId::PVZ95 ? 800 : theOriginalValue;
 	}
+
+	bool ShouldUseIZombieCursorBehavior(
+		bool theBoardExists, SeedType theCursorSeedType, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		return theBoardExists &&
+			static_cast<int>(theCursorSeedType) > static_cast<int>(SeedType::SEED_LEFTPEATER);
+	}
 }

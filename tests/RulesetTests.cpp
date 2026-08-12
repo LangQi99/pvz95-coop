@@ -178,6 +178,17 @@ int main()
 		HELMTYPE_TALLNUT,
 		static_cast<HelmType>(10)
 	}};
+	const std::array<SeedType, 9> anIZombieCursorSeedCases = {{
+		SEED_NONE,
+		SEED_PEASHOOTER,
+		SEED_SPROUT,
+		SEED_LEFTPEATER,
+		static_cast<SeedType>(53),
+		static_cast<SeedType>(54),
+		static_cast<SeedType>(58),
+		static_cast<SeedType>(69),
+		SEED_ZOMBIE_IMP
+	}};
 
 	ExpectEqual("Adventure mode immediate", static_cast<int>(GAMEMODE_ADVENTURE), 0);
 	ExpectEqual("Tree of Wisdom mode immediate", static_cast<int>(GAMEMODE_TREE_OF_WISDOM), 50);
@@ -194,6 +205,10 @@ int main()
 	ExpectEqual("large sun coin immediate", static_cast<int>(COIN_LARGESUN), 6);
 	ExpectEqual("initial usable packet sentinel", static_cast<int>(SEED_NONE), -1);
 	ExpectEqual("Blover seed immediate", static_cast<int>(SEED_BLOVER), 27);
+	ExpectEqual("Leftpeater seed immediate", static_cast<int>(SEED_LEFTPEATER), 52);
+	ExpectEqual("seed type count immediate", static_cast<int>(NUM_SEED_TYPES), 53);
+	ExpectEqual("special zombie seed immediate", static_cast<int>(SEED_ZOMBIE_SCREEN_DOOR), 69);
+	ExpectEqual("maximum special seed immediate", static_cast<int>(SEED_ZOMBIE_IMP), 74);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
@@ -415,6 +430,18 @@ int main()
 	}
 	ExpectEqual("original bowling shield damage", ResolveBowlingShieldDamage(400), 400);
 	ExpectEqual("original bowling arbitrary shield damage passthrough", ResolveBowlingShieldDamage(17), 17);
+	for (bool aBoardExists : {false, true})
+	{
+		for (SeedType aSeedType : anIZombieCursorSeedCases)
+		{
+			for (bool anOriginalValue : {false, true})
+			{
+				ExpectEqual("original I, Zombie cursor policy passthrough",
+					ShouldUseIZombieCursorBehavior(aBoardExists, aSeedType, anOriginalValue),
+					anOriginalValue);
+			}
+		}
+	}
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
@@ -843,6 +870,17 @@ int main()
 	}
 	ExpectEqual("PvZ 95 bowling shield damage", ResolveBowlingShieldDamage(400), 800);
 	ExpectEqual("PvZ 95 bowling shield fixed override", ResolveBowlingShieldDamage(17), 800);
+	for (SeedType aSeedType : anIZombieCursorSeedCases)
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("PvZ 95 null Board disables I, Zombie cursor policy",
+				ShouldUseIZombieCursorBehavior(false, aSeedType, anOriginalValue), false);
+			ExpectEqual("PvZ 95 I, Zombie cursor seed threshold",
+				ShouldUseIZombieCursorBehavior(true, aSeedType, anOriginalValue),
+				static_cast<int>(aSeedType) > static_cast<int>(SEED_LEFTPEATER));
+		}
+	}
 	ExpectEqual("unmodified Scary Potter seed", ResolveScaryPotterSeed(GAMEMODE_SCARY_POTTER_3, 0, SEED_LEFTPEATER), SEED_LEFTPEATER);
 	ExpectEqual("unmodified Scary Potter zombie", ResolveScaryPotterZombie(GAMEMODE_SCARY_POTTER_1, 3, ZOMBIE_NORMAL), ZOMBIE_NORMAL);
 	const BurnRowEffects aPvZ95BurnRow = ResolveBurnRowEffects();
