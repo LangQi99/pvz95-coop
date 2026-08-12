@@ -343,7 +343,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 		if (IsInPlay())
 		{
 			aBodyReanim->AssignRenderGroupToTrack("anim_glow", RENDER_GROUP_HIDDEN);
-			mStateCountdown = 1500;
+			mStateCountdown = PvzRules::ResolvePlantInitialStateCountdown(mSeedType, 1500);
 		}
 		else
 		{
@@ -385,7 +385,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 			aBodyReanim->SetFramesForLayer("anim_bigidle");
 
 		mState = PlantState::STATE_SUNSHROOM_SMALL;
-		mStateCountdown = 12000;
+		mStateCountdown = PvzRules::ResolvePlantInitialStateCountdown(mSeedType, 12000);
 
 		break;
 	}
@@ -458,7 +458,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 		aBodyReanim->SetTruncateDisappearingFrames();
 		break;
 	case SeedType::SEED_SPIKEROCK:
-		mPlantHealth = 450;
+		mPlantHealth = PvzRules::ResolvePlantInitialHealth(mSeedType, 450);
 		PVZP_ASSERT(aBodyReanim);
 		break;
 	case SeedType::SEED_SPROUT:
@@ -649,12 +649,12 @@ void Plant::SpikeRockTakeDamage()
 
 	SpikeweedAttack();
 
-	mPlantHealth -= 50;
-	if (mPlantHealth <= 300)
+	mPlantHealth -= PvzRules::ResolveSpikeRockCrushDamage(50);
+	if (mPlantHealth <= PvzRules::ResolveSpikeRockDamageThreshold(1, 300))
 	{
 		aBodyReanim->AssignRenderGroupToTrack("bigspike3", RENDER_GROUP_HIDDEN);
 	}
-	if (mPlantHealth <= 150)
+	if (mPlantHealth <= PvzRules::ResolveSpikeRockDamageThreshold(2, 150))
 	{
 		aBodyReanim->AssignRenderGroupToTrack("bigspike2", RENDER_GROUP_HIDDEN);
 	}
@@ -2325,7 +2325,7 @@ void Plant::Squish()
 
 	if (!mIsAsleep)
 	{
-		if (mSeedType == SeedType::SEED_CHERRYBOMB || mSeedType == SeedType::SEED_JALAPENO ||
+		if (PvzRules::UsesCherryBombSpecial(mSeedType) || mSeedType == SeedType::SEED_JALAPENO ||
 			mSeedType == SeedType::SEED_DOOMSHROOM || mSeedType == SeedType::SEED_ICESHROOM)
 		{
 			DoSpecial();
@@ -4306,6 +4306,10 @@ void Plant::DoSpecial()
 		}
 		break;
 	}
+	case SeedType::SEED_EXPLODE_O_NUT:
+		if (!PvzRules::UsesCherryBombSpecial(mSeedType))
+			break;
+		[[fallthrough]];
 	case SeedType::SEED_CHERRYBOMB:
 	{
 		mApp->PlayFoley(FoleyType::FOLEY_CHERRYBOMB);

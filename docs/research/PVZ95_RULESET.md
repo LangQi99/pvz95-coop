@@ -52,6 +52,26 @@ The remaining injected branches have been associated with functions in the refer
 
 These are **located**, not yet all behaviorally restored. A hook is marked complete only after its injected branch has been understood, reimplemented without copying proprietary machine code, and checked against an observed PvZ 95 outcome.
 
+## Implemented behavior changes
+
+The following changes have been translated into ruleset functions and focused tests. The virtual addresses identify evidence in the analyzed sample; no patched executable bytes are stored in this repository.
+
+| Area | PvZ 95 behavior | Evidence |
+|---|---|---:|
+| Potato Mine | arms after 1000 ticks instead of 1500 | `0x45E34E` |
+| Sun-shroom | grows after 9000 ticks instead of 12000 | `0x45E3F1` |
+| Spikerock | starts at 16200 health, takes 1800 crush damage, and changes damage art at 10800/5400 | `0x45E5C3`, `0x45EC63` |
+| Explode-o-nut | follows the Cherry Bomb special path when squished | `0x462BDE`, `0x46670A` |
+| Screen Door Zombie | is initialized as a Buckethead Zombie | `0x5225E6` |
+| Flag Zombie | starts with 820 body health | `0x5227B5` |
+| Tall-nut | receives the Spikerock-style Gargantuar smash path and is excluded from normal square squishing | `0x526D72`, `0x52E96B` |
+| Newspaper Zombie | mad phase counts as chilled movement while its animation runs at 2.5x, or 1.25x while chilled | `0x52EF13`, `0x52F02F` |
+| Squash-head Zombie | body health is forced to 720 after body damage | `0x531319` |
+| Butter | applies 300 ticks of ice trap and 1000 ticks of chill instead of setting the butter timer | `0x53273B` |
+| Burn | the 1800-damage path considers body + helmet + shield health and always includes Gatling-head/Squash-head | `0x532B96` |
+
+These rules remain switchable with `-ruleset original`; that path preserves the portable engine's original behavior.
+
 ## Ruleset selection
 
 PvZ 95 is the default. For A/B testing:

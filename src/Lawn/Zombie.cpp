@@ -36,6 +36,7 @@
 #include "System/Zombatar.h"
 #include "System/Music.h"
 #include "Widget/AlmanacDialog.h"
+#include "GameRules/Ruleset.h"
 #include "../PvzpLib/PvzpFoley.h"
 #include "../PvzpLib/PvzpDebug.h"
 #include "../PvzpLib/PvzpCommon.h"
@@ -142,6 +143,7 @@ Zombie::Zombie()
 void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Zombie* theParentZombie, int theFromWave)
 {
 	PVZP_ASSERT(theType >= 0 && theType <= ZombieType::NUM_ZOMBIE_TYPES);
+	theType = PvzRules::ResolveZombieType(theType);
 
 	int aZombatarRecordIndex = -1;
 	if (theType == ZombieType::ZOMBIE_FLAG && mBoard)
@@ -234,7 +236,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 		mPosX += 40.0f;
 	}
 	PickRandomSpeed();
-	mBodyHealth = 270;
+	mBodyHealth = PvzRules::ResolveZombieInitialBodyHealth(mZombieType, 270);
 
 	const ZombieDefinition& aZombieDef = GetZombieDefinition(mZombieType);
 	RenderLayer aRenderLayer = RenderLayer::RENDER_LAYER_ZOMBIE;
@@ -2099,7 +2101,7 @@ void Zombie::UpdateZombieGargantuar()
 				Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_CHEW);
 				if (aPlant)
 				{
-					if (aPlant->mSeedType == SeedType::SEED_SPIKEROCK)
+					if (PvzRules::TakesLayeredCrushDamage(aPlant->mSeedType))
 					{
 						TakeDamage(20, 32U);
 						aPlant->SpikeRockTakeDamage();
@@ -6486,7 +6488,7 @@ void Zombie::SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackTyp
 				continue;
 			}
 
-			if (aPlant->mSeedType != SeedType::SEED_SPIKEROCK)
+			if (!PvzRules::TakesLayeredCrushDamage(aPlant->mSeedType))
 			{
 				mBoard->mPlantsEaten++;
 				aPlant->Squish();
@@ -6588,6 +6590,9 @@ bool Zombie::IsImmobilizied()
 
 bool Zombie::IsMovingAtChilledSpeed()
 {
+	if (PvzRules::IsForcedChilledMovement(mZombiePhase))
+		return true;
+
 	if (mChilledCounter > 0)
 		return true;
 
@@ -6635,7 +6640,8 @@ void Zombie::ApplyAnimRate(float theAnimRate)
 	Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
 	if (aBodyReanim)
 	{
-		aBodyReanim->mAnimRate = IsMovingAtChilledSpeed() ? theAnimRate * 0.5f : theAnimRate;
+		aBodyReanim->mAnimRate = PvzRules::ResolveZombieAnimationRate(
+			mZombiePhase, mChilledCounter, IsMovingAtChilledSpeed(), theAnimRate);
 	}
 }
 
@@ -7833,6 +7839,7 @@ void Zombie::TakeBodyDamage(int theDamage, unsigned int theDamageFlags)
 	int aBodyHealthOrigin = mBodyHealth;
 	int aDamageIndexBeforeDamage = GetBodyDamageIndex();
 	mBodyHealth -= theDamage;
+	mBodyHealth = PvzRules::ResolveZombieBodyHealthAfterDamage(mZombieType, mBodyHealth);
 	int aDamageIndexAfterDamage = GetBodyDamageIndex();
 	if (mZombieType == ZombieType::ZOMBIE_ZAMBONI)
 	{
@@ -8521,7 +8528,11 @@ void Zombie::ApplyButter()
 	if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_BOSS || IsTangleKelpTarget() || IsBobsledTeamWithSled() || IsFlying())
 		return;
 
-	mButteredCounter = 400;
+	const PvzRules::ZombieStatusCounters aStatus =
+		PvzRules::ResolveButterStatus(mChilledCounter, mButteredCounter, mIceTrapCounter);
+	mChilledCounter = aStatus.mChilled;
+	mButteredCounter = aStatus.mButtered;
+	mIceTrapCounter = aStatus.mIceTrapped;
 	Zombie* aZombie = mBoard->ZombieTryToGet(mRelatedZombieID);
 	if (aZombie)
 	{
@@ -8662,7 +8673,7 @@ void Zombie::ApplyBurn()
 	if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED)
 		return;
 
-	if (mBodyHealth >= 1800 || mZombieType == ZombieType::ZOMBIE_BOSS)
+	if (PvzRules::ShouldTakeBurnDamage(mZombieType, mBodyHealth, mHelmHealth, mShieldHealth))
 	{
 		TakeDamage(1800, 18U);
 		return;

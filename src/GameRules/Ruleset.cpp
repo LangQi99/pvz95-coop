@@ -116,6 +116,59 @@ namespace PvzRules
 		return ResolveValue(GetPlantTuning(theSeedType).mLaunchRate, theOriginalValue);
 	}
 
+	int ResolvePlantInitialHealth(SeedType theSeedType, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_SPIKEROCK)
+			return 16200;
+
+		return theOriginalValue;
+	}
+
+	int ResolvePlantInitialStateCountdown(SeedType theSeedType, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theSeedType)
+		{
+		case SeedType::SEED_POTATOMINE:
+			return 1000;
+		case SeedType::SEED_SUNSHROOM:
+			return 9000;
+		default:
+			return theOriginalValue;
+		}
+	}
+
+	int ResolveSpikeRockCrushDamage(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 1800 : theOriginalValue;
+	}
+
+	int ResolveSpikeRockDamageThreshold(int theDamageState, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theDamageState == 1)
+			return 10800;
+		if (theDamageState == 2)
+			return 5400;
+		return theOriginalValue;
+	}
+
+	bool UsesCherryBombSpecial(SeedType theSeedType)
+	{
+		return theSeedType == SeedType::SEED_CHERRYBOMB ||
+			(gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_EXPLODE_O_NUT);
+	}
+
+	bool TakesLayeredCrushDamage(SeedType theSeedType)
+	{
+		return theSeedType == SeedType::SEED_SPIKEROCK ||
+			(gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_TALLNUT);
+	}
+
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue)
 	{
 		if (gActiveRuleset != RulesetId::PVZ95)
@@ -130,5 +183,64 @@ namespace PvzRules
 		default:
 			return theOriginalValue;
 		}
+	}
+
+	ZombieType ResolveZombieType(ZombieType theZombieType)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_DOOR)
+			return ZombieType::ZOMBIE_PAIL;
+
+		return theZombieType;
+	}
+
+	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_FLAG)
+			return 820;
+
+		return theOriginalValue;
+	}
+
+	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_SQUASH_HEAD)
+			return 720;
+
+		return theOriginalValue;
+	}
+
+	bool ShouldTakeBurnDamage(ZombieType theZombieType, int theBodyHealth, int theHelmHealth, int theShieldHealth)
+	{
+		if (theZombieType == ZombieType::ZOMBIE_BOSS)
+			return true;
+
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theBodyHealth >= 1800;
+
+		const int64_t aTotalHealth = static_cast<int64_t>(theBodyHealth) + theHelmHealth + theShieldHealth;
+		return aTotalHealth >= 1800 || theZombieType == ZombieType::ZOMBIE_GATLING_HEAD ||
+			theZombieType == ZombieType::ZOMBIE_SQUASH_HEAD;
+	}
+
+	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return {1000, theButtered, 300};
+
+		return {theChilled, 400, theIceTrapped};
+	}
+
+	bool IsForcedChilledMovement(ZombiePhase theZombiePhase)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 && theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD;
+	}
+
+	float ResolveZombieAnimationRate(ZombiePhase theZombiePhase, int theChilledCounter,
+		bool theIsMovingAtChilledSpeed, float theOriginalRate)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD)
+			return theOriginalRate * (theChilledCounter > 0 ? 1.25f : 2.5f);
+
+		return theIsMovingAtChilledSpeed ? theOriginalRate * 0.5f : theOriginalRate;
 	}
 }

@@ -26,6 +26,13 @@ namespace PvzRules
 		int mLaunchRate{-1};
 	};
 
+	struct ZombieStatusCounters
+	{
+		int mChilled;
+		int mButtered;
+		int mIceTrapped;
+	};
+
 	RulesetId GetActiveRuleset();
 	void SetActiveRuleset(RulesetId theRuleset);
 	bool SetActiveRuleset(std::string_view theName);
@@ -36,5 +43,20 @@ namespace PvzRules
 	int ResolvePlantSeedCost(SeedType theSeedType, int theOriginalValue);
 	int ResolvePlantRefreshTime(SeedType theSeedType, int theOriginalValue);
 	int ResolvePlantLaunchRate(SeedType theSeedType, int theOriginalValue);
+	int ResolvePlantInitialHealth(SeedType theSeedType, int theOriginalValue);
+	int ResolvePlantInitialStateCountdown(SeedType theSeedType, int theOriginalValue);
+	int ResolveSpikeRockCrushDamage(int theOriginalValue);
+	int ResolveSpikeRockDamageThreshold(int theDamageState, int theOriginalValue);
+	bool UsesCherryBombSpecial(SeedType theSeedType);
+	bool TakesLayeredCrushDamage(SeedType theSeedType);
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue);
+
+	ZombieType ResolveZombieType(ZombieType theZombieType);
+	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue);
+	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue);
+	bool ShouldTakeBurnDamage(ZombieType theZombieType, int theBodyHealth, int theHelmHealth, int theShieldHealth);
+	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped);
+	bool IsForcedChilledMovement(ZombiePhase theZombiePhase);
+	float ResolveZombieAnimationRate(ZombiePhase theZombiePhase, int theChilledCounter,
+		bool theIsMovingAtChilledSpeed, float theOriginalRate);
 }
