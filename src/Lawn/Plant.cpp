@@ -42,6 +42,7 @@
 #include "../PvzpLib/EffectSystem.h"
 #include "../PvzpLib/PvzpStringFile.h"
 #include "Widget/AchievementsScreen.h"
+#include "GameRules/Ruleset.h"
 #include <algorithm>
 
 constinit const PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
@@ -153,7 +154,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 	mWakeUpCounter = 0;
 	mOnBungeeState = PlantOnBungeeState::NOT_ON_BUNGEE;
 	mPottedPlantIndex = -1;
-	mLaunchRate = aPlantDef.mLaunchRate;
+	mLaunchRate = PvzRules::ResolvePlantLaunchRate(theSeedType, aPlantDef.mLaunchRate);
 	mSubclass = aPlantDef.mSubClass;
 	mRenderOrder = CalcRenderOrder();
 
@@ -5023,12 +5024,12 @@ int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
 		if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
 		{
 			const PlantDefinition& aPlantDef = GetPlantDefinition(theImitaterType);
-			return aPlantDef.mSeedCost;
+			return PvzRules::ResolvePlantSeedCost(theImitaterType, aPlantDef.mSeedCost);
 		}
 		else
 		{
 			const PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
-			return aPlantDef.mSeedCost;
+			return PvzRules::ResolvePlantSeedCost(theSeedType, aPlantDef.mSeedCost);
 		}
 	}
 	}
@@ -5068,12 +5069,12 @@ int Plant::GetRefreshTime(SeedType theSeedType, SeedType theImitaterType)
 	if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
 	{
 		const PlantDefinition& aPlantDef = GetPlantDefinition(theImitaterType);
-		return aPlantDef.mRefreshTime;
+		return PvzRules::ResolvePlantRefreshTime(theImitaterType, aPlantDef.mRefreshTime);
 	}
 	else
 	{
 		const PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
-		return aPlantDef.mRefreshTime;
+		return PvzRules::ResolvePlantRefreshTime(theSeedType, aPlantDef.mRefreshTime);
 	}
 }
 

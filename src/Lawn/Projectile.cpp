@@ -32,6 +32,7 @@
 #include "../PvzpLib/Reanimator.h"
 #include "../PvzpLib/Attachment.h"
 #include "Widget/AchievementsScreen.h"
+#include "GameRules/Ruleset.h"
 #include <algorithm>
 
 constinit const ProjectileDefinition gProjectileDefinition[] = {
@@ -311,8 +312,7 @@ void Projectile::CheckForCollision()
 		Plant* aPlant = FindCollisionTargetPlant();
 		if (aPlant)
 		{
-			const ProjectileDefinition& aProjectileDef = GetProjectileDef();
-			aPlant->mPlantHealth -= aProjectileDef.mDamage;
+			aPlant->mPlantHealth -= GetDamage();
 			aPlant->mEatenFlashCountdown = std::max(aPlant->mEatenFlashCountdown, 25);
 
 			mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
@@ -459,8 +459,6 @@ bool Projectile::IsZombieHitBySplash(Zombie* theZombie)
 
 void Projectile::DoSplashDamage(Zombie* theZombie)
 {
-	const ProjectileDefinition& aProjectileDef = GetProjectileDef();
-
 	int aZombiesGetSplashed = 0;
 	for (Zombie* aZombie : mBoard->mZombies)
 	{
@@ -472,8 +470,8 @@ void Projectile::DoSplashDamage(Zombie* theZombie)
 		}
 	}
 
-	int aOriginalDamage = aProjectileDef.mDamage;
-	int aSplashDamage = aProjectileDef.mDamage / 3;
+	int aOriginalDamage = GetDamage();
+	int aSplashDamage = aOriginalDamage / 3;
 	int aMaxSplashDamageAmount = aOriginalDamage * 7;
 	if (mProjectileType == ProjectileType::PROJECTILE_FIREBALL)
 	{
@@ -614,7 +612,7 @@ void Projectile::UpdateLobMotion()
 		}
 		else
 		{
-			aPlant->mPlantHealth -= GetProjectileDef().mDamage;
+			aPlant->mPlantHealth -= GetDamage();
 			aPlant->mEatenFlashCountdown = std::max(aPlant->mEatenFlashCountdown, 25);
 			mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
 			Die();
@@ -836,7 +834,7 @@ void Projectile::DoImpact(Zombie* theZombie)
 	else if (theZombie)
 	{
 		unsigned int aDamageFlags = GetDamageFlags(theZombie);
-		theZombie->TakeDamage(GetProjectileDef().mDamage, aDamageFlags);
+		theZombie->TakeDamage(GetDamage(), aDamageFlags);
 	}
 
 	float aLastPosX = mPosX - mVelX;
@@ -1235,4 +1233,10 @@ const ProjectileDefinition& Projectile::GetProjectileDef()
 	PVZP_ASSERT(aProjectileDef.mProjectileType == mProjectileType);
 
 	return aProjectileDef;
+}
+
+int Projectile::GetDamage()
+{
+	const ProjectileDefinition& aProjectileDef = GetProjectileDef();
+	return PvzRules::ResolveProjectileDamage(mProjectileType, aProjectileDef.mDamage);
 }

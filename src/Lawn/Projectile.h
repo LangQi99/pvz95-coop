@@ -92,6 +92,7 @@ public:
 	bool                    CantHitHighGround();
 	void                    DoSplashDamage(Zombie* theZombie);
 	const ProjectileDefinition&   GetProjectileDef();
+	int                     GetDamage();
 	unsigned int            GetDamageFlags(Zombie* theZombie/* = nullptr*/);
 	Rect                    GetProjectileRect();
 	void                    UpdateNormalMotion();

@@ -1,4 +1,29 @@
-# PvZ-Portable
+# PvZ 95 Co-op
+
+> **Work in progress:** a cross-platform, host-authoritative LAN co-op implementation of the community PvZ 95 ruleset. The engine builds today; multiplayer gameplay is not release-ready yet.
+
+[![CI build](https://github.com/LangQi99/pvz95-coop/actions/workflows/ci.yml/badge.svg)](https://github.com/LangQi99/pvz95-coop/actions/workflows/ci.yml)
+
+This project combines two complementary sources:
+
+- [PvZ-Portable](https://github.com/wszqkzqk/PvZ-Portable) supplies the maintained SDL/OpenGL/CMake engine and Windows, macOS, and Linux portability.
+- [PlantsVsZombies-decompilation](https://github.com/ruslan831/PlantsVsZombies-decompilation) is used as a research reference to map the PvZ 95 executable patches back to named game functions. Its Windows-only project, binaries, and game assets are not copied here.
+
+The default runtime ruleset is `pvz95`; pass `-ruleset original` to use the original balance values. The first implemented slice includes the verified direct plant/projectile table changes and a versioned, bounds-checked multiplayer wire protocol. See [architecture](docs/ARCHITECTURE.md), [PvZ 95 research notes](docs/research/PVZ95_RULESET.md), and the [roadmap](#pvz-95-co-op-roadmap).
+
+## PvZ 95 Co-op roadmap
+
+- [x] Reproducible Windows/macOS/Linux CMake baseline
+- [x] Runtime-selectable PvZ 95 ruleset and verified direct data changes
+- [x] Versioned LAN discovery, handshake, cursor, input, and state-hash packet codec
+- [ ] Port the remaining injected PvZ 95 behavior hooks with regression tests
+- [ ] LAN discovery and host/join lobby
+- [ ] Colored multi-pointer rendering and host-authoritative input dispatch
+- [ ] Determinism checks, resynchronization, disconnect handling, and soak tests
+
+No PopCap/EA game assets or PvZ executables are distributed by this repository. You must provide compatible data from a copy you are legally entitled to use.
+
+## Upstream engine
 
 <div align="center">
   <img src="icon-readme.png" alt="PvZ-Portable" width="450">
@@ -6,7 +31,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/wszqkzqk/PvZ-Portable)
 
-A **cross-platform** community-driven reimplementation of Plants vs. Zombies: Game of the Year Edition, aiming to bring the **100% authentic experience** of Plants vs. Zombies to every platform.
+The project is based on **PvZ-Portable**, a cross-platform community-driven reimplementation of Plants vs. Zombies: Game of the Year Edition.
 
 | 🌿 Authentic | 🎮 Portable | 🛠️ Open |
 | :---: | :---: | :---: |
@@ -68,16 +93,16 @@ To play the game, you need the game data from PvZ GOTY. Place `main.pak` and the
 Note about writable data and caches:
 
 - The game will read resources (like `main.pak` and `properties/`) from the executable directory by default, so you can launch the binary from any working directory and it will still find them.
-- Per-user writable files (settings, savegames, compiled caches, screenshots) are stored in the **OS-recommended application data path**. With the current build these are under `io.github.wszqkzqk/PvZPortable` and include subfolders such as:
+- Per-user writable files (settings, savegames, compiled caches, screenshots) are stored in the **OS-recommended application data path**. PvZ 95 Co-op uses the separate product ID `io.github.langqi99.pvz95-coop` so it does not overwrite an upstream PvZ-Portable profile, and includes subfolders such as:
   - `userdata/` — Player save files.
   - `cache64/` if you use the 64-bit version or `cache32/` if you use the 32-bit version — Compiled binary caches (reanimation / compiled definitions). These caches are **local startup** artifacts (**native layout**), not portable files; when cache/schema checks fail, the game transparently recompiles from source data.
   - `registry.regemu` — Settings/registry emulation.
 
 Examples:
 
-- Linux: `~/.local/share/io.github.wszqkzqk/PvZPortable/`
-- Windows: `%APPDATA%\io.github.wszqkzqk\PvZPortable\`
-- macOS: `~/Library/Application Support/io.github.wszqkzqk/PvZPortable/`
+- Linux: `~/.local/share/io.github.langqi99.pvz95-coop/`
+- Windows: `%APPDATA%\io.github.langqi99.pvz95-coop\`
+- macOS: `~/Library/Application Support/io.github.langqi99.pvz95-coop/`
 
 You can customize these paths via command-line parameters:
 - `-resdir <path>` / `-resdir=<path>`: Set the **resource directory** (where `main.pak` and `properties/` are located). This only affects where the game looks for resources, not where it saves data.

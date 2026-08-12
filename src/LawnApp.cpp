@@ -63,6 +63,7 @@
 #include "Lawn/Widget/NewOptionsDialog.h"
 #include "Lawn/Widget/ZombatarTOS.h"
 #include "Lawn/Widget/SeedChooserScreen.h"
+#include "GameRules/Ruleset.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
@@ -158,11 +159,11 @@ LawnApp::LawnApp()
 	mSfxVolume = 0.5525;
 	mAutoStartLoadingThread = false;
 	mDebugKeysEnabled = false;
-	mProdName = "io.github.wszqkzqk.pvz-portable";
+	mProdName = "io.github.langqi99.pvz95-coop";
 	mProductVersion = PVZP_VERSION;
 	mBuildNum = PVZP_BUILD_NUMBER;
 	mCommitDate = PVZP_COMMIT_DATE;
-	std::string aTitleName = "PvZ Portable";
+	std::string aTitleName = "PvZ 95 Co-op";
 	mTitle = aTitleName;
 	mCustomCursorsEnabled = false;
 	mPlayerInfo = nullptr;
@@ -1234,6 +1235,7 @@ void LawnApp::Init()
 //#ifdef PVZ_DEBUG
 	PvzpAssertInitForApp();
 	PvzpLogLn("session id: %u", mSessionID);
+	PvzpLogLn("ruleset: %.*s", static_cast<int>(PvzRules::GetActiveRulesetName().size()), PvzRules::GetActiveRulesetName().data());
 //#endif
 
 	if (!mResourceManager->ParseResourcesFile("properties/resources.xml"))
@@ -1346,6 +1348,14 @@ void LawnApp::HandleCmdLineParam(std::string_view theParamName, std::string_view
 		mCheatKeys = true;
 		mDebugKeysEnabled = true;
 #endif
+	}
+	else if (theParamName == "-ruleset")
+	{
+		if (!PvzRules::SetActiveRuleset(theParamValue))
+		{
+			Popup("Invalid ruleset. Expected 'pvz95' or 'original'.");
+			DoExit(1);
+		}
 	}
 	else
 	{

@@ -49,6 +49,8 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
 	src/Lawn/*.cpp
 	src/Lawn/Widget/*.cpp
 	src/Lawn/System/*.cpp
+	src/GameRules/*.cpp
+	src/Multiplayer/*.cpp
 )
 
 set(LOW_MEMORY OFF CACHE BOOL "Enable low memory mode")
@@ -191,6 +193,27 @@ target_compile_definitions(pvz-portable PRIVATE
 )
 target_compile_features(pvz-portable PRIVATE cxx_std_20)
 set_target_properties(pvz-portable PROPERTIES CXX_EXTENSIONS OFF)
+
+include(CTest)
+if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	add_executable(pvz95-rules-tests
+		tests/RulesetTests.cpp
+		src/GameRules/Ruleset.cpp
+	)
+	target_include_directories(pvz95-rules-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-rules-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-rules-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-rules COMMAND pvz95-rules-tests)
+
+	add_executable(pvz95-protocol-tests
+		tests/ProtocolTests.cpp
+		src/Multiplayer/Protocol.cpp
+	)
+	target_include_directories(pvz95-protocol-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-protocol-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-protocol-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-protocol COMMAND pvz95-protocol-tests)
+endif()
 
 if (LOW_MEMORY)
 	target_compile_definitions(pvz-portable PRIVATE LOW_MEMORY)
