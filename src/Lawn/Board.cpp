@@ -620,7 +620,7 @@ void Board::PickZombieWaves()
 			mNumWaves = gZombieWaves[std::clamp(mLevel - 1, 0, 49)];
 			if (!mApp->IsFirstTimeAdventureMode() && !mApp->IsMiniBossLevel())
 			{
-				mNumWaves = mNumWaves < 10 ? 20 : mNumWaves + 10;
+				mNumWaves = mNumWaves < 10 ? PvzRules::ResolveShortAdventureReplayWaveCount(20) : mNumWaves + 10;
 			}
 		}
 	}
@@ -644,6 +644,8 @@ void Board::PickZombieWaves()
 			mNumWaves = 30;
 		else
 			mNumWaves = 40;
+
+		mNumWaves = PvzRules::ResolveNonAdventureWaveCount(aGameMode, mNumWaves);
 	}
 
 	ZombiePicker aZombiePicker;
@@ -702,26 +704,28 @@ void Board::PickZombieWaves()
 		}
 
 		// Certain levels multiply the zombie points
+		int aZombiePointMultiplier = 1;
 		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN)
 		{
-			aZombiePoints *= 6;
+			aZombiePointMultiplier = 6;
 		}
 		else if (mApp->IsLittleTroubleLevel() || mApp->IsWallnutBowlingLevel())
 		{
-			aZombiePoints *= 4;
+			aZombiePointMultiplier = 4;
 		}
 		else if (mApp->IsMiniBossLevel())
 		{
-			aZombiePoints *= 3;
+			aZombiePointMultiplier = 3;
 		}
 		else if (mApp->IsStormyNightLevel() && mApp->IsAdventureMode())
 		{
-			aZombiePoints *= 3;
+			aZombiePointMultiplier = 3;
 		}
 		else if (mApp->IsShovelLevel() || mApp->IsBungeeBlitzLevel() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL)
 		{
-			aZombiePoints *= 2;
+			aZombiePointMultiplier = 2;
 		}
+		aZombiePoints *= PvzRules::ResolveZombieWavePointMultiplier(mApp->mGameMode, aZombiePointMultiplier);
 
 		// Newly introduced zombies have fixed spawns in specific waves
 		if (aIntroZombieType != ZombieType::ZOMBIE_INVALID && aIntroZombieType != ZombieType::ZOMBIE_DUCKY_TUBE)
@@ -1431,12 +1435,12 @@ void Board::InitLevel()
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
 	{
 		PVZP_ASSERT(mSeedBank->mNumPackets == 6);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_PEASHOOTER);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_CHERRYBOMB);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_WALLNUT);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_REPEATER);
-		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_SNOWPEA);
-		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_CHOMPER);
+		mSeedBank->mSeedPackets[0].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 0, SeedType::SEED_PEASHOOTER));
+		mSeedBank->mSeedPackets[1].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 1, SeedType::SEED_CHERRYBOMB));
+		mSeedBank->mSeedPackets[2].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 2, SeedType::SEED_WALLNUT));
+		mSeedBank->mSeedPackets[3].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 3, SeedType::SEED_REPEATER));
+		mSeedBank->mSeedPackets[4].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 4, SeedType::SEED_SNOWPEA));
+		mSeedBank->mSeedPackets[5].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 5, SeedType::SEED_CHOMPER));
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1)
 	{
@@ -1528,7 +1532,8 @@ void Board::InitLevel()
 	else if (mApp->IsScaryPotterLevel())
 	{
 		PVZP_ASSERT(mSeedBank->mNumPackets == 1);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_CHERRYBOMB);
+		mSeedBank->mSeedPackets[0].SetPacketType(PvzRules::ResolveInitialSeedPacket(
+			aGameMode, true, 0, SeedType::SEED_CHERRYBOMB));
 	}
 	else if (mApp->IsWhackAZombieLevel())
 	{
@@ -2379,13 +2384,15 @@ bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 		return gLawnApp->CanSpawnYetis();
 	}
 
-	if (theLevel < aZombieDef.mStartingLevel || aZombieDef.mPickWeight == 0)
+	if (!PvzRules::ZombiePassesDefinitionSpawnGate(theLevel, aZombieDef.mStartingLevel, aZombieDef.mPickWeight))
 	{
 		return false;
 	}
 
 	PVZP_ASSERT(gZombieAllowedLevels[theZombieType].mZombieType == theZombieType);
-	return gZombieAllowedLevels[theZombieType].mAllowedOnLevel[std::clamp(theLevel - 1, 0, 49)];
+	int aLevelIndex = std::clamp(theLevel - 1, 0, 49);
+	bool anOriginalAllowed = gZombieAllowedLevels[theZombieType].mAllowedOnLevel[aLevelIndex];
+	return PvzRules::ResolveZombieAllowedOnLevel(theZombieType, aLevelIndex + 1, anOriginalAllowed);
 }
 
 ZombieType Board::GetIntroducedZombieType()
@@ -2455,7 +2462,10 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 				continue;
 			}
 		}
-		else if (aGameMode != GameMode::GAMEMODE_CHALLENGE_POGO_PARTY && aGameMode != GameMode::GAMEMODE_CHALLENGE_BOBSLED_BONANZA && aGameMode != GameMode::GAMEMODE_CHALLENGE_AIR_RAID)
+		else if (PvzRules::ShouldEnforceZombieWaveBudgetGate(aGameMode,
+			aGameMode != GameMode::GAMEMODE_CHALLENGE_POGO_PARTY &&
+			aGameMode != GameMode::GAMEMODE_CHALLENGE_BOBSLED_BONANZA &&
+			aGameMode != GameMode::GAMEMODE_CHALLENGE_AIR_RAID))
 		{
 			int aFirstAllowedWave = aZombieDef.mFirstAllowedWave;
 			// Endless mode gradually moves the first allowed wave earlier
@@ -5272,7 +5282,8 @@ void Board::UpdateSunSpawning()
 	if (StageIsNight() ||
 		HasLevelAwardDropped() ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS ||
-		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
+		PvzRules::ShouldSuppressSkySunSpawning(mApp->mGameMode,
+			mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE) ||
 		mApp->mGameMode == GameMode::GAMEMODE_UPSELL ||
 		mApp->mGameMode == GameMode::GAMEMODE_INTRO ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||
@@ -5301,6 +5312,7 @@ void Board::UpdateSunSpawning()
 	mNumSunsFallen++;
 	mSunCountDown = std::min(SUN_COUNTDOWN_MAX, SUN_COUNTDOWN + mNumSunsFallen * 10) + Rand(SUN_COUNTDOWN_RANGE);
 	CoinType aSunType = mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY ? CoinType::COIN_LARGESUN : CoinType::COIN_SUN;
+	aSunType = PvzRules::ResolveFallingSunType(mApp->mGameMode, aSunType);
 	AddCoin(RandRangeInt(100, 649), 60, aSunType, CoinMotion::COIN_MOTION_FROM_SKY);
 }
 
@@ -9161,16 +9173,16 @@ void Board::DropLootPiece(int thePosX, int thePosY, int theDropFactor)
 		aDropHit *= 5;
 	}
 
-	if (mApp->IsWhackAZombieLevel())
+	if (PvzRules::ShouldUseWhackSunDrop(mApp->IsWhackAZombieLevel()))
 	{
 		int aSunChanceMin = 2500;
 		int aSunChanceMax = mSunMoney > 500 ? 2800 : mSunMoney > 350 ? 3100 : mSunMoney > 200 ? 3700 : 5000;
 		if (aDropHit >= aSunChanceMin * theDropFactor && aDropHit <= aSunChanceMax * theDropFactor)
 		{
 			mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
-			AddCoin(thePosX - 20, thePosY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
-			AddCoin(thePosX - 40, thePosY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
-			AddCoin(thePosX - 60, thePosY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
+			AddCoin(thePosX - 20, thePosY, PvzRules::ResolveWhackSunDropType(0, CoinType::COIN_SUN), CoinMotion::COIN_MOTION_COIN);
+			AddCoin(thePosX - 40, thePosY, PvzRules::ResolveWhackSunDropType(1, CoinType::COIN_SUN), CoinMotion::COIN_MOTION_COIN);
+			AddCoin(thePosX - 60, thePosY, PvzRules::ResolveWhackSunDropType(2, CoinType::COIN_SUN), CoinMotion::COIN_MOTION_COIN);
 			return;
 		}
 	}

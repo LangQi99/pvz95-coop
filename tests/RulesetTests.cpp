@@ -79,7 +79,11 @@ int main()
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
 	ExpectEqual("original star damage", ResolveProjectileDamage(ProjectileType::PROJECTILE_STAR, 20), 20);
-	ExpectEqual("original door type", ResolveZombieType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_DOOR);
+	ExpectEqual("original door member type", ResolveZombieMemberType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_DOOR);
+	const ZombiePreSwitchArmor anOriginalDoorArmor = ResolveZombiePreSwitchArmor(
+		ZombieType::ZOMBIE_DOOR, HelmType::HELMTYPE_NONE, 0);
+	ExpectEqual("original door pre-switch helmet", anOriginalDoorArmor.mHelmType, HelmType::HELMTYPE_NONE);
+	ExpectEqual("original door pre-switch helmet health", anOriginalDoorArmor.mHelmHealth, 0);
 	ExpectEqual("original flag health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 270);
 	ExpectEqual("original layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), false);
 	ExpectEqual("original cattail counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), true);
@@ -89,6 +93,25 @@ int main()
 		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 8);
 	ExpectEqual("original cold removal", ResolveChillAfterRemovingCold(500), 0);
 	ExpectEqual("original maximum sun", ResolveMaximumSunMoney(9990), 9990);
+	ExpectEqual("original short replay wave count", ResolveShortAdventureReplayWaveCount(20), 20);
+	ExpectEqual("original non-adventure wave count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1, 10), 10);
+	ExpectEqual("original zombie-point multiplier", ResolveZombieWavePointMultiplier(
+		GameMode::GAMEMODE_ADVENTURE, 1), 1);
+	ExpectEqual("original early zombie definition gate", ZombiePassesDefinitionSpawnGate(3, 5, 10), false);
+	ExpectEqual("original zero-weight zombie definition gate", ZombiePassesDefinitionSpawnGate(5, 5, 0), false);
+	ExpectEqual("original zombie allowed table value", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_POLEVAULTER, 32, false), false);
+	ExpectEqual("original zombie wave-budget gate", ShouldEnforceZombieWaveBudgetGate(
+		GameMode::GAMEMODE_ADVENTURE, true), true);
+	ExpectEqual("original Ice initial seed", ResolveInitialSeedPacket(
+		GameMode::GAMEMODE_CHALLENGE_ICE, false, 1, SeedType::SEED_CHERRYBOMB), SeedType::SEED_CHERRYBOMB);
+	ExpectEqual("original Ice suppresses sky sun", ShouldSuppressSkySunSpawning(
+		GameMode::GAMEMODE_CHALLENGE_ICE, true), true);
+	ExpectEqual("original Sunny Day falling sun", ResolveFallingSunType(
+		GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY, CoinType::COIN_LARGESUN), CoinType::COIN_LARGESUN);
+	ExpectEqual("original non-Whack sun drop gate", ShouldUseWhackSunDrop(false), false);
+	ExpectEqual("original Whack sun type", ResolveWhackSunDropType(0, CoinType::COIN_SUN), CoinType::COIN_SUN);
 	ExpectEqual("original raining seeds countdown", ResolveRainingSeedsCountdown(123), 623);
 	ExpectEqual("original portal conveyor seed", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 0, SEED_PEASHOOTER), SEED_PEASHOOTER);
 	ExpectEqual("original whack group size", ResolveWhackZombieGroupSize(1), 1);
@@ -160,7 +183,12 @@ int main()
 	ExpectEqual("spikerock damage state two", ResolveSpikeRockDamageThreshold(2, 150), 5400);
 	ExpectEqual("explodo-nut cherry special", UsesCherryBombSpecial(SeedType::SEED_EXPLODE_O_NUT), true);
 	ExpectEqual("layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), true);
-	ExpectEqual("screen door becomes bucket", ResolveZombieType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_PAIL);
+	ExpectEqual("screen door stores bucket member type", ResolveZombieMemberType(
+		ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_PAIL);
+	const ZombiePreSwitchArmor aPvZ95DoorArmor = ResolveZombiePreSwitchArmor(
+		ZombieType::ZOMBIE_PAIL, HelmType::HELMTYPE_NONE, 0);
+	ExpectEqual("screen door receives bucket helmet", aPvZ95DoorArmor.mHelmType, HelmType::HELMTYPE_PAIL);
+	ExpectEqual("screen door receives bucket helmet health", aPvZ95DoorArmor.mHelmHealth, 1100);
 	ExpectEqual("flag zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 820);
 	ExpectEqual("dancer zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_DANCER, 500), 1350);
 	ExpectEqual("football helmet health", ResolveZombieInitialHelmHealth(ZombieType::ZOMBIE_FOOTBALL, 1400), 2800);
@@ -220,6 +248,81 @@ int main()
 	ExpectNear("chilled newspaper mad animation", ResolveZombieAnimationRate(ZombiePhase::PHASE_NEWSPAPER_MAD, 1, true, 10.0f), 12.5f);
 	ExpectEqual("last stand initial sun", ResolveInitialSunMoney(GameMode::GAMEMODE_CHALLENGE_LAST_STAND, 5000), 8000);
 	ExpectEqual("maximum sun", ResolveMaximumSunMoney(9990), 2000000000);
+	ExpectEqual("short replay wave count", ResolveShortAdventureReplayWaveCount(20), 40);
+	ExpectEqual("normal survival wave count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1, 10), 20);
+	ExpectEqual("hard survival wave count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_SURVIVAL_HARD_STAGE_1, 20), 40);
+	ExpectEqual("Whack-a-Zombie wave count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_WHACK_A_ZOMBIE, 12), 20);
+	ExpectEqual("fixed twenty-wave challenge count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT, 20), 40);
+	ExpectEqual("fixed thirty-wave challenge count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_COLUMN, 30), 40);
+	ExpectEqual("default challenge wave count", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_SPEED, 40), 50);
+	ExpectEqual("Last Stand wave count unchanged", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_LAST_STAND, 10), 10);
+	ExpectEqual("zero-wave challenge count unchanged", ResolveNonAdventureWaveCount(
+		GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN, 0), 0);
+	ExpectEqual("Column zombie-point multiplier", ResolveZombieWavePointMultiplier(
+		GameMode::GAMEMODE_CHALLENGE_COLUMN, 6), 6);
+	ExpectEqual("ordinary zombie-point multiplier", ResolveZombieWavePointMultiplier(
+		GameMode::GAMEMODE_ADVENTURE, 1), 4);
+	ExpectEqual("mini-boss zombie-point multiplier", ResolveZombieWavePointMultiplier(
+		GameMode::GAMEMODE_CHALLENGE_FINAL_BOSS, 3), 4);
+	ExpectEqual("early zombie passes definition gate", ZombiePassesDefinitionSpawnGate(3, 5, 10), true);
+	ExpectEqual("zero-weight zombie passes definition gate", ZombiePassesDefinitionSpawnGate(5, 5, 0), true);
+	ExpectEqual("Pole-vaulter allowed on level 32", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_POLEVAULTER, 32, false), true);
+	ExpectEqual("Newspaper removed from level 11", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_NEWSPAPER, 11, true), false);
+	ExpectEqual("Newspaper removed from level 12", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_NEWSPAPER, 12, true), false);
+	ExpectEqual("Newspaper allowed on level 16", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_NEWSPAPER, 16, false), true);
+	ExpectEqual("Football removed from level 32", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_FOOTBALL, 32, true), false);
+	ExpectEqual("unmodified zombie allowed table value", ResolveZombieAllowedOnLevel(
+		ZombieType::ZOMBIE_NORMAL, 32, true), true);
+	ExpectEqual("ordinary zombie wave-budget gate bypassed", ShouldEnforceZombieWaveBudgetGate(
+		GameMode::GAMEMODE_ADVENTURE, true), false);
+	ExpectEqual("already-exempt zombie wave-budget gate", ShouldEnforceZombieWaveBudgetGate(
+		GameMode::GAMEMODE_CHALLENGE_POGO_PARTY, false), false);
+	const std::array<SeedType, 6> aPvZ95IceSeeds = {{
+		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB,
+		SeedType::SEED_WALLNUT, SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA
+	}};
+	const std::array<SeedType, 6> anOriginalIceSeeds = {{
+		SeedType::SEED_PEASHOOTER, SeedType::SEED_CHERRYBOMB, SeedType::SEED_WALLNUT,
+		SeedType::SEED_REPEATER, SeedType::SEED_SNOWPEA, SeedType::SEED_CHOMPER
+	}};
+	for (int i = 0; i < static_cast<int>(aPvZ95IceSeeds.size()); ++i)
+	{
+		ExpectEqual("PvZ 95 Ice initial seed", ResolveInitialSeedPacket(
+			GameMode::GAMEMODE_CHALLENGE_ICE, false, i, anOriginalIceSeeds[i]), aPvZ95IceSeeds[i]);
+	}
+	ExpectEqual("Scary Potter initial Plantern", ResolveInitialSeedPacket(
+		GameMode::GAMEMODE_ADVENTURE, true, 0, SeedType::SEED_CHERRYBOMB), SeedType::SEED_PLANTERN);
+	ExpectEqual("unmodified initial seed", ResolveInitialSeedPacket(
+		GameMode::GAMEMODE_ADVENTURE, false, 0, SeedType::SEED_CHERRYBOMB), SeedType::SEED_CHERRYBOMB);
+	ExpectEqual("Ice permits sky sun", ShouldSuppressSkySunSpawning(
+		GameMode::GAMEMODE_CHALLENGE_ICE, true), false);
+	ExpectEqual("unmodified sky-sun suppression", ShouldSuppressSkySunSpawning(
+		GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN, true), true);
+	ExpectEqual("Big Time falling seed packet", ResolveFallingSunType(
+		GameMode::GAMEMODE_CHALLENGE_BIG_TIME, CoinType::COIN_SUN), CoinType::COIN_USABLE_SEED_PACKET);
+	ExpectEqual("Sunny Day falling normal sun", ResolveFallingSunType(
+		GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY, CoinType::COIN_LARGESUN), CoinType::COIN_SUN);
+	ExpectEqual("ordinary falling sun unchanged", ResolveFallingSunType(
+		GameMode::GAMEMODE_ADVENTURE, CoinType::COIN_SUN), CoinType::COIN_SUN);
+	ExpectEqual("all modes use Whack sun-drop branch", ShouldUseWhackSunDrop(false), true);
+	ExpectEqual("first Whack drop is small sun", ResolveWhackSunDropType(
+		0, CoinType::COIN_SUN), CoinType::COIN_SMALLSUN);
+	ExpectEqual("second Whack drop is large sun", ResolveWhackSunDropType(
+		1, CoinType::COIN_SUN), CoinType::COIN_LARGESUN);
+	ExpectEqual("third Whack drop is normal sun", ResolveWhackSunDropType(
+		2, CoinType::COIN_SUN), CoinType::COIN_SUN);
 	ExpectEqual("Beghouled winning score", ResolveBeghouledWinningScore(75), 100);
 	ExpectEqual("raining seeds countdown", ResolveRainingSeedsCountdown(123), 323);
 	ExpectEqual("Portal Combat threepeater", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 0, SEED_PEASHOOTER), SEED_THREEPEATER);

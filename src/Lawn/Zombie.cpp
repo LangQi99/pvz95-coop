@@ -143,7 +143,7 @@ Zombie::Zombie()
 void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Zombie* theParentZombie, int theFromWave)
 {
 	PVZP_ASSERT(theType >= 0 && theType <= ZombieType::NUM_ZOMBIE_TYPES);
-	theType = PvzRules::ResolveZombieType(theType);
+	const ZombieType aMemberZombieType = PvzRules::ResolveZombieMemberType(theType);
 
 	int aZombatarRecordIndex = -1;
 	if (theType == ZombieType::ZOMBIE_FLAG && mBoard)
@@ -167,7 +167,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 	mHeight = 120;
 	mFrame = 0;
 	mPrevFrame = 0;
-	mZombieType = theType;
+	mZombieType = aMemberZombieType;
 	mVariant = theVariant;
 	mIsEating = false;
 	mJustGotShotCounter = 0;
@@ -208,6 +208,10 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 	mUseLadderCol = -1;
 	mShieldHealth = 0;
 	mHelmHealth = 0;
+	const PvzRules::ZombiePreSwitchArmor aPreSwitchArmor = PvzRules::ResolveZombiePreSwitchArmor(
+		mZombieType, mHelmType, mHelmHealth);
+	mHelmType = aPreSwitchArmor.mHelmType;
+	mHelmHealth = aPreSwitchArmor.mHelmHealth;
 	mAltitude = 0.0f;
 	mFlyingHealth = 0;
 	mOriginalAnimRate = 0.0f;

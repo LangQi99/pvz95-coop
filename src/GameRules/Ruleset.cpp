@@ -343,12 +343,21 @@ namespace PvzRules
 		return gActiveRuleset == RulesetId::PVZ95 ? ProjectileType::PROJECTILE_SNOWPEA : theOriginalValue;
 	}
 
-	ZombieType ResolveZombieType(ZombieType theZombieType)
+	ZombieType ResolveZombieMemberType(ZombieType theRequestedType)
 	{
-		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_DOOR)
+		if (gActiveRuleset == RulesetId::PVZ95 && theRequestedType == ZombieType::ZOMBIE_DOOR)
 			return ZombieType::ZOMBIE_PAIL;
 
-		return theZombieType;
+		return theRequestedType;
+	}
+
+	ZombiePreSwitchArmor ResolveZombiePreSwitchArmor(
+		ZombieType theMemberType, HelmType theOriginalHelmType, int theOriginalHelmHealth)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theMemberType == ZombieType::ZOMBIE_PAIL)
+			return {HelmType::HELMTYPE_PAIL, 1100};
+
+		return {theOriginalHelmType, theOriginalHelmHealth};
 	}
 
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue)
@@ -512,6 +521,132 @@ namespace PvzRules
 	int ResolveMaximumSunMoney(int theOriginalValue)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 ? 2000000000 : theOriginalValue;
+	}
+
+	int ResolveShortAdventureReplayWaveCount(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 40 : theOriginalValue;
+	}
+
+	int ResolveNonAdventureWaveCount(GameMode theGameMode, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95 ||
+			theGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || theOriginalValue == 0)
+		{
+			return theOriginalValue;
+		}
+
+		switch (theOriginalValue)
+		{
+		case 10:
+		case 12:
+			return 20;
+		case 20:
+		case 30:
+			return 40;
+		case 40:
+			return 50;
+		default:
+			return theOriginalValue;
+		}
+	}
+
+	int ResolveZombieWavePointMultiplier(GameMode theGameMode, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		return theGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN ? 6 : 4;
+	}
+
+	bool ZombiePassesDefinitionSpawnGate(int theLevel, int theStartingLevel, int thePickWeight)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ||
+			(theLevel >= theStartingLevel && thePickWeight != 0);
+	}
+
+	bool ResolveZombieAllowedOnLevel(ZombieType theZombieType, int theLevel, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theZombieType == ZombieType::ZOMBIE_POLEVAULTER && theLevel == 32)
+			return true;
+		if (theZombieType == ZombieType::ZOMBIE_NEWSPAPER)
+		{
+			if (theLevel == 11 || theLevel == 12)
+				return false;
+			if (theLevel == 16)
+				return true;
+		}
+		if (theZombieType == ZombieType::ZOMBIE_FOOTBALL && theLevel == 32)
+			return false;
+
+		return theOriginalValue;
+	}
+
+	bool ShouldEnforceZombieWaveBudgetGate(GameMode theGameMode, bool theOriginalValue)
+	{
+		(void)theGameMode;
+		return gActiveRuleset == RulesetId::PVZ95 ? false : theOriginalValue;
+	}
+
+	SeedType ResolveInitialSeedPacket(GameMode theGameMode, bool theIsScaryPotterLevel,
+		int theSeedIndex, SeedType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE && theSeedIndex >= 0 && theSeedIndex < 6)
+			return static_cast<SeedType>(theSeedIndex);
+		if (theIsScaryPotterLevel && theSeedIndex == 0)
+			return SeedType::SEED_PLANTERN;
+
+		return theOriginalValue;
+	}
+
+	bool ShouldSuppressSkySunSpawning(GameMode theGameMode, bool theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
+			return false;
+
+		return theOriginalValue;
+	}
+
+	CoinType ResolveFallingSunType(GameMode theGameMode, CoinType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_BIG_TIME)
+			return CoinType::COIN_USABLE_SEED_PACKET;
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY)
+			return CoinType::COIN_SUN;
+
+		return theOriginalValue;
+	}
+
+	bool ShouldUseWhackSunDrop(bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? true : theOriginalValue;
+	}
+
+	CoinType ResolveWhackSunDropType(int theDropIndex, CoinType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theDropIndex)
+		{
+		case 0:
+			return CoinType::COIN_SMALLSUN;
+		case 1:
+			return CoinType::COIN_LARGESUN;
+		case 2:
+			return CoinType::COIN_SUN;
+		default:
+			return theOriginalValue;
+		}
 	}
 
 	int ResolveBeghouledWinningScore(int theOriginalValue)

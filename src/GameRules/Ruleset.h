@@ -42,6 +42,12 @@ namespace PvzRules
 		float mScale;
 	};
 
+	struct ZombiePreSwitchArmor
+	{
+		HelmType mHelmType;
+		int mHelmHealth;
+	};
+
 	struct BurnRowEffects
 	{
 		bool mUseSpecialSequence;
@@ -93,7 +99,9 @@ namespace PvzRules
 	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX);
 	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue);
 
-	ZombieType ResolveZombieType(ZombieType theZombieType);
+	ZombieType ResolveZombieMemberType(ZombieType theRequestedType);
+	ZombiePreSwitchArmor ResolveZombiePreSwitchArmor(
+		ZombieType theMemberType, HelmType theOriginalHelmType, int theOriginalHelmHealth);
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue);
 	int ResolveZombieInitialHelmHealth(ZombieType theZombieType, int theOriginalValue);
 	int ResolveZombieInitialShieldHealth(ZombieType theZombieType, int theOriginalValue);
@@ -119,6 +127,18 @@ namespace PvzRules
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);
+	int ResolveShortAdventureReplayWaveCount(int theOriginalValue);
+	int ResolveNonAdventureWaveCount(GameMode theGameMode, int theOriginalValue);
+	int ResolveZombieWavePointMultiplier(GameMode theGameMode, int theOriginalValue);
+	bool ZombiePassesDefinitionSpawnGate(int theLevel, int theStartingLevel, int thePickWeight);
+	bool ResolveZombieAllowedOnLevel(ZombieType theZombieType, int theLevel, bool theOriginalValue);
+	bool ShouldEnforceZombieWaveBudgetGate(GameMode theGameMode, bool theOriginalValue);
+	SeedType ResolveInitialSeedPacket(GameMode theGameMode, bool theIsScaryPotterLevel,
+		int theSeedIndex, SeedType theOriginalValue);
+	bool ShouldSuppressSkySunSpawning(GameMode theGameMode, bool theOriginalValue);
+	CoinType ResolveFallingSunType(GameMode theGameMode, CoinType theOriginalValue);
+	bool ShouldUseWhackSunDrop(bool theOriginalValue);
+	CoinType ResolveWhackSunDropType(int theDropIndex, CoinType theOriginalValue);
 	int ResolveBeghouledWinningScore(int theOriginalValue);
 	int ResolveRainingSeedsCountdown(int theRandomValue);
 	SeedType ResolveConveyorSeed(GameMode theGameMode, int theSeedIndex, SeedType theOriginalValue);
