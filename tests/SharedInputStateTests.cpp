@@ -41,13 +41,14 @@ int main()
 
 	SharedInputState aState;
 	aState.Reset(1);
-	CursorUpdate aCursor{50, UINT32_MAX, 1000, 2000, 2, 1, true};
+	CursorUpdate aCursor{50, UINT32_MAX, 1000, 2000, 2, true, 4};
 	Require(aState.ApplyCursor(aCursor, 75), "first cursor update was rejected");
 	Require(!aState.ApplyCursor(aCursor, 76), "duplicate cursor update was accepted");
 	aCursor.mSequence = 0;
 	aCursor.mNormalizedX = 3000;
 	Require(aState.ApplyCursor(aCursor, 77), "wrapped cursor update was rejected");
 	Require(aState.GetCursors()[2]->mRgb == GetPlayerCursorColor(2), "cursor color did not match player");
+	Require(aState.GetCursors()[2]->mUpdate.mHeldSeedBankIndex == 4, "held seed presentation was not retained");
 	Require(aState.GetCursors()[2]->mReceivedAtTick == 77, "cursor receive tick was not retained");
 	aState.RemovePlayer(2);
 	Require(!aState.GetCursors()[2], "departed player cursor was retained");

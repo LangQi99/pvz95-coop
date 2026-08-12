@@ -33,5 +33,23 @@ namespace PvzMultiplayer
 		uint64_t mHash{14695981039346656037ULL};
 	};
 
+	struct BoardStateHashBreakdown
+	{
+		uint64_t mCore{};
+		uint64_t mGrid{};
+		uint64_t mFog{};
+		uint64_t mRowsAndIce{};
+		uint64_t mWaves{};
+		uint64_t mSeedBank{};
+		uint64_t mChallenge{};
+		uint64_t mPlants{};
+		uint64_t mZombies{};
+		uint64_t mProjectiles{};
+		uint64_t mCoins{};
+		uint64_t mMowers{};
+		uint64_t mGridItems{};
+	};
+
+	BoardStateHashBreakdown ComputeBoardStateHashBreakdown(const Board& theBoard);
 	uint64_t ComputeBoardStateHash(const Board& theBoard);
 }

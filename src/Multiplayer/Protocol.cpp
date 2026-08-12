@@ -132,10 +132,10 @@ namespace PvzMultiplayer
 				theValue <= static_cast<uint8_t>(RejectReason::INTERNAL_ERROR);
 		}
 
-		bool IsValidInputKind(uint8_t theValue)
+		bool IsValidActionKind(uint8_t theValue)
 		{
-			return theValue >= static_cast<uint8_t>(InputKind::POINTER_DOWN) &&
-				theValue <= static_cast<uint8_t>(InputKind::PAUSE_TOGGLE);
+			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
+				theValue <= static_cast<uint8_t>(ActionKind::FIRE_COB_CANNON);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -143,28 +143,18 @@ namespace PvzMultiplayer
 			return thePlayerId < MAX_PLAYERS;
 		}
 
-		bool IsValidInputPayload(const InputCommand& theInput)
+		bool IsValidCursorSeedBankIndex(uint8_t theIndex)
 		{
-			if (!IsValidPlayer(theInput.mPlayerId) ||
-				!IsValidInputKind(static_cast<uint8_t>(theInput.mKind)))
+			return theIndex == NO_CURSOR_SEED_BANK_INDEX || theIndex <= MAX_CURSOR_SEED_BANK_INDEX;
+		}
+
+		bool IsValidGameAction(const GameAction& theAction)
+		{
+			if (!IsValidPlayer(theAction.mPlayerId) ||
+				!IsValidActionKind(static_cast<uint8_t>(theAction.mKind)))
 				return false;
 
-			switch (theInput.mKind)
-			{
-			case InputKind::POINTER_DOWN:
-			case InputKind::POINTER_UP:
-			{
-				int aClickCount = static_cast<int32_t>(theInput.mCode);
-				return theInput.mModifiers == 0 && (aClickCount == -2 || aClickCount == -1 ||
-					aClickCount == 1 || aClickCount == 2 || aClickCount == 3);
-			}
-			case InputKind::KEY_DOWN:
-			case InputKind::KEY_UP:
-				return theInput.mCode < 0xFFU;
-			case InputKind::PAUSE_TOGGLE:
-				return theInput.mCode == 0 && theInput.mModifiers == 0;
-			}
-			return false;
+			return true;
 		}
 
 		bool IsValidGameplayProfile(const GameplayProfile& theProfile)
@@ -259,26 +249,26 @@ namespace PvzMultiplayer
 				}
 				else if constexpr (std::is_same_v<Payload, CursorUpdate>)
 				{
-					if (!IsValidPlayer(thePayload.mPlayerId) || (thePayload.mButtons & 0xE0U) != 0)
+					if (!IsValidPlayer(thePayload.mPlayerId) ||
+						!IsValidCursorSeedBankIndex(thePayload.mHeldSeedBankIndex))
 						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
 					theWriter.WriteU32(thePayload.mSequence);
 					theWriter.WriteU16(thePayload.mNormalizedX);
 					theWriter.WriteU16(thePayload.mNormalizedY);
 					theWriter.WriteU8(thePayload.mPlayerId);
-					theWriter.WriteU8(thePayload.mButtons);
 					theWriter.WriteU8(thePayload.mVisible ? 1 : 0);
+					theWriter.WriteU8(thePayload.mHeldSeedBankIndex);
 				}
-				else if constexpr (std::is_same_v<Payload, InputCommand>)
+				else if constexpr (std::is_same_v<Payload, GameAction>)
 				{
-					if (!IsValidInputPayload(thePayload))
+					if (!IsValidGameAction(thePayload))
 						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
 					theWriter.WriteU32(thePayload.mSequence);
-					theWriter.WriteU32(thePayload.mCode);
-					theWriter.WriteU16(thePayload.mNormalizedX);
-					theWriter.WriteU16(thePayload.mNormalizedY);
-					theWriter.WriteU16(thePayload.mModifiers);
+					theWriter.WriteU32(thePayload.mParameter);
+					theWriter.WriteU16(thePayload.mTargetX);
+					theWriter.WriteU16(thePayload.mTargetY);
 					theWriter.WriteU8(thePayload.mPlayerId);
 					theWriter.WriteU8(static_cast<uint8_t>(thePayload.mKind));
 				}
@@ -346,7 +336,7 @@ namespace PvzMultiplayer
 			if constexpr (std::is_same_v<Payload, Welcome>) return MessageKind::WELCOME;
 			if constexpr (std::is_same_v<Payload, Reject>) return MessageKind::REJECT;
 			if constexpr (std::is_same_v<Payload, CursorUpdate>) return MessageKind::CURSOR_UPDATE;
-			if constexpr (std::is_same_v<Payload, InputCommand>) return MessageKind::INPUT_COMMAND;
+			if constexpr (std::is_same_v<Payload, GameAction>) return MessageKind::GAME_ACTION;
 			if constexpr (std::is_same_v<Payload, SessionStart>) return MessageKind::SESSION_START;
 			if constexpr (std::is_same_v<Payload, SessionReady>) return MessageKind::SESSION_READY;
 			if constexpr (std::is_same_v<Payload, SessionBegin>) return MessageKind::SESSION_BEGIN;
@@ -457,24 +447,25 @@ namespace PvzMultiplayer
 			uint8_t aVisible;
 			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU32(aMessage.mSequence) ||
 				!aReader.ReadU16(aMessage.mNormalizedX) || !aReader.ReadU16(aMessage.mNormalizedY) ||
-				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aMessage.mButtons) ||
+				!aReader.ReadU8(aMessage.mPlayerId) ||
 				!aReader.ReadU8(aVisible) || !IsValidPlayer(aMessage.mPlayerId) ||
-				(aMessage.mButtons & 0xE0U) != 0 || aVisible > 1)
+				aVisible > 1 || !aReader.ReadU8(aMessage.mHeldSeedBankIndex) ||
+				!IsValidCursorSeedBankIndex(aMessage.mHeldSeedBankIndex))
 				break;
 			aMessage.mVisible = aVisible != 0;
 			return FinishDecode(aReader, std::move(aMessage));
 		}
-		case MessageKind::INPUT_COMMAND:
+		case MessageKind::GAME_ACTION:
 		{
-			InputCommand aMessage;
+			GameAction aMessage;
 			uint8_t aKind;
 			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU32(aMessage.mSequence) ||
-				!aReader.ReadU32(aMessage.mCode) || !aReader.ReadU16(aMessage.mNormalizedX) ||
-				!aReader.ReadU16(aMessage.mNormalizedY) || !aReader.ReadU16(aMessage.mModifiers) ||
-				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aKind) || !IsValidInputKind(aKind))
+				!aReader.ReadU32(aMessage.mParameter) || !aReader.ReadU16(aMessage.mTargetX) ||
+				!aReader.ReadU16(aMessage.mTargetY) ||
+				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aKind) || !IsValidActionKind(aKind))
 				break;
-			aMessage.mKind = static_cast<InputKind>(aKind);
-			if (!IsValidInputPayload(aMessage))
+			aMessage.mKind = static_cast<ActionKind>(aKind);
+			if (!IsValidGameAction(aMessage))
 				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}

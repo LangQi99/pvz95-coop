@@ -24,6 +24,34 @@
 #include "PvzpCommon.h"
 #include "sound/SoundManager.h"
 
+namespace
+{
+	// Sound variation is presentation state.  It must never advance the global
+	// gameplay RNG: local menus, focus changes, and rejected local clicks can
+	// legitimately play a different number of sounds on each LAN peer.
+	uint32_t gFoleyRandomState = 0x95C00F1EU;
+
+	uint32_t NextFoleyRandom()
+	{
+		uint32_t aValue = gFoleyRandomState;
+		aValue ^= aValue << 13;
+		aValue ^= aValue >> 17;
+		aValue ^= aValue << 5;
+		gFoleyRandomState = aValue;
+		return aValue;
+	}
+
+	int FoleyRandomIndex(int theCount)
+	{
+		return static_cast<int>(NextFoleyRandom() % static_cast<uint32_t>(theCount));
+	}
+
+	float FoleyRandomPitch(float theRange)
+	{
+		return static_cast<float>(NextFoleyRandom()) * (theRange / 4294967296.0f);
+	}
+}
+
 int gFoleyParamArraySize;
 const FoleyParams* gFoleyParamArray;
 
@@ -279,7 +307,7 @@ void PvzpFoley::PlayFoleyPitch(FoleyType theFoleyType, float thePitch)
 		}
 	}
 	PVZP_ASSERT(aVariations > 0);
-	int aVariation = PvzpPickFromArray(aVariationsArray, aVariations);
+	int aVariation = aVariationsArray[FoleyRandomIndex(aVariations)];
 	aFoleyData->mLastVariationPlayed = aVariation;
 	SoundInstance* aSoundInstance = gSexyAppBase->mSoundManager->GetSoundInstance(*aFoleyParams->mSfxID[aVariation]);
 	if (aSoundInstance == nullptr)
@@ -302,7 +330,7 @@ void PvzpFoley::PlayFoley(FoleyType theFoleyType)
 	const FoleyParams* aFoleyParams = LookupFoley(theFoleyType);
 	float aPitch = 0.0f;
 	if (aFoleyParams->mPitchRange != 0.0f)
-		aPitch = Sexy::Rand(aFoleyParams->mPitchRange);
+		aPitch = FoleyRandomPitch(aFoleyParams->mPitchRange);
 	PlayFoleyPitch(theFoleyType, aPitch);
 }
 

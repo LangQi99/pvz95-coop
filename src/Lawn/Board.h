@@ -322,6 +322,9 @@ public:
 	bool							MouseHitTest(int x, int y, HitResult* theHitResult);
 	void							MouseDownWithPlant(int x, int y, int theClickCount);
 	void							MouseDownWithTool(int x, int y, int theClickCount, CursorType theCursorType);
+	bool							PlantSeedFromBank(int theSeedBankIndex, int theGridX, int theGridY);
+	bool							ShovelPlantById(PlantID thePlantId);
+	bool							FireCobCannonById(PlantID thePlantId, int theTargetX, int theTargetY);
 //	inline void						MouseDownNormal(int x, int y, int theClickCount) { /* not found */; }
 	bool							CanInteractWithBoardButtons();
 	void							DrawProgressMeter(Graphics* g);

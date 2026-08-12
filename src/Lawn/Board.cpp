@@ -4038,21 +4038,81 @@ void Board::MouseDownWithTool(int x, int y, int theClickCount, CursorType theCur
 	}
 	else if (theCursorType == CursorType::CURSOR_TYPE_SHOVEL)
 	{
-		mApp->PlayFoley(FoleyType::FOLEY_USE_SHOVEL);
-		mPlantsShoveled++;
-		aPlant->Die();
-
-		if (aPlant->mSeedType == SeedType::SEED_CATTAIL && GetTopPlantAt(aPlant->mPlantCol, aPlant->mRow, PlantPriority::TOPPLANT_ONLY_PUMPKIN))
-		{
-			NewPlant(aPlant->mPlantCol, aPlant->mRow, SeedType::SEED_LILYPAD, SeedType::SEED_NONE);
-		}
-		if (mTutorialState == TutorialState::TUTORIAL_SHOVEL_DIG || mTutorialState == TutorialState::TUTORIAL_SHOVEL_KEEP_DIGGING)
-		{
-			SetTutorialState(CountPlantByType(SeedType::SEED_PEASHOOTER) == 0 ? TutorialState::TUTORIAL_SHOVEL_COMPLETED : TutorialState::TUTORIAL_SHOVEL_KEEP_DIGGING);
-		}
+		ShovelPlantById(static_cast<PlantID>(mPlants.DataArrayGetID(aPlant)));
 	}
 
 	ClearCursor();
+}
+
+bool Board::PlantSeedFromBank(int theSeedBankIndex, int theGridX, int theGridY)
+{
+	if (theSeedBankIndex < 0 || theSeedBankIndex >= mSeedBank->mNumPackets ||
+		theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
+		return false;
+
+	ClearCursor();
+	SeedPacket& aPacket = mSeedBank->mSeedPackets[theSeedBankIndex];
+	if (!aPacket.CanPickUp())
+		return true;
+	SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
+		aPacket.mImitaterType : aPacket.mPacketType;
+	// MouseDownWithPlant deliberately keeps the packet active when the target
+	// square is invalid.  Check before picking the packet up so an atomic LAN
+	// action preserves that behavior instead of consuming its recharge.
+	if (!mApp->IsIZombieLevel() && CanPlantAt(theGridX, theGridY, aSeedType) != PlantingReason::PLANTING_OK)
+		return true;
+	aPacket.MouseDown(0, 0, 1);
+	if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_PLANT_FROM_BANK ||
+		mCursorObject->mSeedBankIndex != theSeedBankIndex)
+	{
+		ClearCursor();
+		return true;
+	}
+
+	MouseDownWithPlant(GridToPixelX(theGridX, theGridY) + 40,
+		GridToPixelY(theGridX, theGridY) + 40, 1);
+	// LAN selection is presentation-only; the deterministic action is atomic.
+	ClearCursor();
+	return true;
+}
+
+bool Board::ShovelPlantById(PlantID thePlantId)
+{
+	Plant* aPlant = mPlants.DataArrayTryToGet(thePlantId);
+	if (!aPlant || aPlant->mDead)
+		return true;
+
+	mApp->PlayFoley(FoleyType::FOLEY_USE_SHOVEL);
+	mPlantsShoveled++;
+	SeedType aSeedType = aPlant->mSeedType;
+	int aPlantCol = aPlant->mPlantCol;
+	int aPlantRow = aPlant->mRow;
+	aPlant->Die();
+
+	if (aSeedType == SeedType::SEED_CATTAIL &&
+		GetTopPlantAt(aPlantCol, aPlantRow, PlantPriority::TOPPLANT_ONLY_PUMPKIN))
+	{
+		NewPlant(aPlantCol, aPlantRow, SeedType::SEED_LILYPAD, SeedType::SEED_NONE);
+	}
+	if (mTutorialState == TutorialState::TUTORIAL_SHOVEL_DIG ||
+		mTutorialState == TutorialState::TUTORIAL_SHOVEL_KEEP_DIGGING)
+	{
+		SetTutorialState(CountPlantByType(SeedType::SEED_PEASHOOTER) == 0 ?
+			TutorialState::TUTORIAL_SHOVEL_COMPLETED : TutorialState::TUTORIAL_SHOVEL_KEEP_DIGGING);
+	}
+	return true;
+}
+
+bool Board::FireCobCannonById(PlantID thePlantId, int theTargetX, int theTargetY)
+{
+	Plant* aPlant = mPlants.DataArrayTryToGet(thePlantId);
+	if (!aPlant || aPlant->mDead)
+		return true;
+	if (aPlant->mSeedType != SeedType::SEED_COBCANNON ||
+		aPlant->mState != PlantState::STATE_COBCANNON_READY)
+		return true;
+	aPlant->CobCannonFire(theTargetX, theTargetY);
+	return true;
 }
 
 Plant* Board::SpecialPlantHitTest(int x, int y)
@@ -6448,6 +6508,7 @@ void Board::DrawGameObjects(Graphics* g)
 				aCursorPreview->Draw(g);
 				aCursorPreview->EndDraw(g);
 			}
+			mApp->DrawLanCursorPreviews(g);
 			break;
 		}
 

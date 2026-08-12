@@ -25,7 +25,7 @@ Game UI and simulation
 PvZ 95 ruleset/behavior layer
         |
 Host-authoritative session controller
-   | reliable commands | throttled cursors
+   | reliable actions | throttled cursor presentation
 Versioned wire protocol
         |
 LAN discovery + reliable game transport
@@ -37,9 +37,9 @@ SDL/CMake cross-platform engine
 
 `Multiplayer` is split into a transport-independent protocol and the eventual socket/session code. Packet encoding uses explicit fixed-width little-endian fields and strict length checks; no native struct layout is sent over the network.
 
-LAN discovery uses non-blocking IPv4 UDP on port `43095` by default. A client broadcasts a versioned query; a host replies directly with its session ID, player count, ruleset ID, and reliable game port. Discovery is kept separate from the reliable gameplay connection so cursor/input traffic never depends on broadcast delivery.
+LAN discovery uses non-blocking IPv4 UDP on port `43095` by default. A client broadcasts a versioned query; a host replies directly with its session ID, player count, ruleset ID, and reliable game port. Discovery is kept separate from the reliable gameplay connection so cursor/action traffic never depends on broadcast delivery.
 
-The reliable path is a non-blocking TCP channel with bounded outgoing queues and incremental frame decoding. `HostSession` accepts and validates `Hello`, binds each connection to the assigned player ID, rejects stale cursor/input sequences, and exposes validated commands as events. `ClientSession` validates the selected room and ruleset against `Welcome`, stamps outbound commands with its assigned player ID, and accepts only gameplay messages after the handshake.
+The reliable path is a non-blocking TCP channel with bounded outgoing queues and incremental frame decoding. `HostSession` accepts and validates `Hello`, binds each connection to the assigned player ID, rejects stale cursor/action sequences, and exposes validated messages as events. `ClientSession` validates the selected room and ruleset against `Welcome`, stamps outbound messages with its assigned player ID, and accepts only gameplay messages after the handshake.
 
 `LanCoordinator` owns discovery and reliable-session lifetimes. The main-menu Host LAN and Join Room controls call it directly; the regular application update loop polls it without blocking rendering or input. A host continually refreshes its discovery offer as players join, while a client discovers a compatible non-full room and advances through search, handshake, and connected states.
 
@@ -49,15 +49,15 @@ The resource loader supports both native compiled definitions and the original r
 
 The host is authoritative. It sends a versioned `SessionStart` containing the game mode, simulation seed, and a gameplay-only copy of the host profile. Clients initialize an in-memory profile shadow, construct the same board, and answer with `SessionReady`; no machine advances the simulation until every current lobby member is ready and the host broadcasts `SessionBegin`. The shadow is never written over the guest's local profile.
 
-Board pointer presses and releases become an `InputCommand`. The host validates each command, assigns it a future simulation tick, preserves a single arrival order for commands sharing a tick, then broadcasts the accepted command. All peers apply it immediately before updating that tick. Clients are paced by the host's `TickSync` stream and can run a small bounded catch-up burst without allowing wall-clock timing to enter the simulation.
+Local pointer input is interpreted on the originating machine and reduced to semantic `GameAction` values: plant a seed-bank packet in a grid cell, collect a coin by deterministic object ID, shovel a plant by ID, or fire a cob cannon at a normalized target. Raw mouse presses and releases never enter the protocol. The host validates each action, assigns it a future simulation tick, preserves a single arrival order for actions sharing a tick, then broadcasts the accepted action. All peers apply it immediately before updating that tick. Clients are paced by the host's `TickSync` stream and can run a small bounded catch-up burst without allowing wall-clock timing to enter the simulation.
 
-Cursor movement is presentation state. It is rate-limited to 25 Hz, includes a periodic keepalive, and is discarded when its per-player sequence is stale. It currently shares the bounded TCP channel with commands; a future transport may drop or replace queued movement without affecting reliable clicks. Each player receives a stable ID and cursor color for the lifetime of the session.
+Cursor movement is presentation state. Each update also carries the selected seed-bank slot, allowing every machine to draw independent plant-in-hand and translucent grid previews without modifying deterministic board state. The plant art is left untinted; ownership is conveyed by the colored pointer that follows it. Updates are rate-limited to 25 Hz, include a periodic keepalive, and are discarded when their per-player sequence is stale. Presentation packets share the bounded TCP channel with actions but remain excluded from state hashes.
 
 The initial implementation targets up to four players on a trusted LAN. Network input is still treated as untrusted: packet sizes, enum ranges, player IDs, sequence numbers, and current UI state must be validated by the host.
 
 ## Consistency and recovery
 
-Clients run the same deterministic simulation after receiving the host's random seed and ordered command stream. The host periodically broadcasts a canonical state hash. A missing or mismatched hash currently freezes the client to prevent silent divergence. Snapshot transfer, automatic resynchronization, and reconnect are still pending; they must reuse one bounded, validated snapshot format.
+Clients run the same deterministic simulation after receiving the host's random seed and ordered action stream. The host periodically broadcasts a canonical state hash. A missing or mismatched hash currently freezes the client to prevent silent divergence. Snapshot transfer, automatic resynchronization, and reconnect are still pending; they must reuse one bounded, validated snapshot format.
 
 The canonical hash explicitly serializes fixed-width fields and excludes pointers, wall-clock time, audio state, renderer state, cursor presentation, and native padding. Its first schema includes the board tick and counters, random-generator state, sun, seed packets, plants, zombies, projectiles, coins, mowers, grid items, and mode-specific challenge state in stable container order.
 

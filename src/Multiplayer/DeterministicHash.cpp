@@ -8,6 +8,7 @@
 
 #ifndef PVZ95_HASH_PRIMITIVES_ONLY
 #include "../Lawn/BoardInclude.h"
+#include "../Lawn/Cutscene.h"
 #include "../LawnApp.h"
 #include "../SexyAppFramework/Common.h"
 #endif
@@ -183,8 +184,9 @@ namespace PvzMultiplayer
 		}
 	}
 
-	uint64_t ComputeBoardStateHash(const Board& b)
+	BoardStateHashBreakdown ComputeBoardStateHashBreakdown(const Board& b)
 	{
+		BoardStateHashBreakdown aBreakdown;
 		DeterministicHash64 h;
 		h.AddU32(1); // Canonical hash schema version.
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameMode));
@@ -201,12 +203,26 @@ namespace PvzMultiplayer
 		h.AddBool(b.mDroppedFirstCoin); h.AddI32(b.mFinalWaveSoundCounter); h.AddBool(b.mFinalBossKilled);
 		h.AddI32(b.mTriggeredLawnMowers); h.AddU32(b.mGravesCleared); h.AddU32(b.mPlantsEaten);
 		h.AddU32(b.mPlantsShoveled); h.AddU32(b.mLevelCoinsCollected); h.AddU32(b.mCoinsCollected);
+		const CutScene& aCutScene = *b.mCutScene;
+		h.AddI32(aCutScene.mCutsceneTime); h.AddI32(aCutScene.mSodTime);
+		h.AddI32(aCutScene.mGraveStoneTime); h.AddI32(aCutScene.mReadySetPlantTime);
+		h.AddI32(aCutScene.mFogTime); h.AddI32(aCutScene.mBossTime); h.AddI32(aCutScene.mCrazyDaveTime);
+		h.AddI32(aCutScene.mLawnMowerTime); h.AddI32(aCutScene.mCrazyDaveDialogStart);
+		h.AddBool(aCutScene.mSeedChoosing); h.AddBool(aCutScene.mPreloaded);
+		h.AddBool(aCutScene.mPlacedZombies); h.AddBool(aCutScene.mPlacedLawnItems);
+		h.AddI32(aCutScene.mCrazyDaveCountDown); h.AddI32(aCutScene.mCrazyDaveLastTalkIndex);
+		h.AddBool(aCutScene.mUpsellHideBoard); h.AddBool(aCutScene.mPreUpdatingBoard);
+		aBreakdown.mCore = h.Finish();
 		for (const auto& aColumn : b.mGridSquareType) for (auto aValue : aColumn) AddEnum(h, aValue);
+		aBreakdown.mGrid = h.Finish();
 		for (const auto& aColumn : b.mGridCelFog) for (int32_t aValue : aColumn) h.AddI32(aValue);
+		aBreakdown.mFog = h.Finish();
 		for (PlantRowType aValue : b.mPlantRow) AddEnum(h, aValue);
 		for (int32_t aValue : b.mIceMinX) h.AddI32(aValue);
 		for (int32_t aValue : b.mIceTimer) h.AddI32(aValue);
+		aBreakdown.mRowsAndIce = h.Finish();
 		for (const auto& aWave : b.mZombiesInWave) for (ZombieType aValue : aWave) AddEnum(h, aValue);
+		aBreakdown.mWaves = h.Finish();
 
 		h.AddU32(b.mSeedBank->mNumPackets); h.AddI32(b.mSeedBank->mConveyorBeltCounter);
 		for (const SeedPacket& p : b.mSeedBank->mSeedPackets)
@@ -216,6 +232,7 @@ namespace PvzMultiplayer
 			AddEnum(h, p.mSlotMachiningNextSeed); h.AddFloat(p.mSlotMachiningPosition); h.AddBool(p.mActive);
 			h.AddBool(p.mRefreshing); h.AddI32(p.mTimesUsed);
 		}
+		aBreakdown.mSeedBank = h.Finish();
 
 		const Challenge& c = *b.mChallenge;
 		h.AddI32(c.mBeghouledMouseCapture); h.AddI32(c.mBeghouledMouseDownX); h.AddI32(c.mBeghouledMouseDownY);
@@ -226,14 +243,26 @@ namespace PvzMultiplayer
 		h.AddI32(c.mSurvivalStage); h.AddI32(c.mSlotMachineRollCount); AddI32Array(h, c.mCloudsCounter);
 		h.AddI32(c.mChallengeGridX); h.AddI32(c.mChallengeGridY); h.AddI32(c.mScaryPotterPots);
 		h.AddI32(c.mRainCounter); h.AddI32(c.mTreeOfWisdomTalkIndex);
+		aBreakdown.mChallenge = h.Finish();
 
 		h.AddU32(b.mPlants.mSize); for (const Plant* p : b.mPlants) AddPlant(h, *p);
+		aBreakdown.mPlants = h.Finish();
 		h.AddU32(b.mZombies.mSize); for (const Zombie* z : b.mZombies) AddZombie(h, *z);
+		aBreakdown.mZombies = h.Finish();
 		h.AddU32(b.mProjectiles.mSize); for (const Projectile* p : b.mProjectiles) AddProjectile(h, *p);
+		aBreakdown.mProjectiles = h.Finish();
 		h.AddU32(b.mCoins.mSize); for (const Coin* c2 : b.mCoins) AddCoin(h, *c2);
+		aBreakdown.mCoins = h.Finish();
 		h.AddU32(b.mLawnMowers.mSize); for (const LawnMower* m : b.mLawnMowers) AddMower(h, *m);
+		aBreakdown.mMowers = h.Finish();
 		h.AddU32(b.mGridItems.mSize); for (const GridItem* i : b.mGridItems) AddGridItem(h, *i);
-		return h.Finish();
+		aBreakdown.mGridItems = h.Finish();
+		return aBreakdown;
+	}
+
+	uint64_t ComputeBoardStateHash(const Board& b)
+	{
+		return ComputeBoardStateHashBreakdown(b).mGridItems;
 	}
 #endif
 }

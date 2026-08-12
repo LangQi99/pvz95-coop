@@ -158,7 +158,7 @@ namespace PvzMultiplayer
 
 		if (const auto* aCursor = std::get_if<CursorUpdate>(&theMessage))
 		{
-			if (aCursor->mPlayerId != *thePeer.mPlayerId || (aCursor->mButtons & 0xE0U) != 0)
+			if (aCursor->mPlayerId != *thePeer.mPlayerId)
 			{
 				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid cursor update");
 				return;
@@ -171,18 +171,18 @@ namespace PvzMultiplayer
 			return;
 		}
 
-		if (const auto* anInput = std::get_if<InputCommand>(&theMessage))
+		if (const auto* anAction = std::get_if<GameAction>(&theMessage))
 		{
-			if (anInput->mPlayerId != *thePeer.mPlayerId)
+			if (anAction->mPlayerId != *thePeer.mPlayerId)
 			{
-				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid input command");
+				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid game action");
 				return;
 			}
-			if (thePeer.mHasInputSequence && !IsSequenceNewer(anInput->mSequence, thePeer.mLastInputSequence))
+			if (thePeer.mHasActionSequence && !IsSequenceNewer(anAction->mSequence, thePeer.mLastActionSequence))
 				return;
-			thePeer.mLastInputSequence = anInput->mSequence;
-			thePeer.mHasInputSequence = true;
-			mEvents.emplace_back(*anInput);
+			thePeer.mLastActionSequence = anAction->mSequence;
+			thePeer.mHasActionSequence = true;
+			mEvents.emplace_back(*anAction);
 			return;
 		}
 

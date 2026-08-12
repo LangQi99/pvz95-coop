@@ -24,7 +24,7 @@ int main()
 	using namespace PvzMultiplayer;
 
 	Message aHello = Hello{0x0102030405060708ULL, 0x50563935, 3, "Player Two"};
-	Message aCursor = CursorUpdate{4567, 99, 32768, 16384, 2, 1, true};
+	Message aCursor = CursorUpdate{4567, 99, 32768, 16384, 2, true, 1};
 	auto aHelloPacket = *Encode(aHello);
 	auto aCursorPacket = *Encode(aCursor);
 

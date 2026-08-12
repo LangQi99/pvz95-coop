@@ -58,7 +58,7 @@ namespace PvzMultiplayer
 
 	bool SharedInputState::ApplyCursor(CursorUpdate theCursor, uint64_t theReceivedAtTick)
 	{
-		if (theCursor.mPlayerId >= MAX_PLAYERS || (theCursor.mButtons & 0xE0U) != 0)
+		if (theCursor.mPlayerId >= MAX_PLAYERS)
 			return false;
 		auto& aSlot = mCursors[theCursor.mPlayerId];
 		if (aSlot && !IsSequenceNewer(theCursor.mSequence, aSlot->mUpdate.mSequence))

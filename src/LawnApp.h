@@ -25,7 +25,7 @@
 #include "ConstEnums.h"
 #include "SexyAppFramework/SexyApp.h"
 #include "PvzpLib/PvzpFoley.h"
-#include "Multiplayer/InputTimeline.h"
+#include "Multiplayer/ActionTimeline.h"
 #include "Multiplayer/SessionBarrier.h"
 #include "Multiplayer/SharedInputState.h"
 
@@ -155,7 +155,7 @@ public:
 	std::unique_ptr<PvzMultiplayer::LanCoordinator> mLanCoordinator;
 	PvzMultiplayer::SharedInputState mSharedInputState;
 	PvzMultiplayer::SessionBarrier mLanSessionBarrier;
-	PvzMultiplayer::InputTimeline mLanInputTimeline;
+	PvzMultiplayer::ActionTimeline mLanActionTimeline;
 	std::optional<PvzMultiplayer::SessionStart> mLanSessionStart;
 	std::map<uint64_t, uint64_t> mExpectedLanStateHashes;
 	std::unique_ptr<PlayerInfo>     mLanGameplayProfile;
@@ -164,22 +164,27 @@ public:
 	uint64_t                        mLanTargetTick{};
 	uint64_t                        mLanStartSerial{};
 	uint32_t                        mLanCursorSequence{};
-	uint32_t                        mLanInputSequence{};
+	uint32_t                        mLanActionSequence{};
 	uint64_t                        mLastLanCursorSendTick{};
 	uint16_t                        mLastLanCursorX{};
 	uint16_t                        mLastLanCursorY{};
-	uint8_t                         mLocalLanCursorButtons{};
-	uint8_t                         mLastLanCursorButtons{};
+	uint8_t                         mLastLanHeldSeedBankIndex{PvzMultiplayer::NO_CURSOR_SEED_BANK_INDEX};
 	uint8_t                         mLastLanModeValue{0xFF};
 	int                             mLocalLanCursorX{};
 	int                             mLocalLanCursorY{};
+	int                             mLocalLanSeedBankIndex{-1};
+	PlantID                         mLocalLanCobCannonPlantId{PlantID::PLANTID_NULL};
 	bool                            mLocalLanCursorVisible{};
 	bool                            mLastLanCursorVisible{};
 	bool                            mHasSentLanCursor{};
+	bool                            mLocalLanShovelSelected{};
 	bool                            mApplyingLanSessionStart{};
 	bool                            mLanWaitingForBegin{};
 	bool                            mLanSessionBegun{};
 	bool                            mLanDesynchronized{};
+	bool                            mAutoHostLan{};
+	bool                            mAutoJoinLan{};
+	std::string                     mLanDiscoveryAddress;
 
 public:
 	LawnApp();
@@ -264,15 +269,18 @@ public:
 	void							UpdateFrames() override;
 	void                            LocalMouseMove(int theX, int theY) override;
 	bool                            LocalMouseButton(int theX, int theY, int theClickCount, bool theDown) override;
+	void                            DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const;
 	void                            DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int theOriginY) const;
 	void                            UpdateLanSession();
 	void                            PublishLocalLanCursor();
-	bool                            ApplyLanInput(const PvzMultiplayer::InputCommand& theInput);
+	bool                            QueueLocalLanAction(PvzMultiplayer::GameAction theAction);
+	bool                            IsValidLanAction(const PvzMultiplayer::GameAction& theAction) const;
+	bool                            ApplyLanAction(const PvzMultiplayer::GameAction& theAction);
 	bool                            IsBoardInputAt(int theX, int theY);
 	bool                            BeginLanGame(GameMode theGameMode);
 	bool                            ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart, bool theHost);
 	void                            MaybeBeginLanSession();
-	void                            ProcessLanInputsForCurrentTick();
+	void                            ProcessLanActionsForCurrentTick();
 	void                            PublishOrVerifyLanStateHash();
 	void                            ResetLanGameState();
 	void                            InstallLanGameplayProfile(const PvzMultiplayer::GameplayProfile& theProfile);

@@ -37,7 +37,7 @@ int main()
 	ReliableChannel aClient(std::move(aClientSocket));
 
 	Message aHello = Hello{1234, 0x50563935, 0, "Client"};
-	Message aCursor = CursorUpdate{77, 1, 12000, 34000, 1, 0, true};
+	Message aCursor = CursorUpdate{77, 1, 12000, 34000, 1, true, 2};
 	if (!aClient.Queue(aHello) || !aClient.Queue(aCursor))
 		Fail("client could not queue messages");
 

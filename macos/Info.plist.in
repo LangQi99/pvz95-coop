@@ -24,6 +24,8 @@
 	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Find and join PvZ 95 Co-op games on your local network.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>LGPL-3.0-or-later; game assets are not included</string>
 </dict>

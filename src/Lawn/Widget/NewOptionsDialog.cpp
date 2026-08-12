@@ -97,6 +97,13 @@ NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) :
 	{
 		mRestartButton->SetVisible(false);
 	}
+	if (mApp->IsLanGameplayActive())
+	{
+		// Until these actions have host-authoritative session commands, keep the
+		// ESC overlay strictly local and non-destructive.
+		mRestartButton->SetVisible(false);
+		mBackToMainButton->SetVisible(false);
+	}
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO && !mApp->mBoard->mCutScene->IsSurvivalRepick())
 	{
 		mRestartButton->SetVisible(false);

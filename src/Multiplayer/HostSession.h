@@ -30,7 +30,7 @@ namespace PvzMultiplayer
 		bool operator==(const PlayerLeft&) const = default;
 	};
 
-	using HostSessionEvent = std::variant<PlayerJoined, PlayerLeft, CursorUpdate, InputCommand, SessionReady>;
+	using HostSessionEvent = std::variant<PlayerJoined, PlayerLeft, CursorUpdate, GameAction, SessionReady>;
 
 	class HostSession
 	{
@@ -57,9 +57,9 @@ namespace PvzMultiplayer
 			ReliableChannel mChannel;
 			std::optional<PlayerId> mPlayerId;
 			uint32_t mLastCursorSequence{};
-			uint32_t mLastInputSequence{};
+			uint32_t mLastActionSequence{};
 			bool mHasCursorSequence{};
-			bool mHasInputSequence{};
+			bool mHasActionSequence{};
 			bool mCloseAfterFlush{};
 		};
 

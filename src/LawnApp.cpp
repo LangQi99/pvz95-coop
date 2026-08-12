@@ -24,7 +24,9 @@
 #include "Resources.h"
 #include "Lawn/LawnCommon.h"
 #include "Lawn/Board.h"
+#include "Lawn/Coin.h"
 #include "Lawn/Plant.h"
+#include "Lawn/SeedPacket.h"
 #include "Lawn/Zombie.h"
 #include "Lawn/Cutscene.h"
 #include "GameConstants.h"
@@ -69,6 +71,8 @@
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
+#include <cstdarg>
+#include <cstdio>
 #include <iterator>
 
 #include "widget/Checkbox.h"
@@ -104,14 +108,30 @@ namespace
 	constexpr uint64_t LAN_CURSOR_SEND_INTERVAL = 4;
 	constexpr uint64_t LAN_CURSOR_KEEPALIVE_INTERVAL = 50;
 	constexpr uint64_t LAN_CURSOR_TIMEOUT = 300;
+	constexpr uint64_t LAN_INPUT_DELAY = 12;
+	constexpr uint64_t LAN_TICK_SYNC_INTERVAL = 1;
+	constexpr const char* LAN_TRACE_FILE = "lan-sync.log";
 
-	uint8_t MouseButtonMask(int theClickCount)
+	void LanTrace(const char* theFormat, ...)
 	{
-		if (theClickCount < 0)
-			return 0x02;
-		if (theClickCount == 3)
-			return 0x04;
-		return 0x01;
+		std::FILE* aFile = std::fopen(Sexy::GetAppDataPath(LAN_TRACE_FILE).c_str(), "ab");
+		if (!aFile)
+			return;
+		va_list anArgs;
+		va_start(anArgs, theFormat);
+		std::vfprintf(aFile, theFormat, anArgs);
+		va_end(anArgs);
+		std::fflush(aFile);
+		std::fclose(aFile);
+	}
+
+	void ResetLanTrace()
+	{
+		std::FILE* aFile = std::fopen(Sexy::GetAppDataPath(LAN_TRACE_FILE).c_str(), "wb");
+		if (!aFile)
+			return;
+		std::fputs("LAN trace initialized\n", aFile);
+		std::fclose(aFile);
 	}
 
 	bool IsValidPointerClickCount(int theClickCount)
@@ -394,6 +414,8 @@ void LawnApp::KillBoard()
 bool LawnApp::CanPauseNow()
 {
 	if (mBoard == nullptr)
+		return false;
+	if (IsLanGameplayActive())
 		return false;
 
 	if (mSeedChooserScreen && mSeedChooserScreen->mMouseVisible)
@@ -1183,6 +1205,11 @@ bool LawnApp::KillAlmanacDialog()
 
 bool LawnApp::NeedPauseGame()
 {
+	// Menus and dialogs are local overlays during LAN play.  Pausing one
+	// machine's board would immediately fork the deterministic simulation.
+	if (IsLanGameplayActive())
+		return false;
+
 	if (mDialogList.size() == 0)
 		return false;
 
@@ -1249,10 +1276,9 @@ void LawnApp::ShowResourceError(bool doExit)
 void LawnApp::Init()
 {
 	DoParseCmdLine();
-	if (!mCheatKeys)
-	{
-		mOnlyAllowOneCopyToRun = true;
-	}
+	// Distinct explicit save roots are used for local host/client testing and
+	// are safe to run concurrently; the normal profile location stays single-instance.
+	mOnlyAllowOneCopyToRun = !mCheatKeys && mCustomSaveDir.empty();
 
 	mSessionID = time(0);
 	mPlayTimeActiveSession = 0;
@@ -1264,6 +1290,7 @@ void LawnApp::Init()
 
 	if (mShutdown) // MakeWindow() failed
 		return;
+	ResetLanTrace();
 
 	if (mRecordingDemoBuffer || mPlayingDemoBuffer)
 		mAppRandSeed = mRandSeed; // demo sessions derive the app-level seed from the recorded one
@@ -1393,6 +1420,20 @@ void LawnApp::HandleCmdLineParam(std::string_view theParamName, std::string_view
 			Popup("Invalid ruleset. Expected 'pvz95' or 'original'.");
 			DoExit(1);
 		}
+	}
+	else if (theParamName == "-lan-host")
+	{
+		mAutoHostLan = true;
+		mAutoJoinLan = false;
+	}
+	else if (theParamName == "-lan-join")
+	{
+		mAutoJoinLan = true;
+		mAutoHostLan = false;
+	}
+	else if (theParamName == "-lan-address")
+	{
+		mLanDiscoveryAddress = theParamValue;
 	}
 	else
 	{
@@ -1698,8 +1739,9 @@ void LawnApp::UpdateFrames()
 		mLanCoordinator->Poll();
 		UpdateLanSession();
 		bool anAdvanceLanBoard = mBoard && !mMinimized && ShouldAdvanceLanBoard();
+		uint64_t anAdvancingLanStartId = mLanSessionStart ? mLanSessionStart->mStartId : 0;
 		if (anAdvanceLanBoard)
-			ProcessLanInputsForCurrentTick();
+			ProcessLanActionsForCurrentTick();
 
 		if (mBoard)
 		{
@@ -1711,11 +1753,12 @@ void LawnApp::UpdateFrames()
 		}
 
 		SexyApp::UpdateFrames();
-		if (anAdvanceLanBoard && mBoard)
+		uint64_t aCurrentLanStartId = mLanSessionStart ? mLanSessionStart->mStartId : 0;
+		if (anAdvanceLanBoard && mBoard && aCurrentLanStartId == anAdvancingLanStartId)
 		{
 			++mLanSimulationTick;
 			if (mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING &&
-				mLanSessionBegun && mLanSimulationTick % LAN_CURSOR_SEND_INTERVAL == 0)
+				mLanSessionBegun && mLanSimulationTick % LAN_TICK_SYNC_INTERVAL == 0)
 			{
 				mLanCoordinator->BroadcastFromHost(PvzMultiplayer::TickSync{
 					mLanSimulationTick, mLanSessionStart->mStartId});
@@ -1739,44 +1782,235 @@ void LawnApp::LocalMouseMove(int theX, int theY)
 bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDown)
 {
 	LocalMouseMove(theX, theY);
-	uint8_t aButtonMask = MouseButtonMask(theClickCount);
-	if (theDown)
-		mLocalLanCursorButtons |= aButtonMask;
-	else
-		mLocalLanCursorButtons &= static_cast<uint8_t>(~aButtonMask);
-
-	if ((!mBoard && !mSeedChooserScreen) || !IsBoardInputAt(theX, theY) || !IsValidPointerClickCount(theClickCount))
+	PvzMultiplayer::LanMode aMode = mLanCoordinator->GetMode();
+	bool aHasGameInput = mBoard || mSeedChooserScreen;
+	bool aBoardInput = aHasGameInput && IsBoardInputAt(theX, theY);
+	if (theDown && (aMode == PvzMultiplayer::LanMode::HOSTING ||
+		aMode == PvzMultiplayer::LanMode::CONNECTED))
+	{
+		LanTrace("mouse down app=%u sim=%llu xy=%d,%d click=%d active=%d board=%d boardInput=%d scene=%d begun=%d seed=%d\n",
+			mAppCounter, static_cast<unsigned long long>(mLanSimulationTick), theX, theY, theClickCount,
+			mActive ? 1 : 0, mBoard ? 1 : 0, aBoardInput ? 1 : 0, static_cast<int>(mGameScene),
+			mLanSessionBegun ? 1 : 0, mLocalLanSeedBankIndex);
+	}
+	if (!aHasGameInput || !aBoardInput || !IsValidPointerClickCount(theClickCount))
 		return false;
 
-	PvzMultiplayer::LanMode aMode = mLanCoordinator->GetMode();
 	if (aMode != PvzMultiplayer::LanMode::HOSTING && aMode != PvzMultiplayer::LanMode::CONNECTED)
 		return false;
 	if (!mLanSessionBegun)
 		return mLanSessionStart.has_value();
-
-	PvzMultiplayer::InputCommand anInput{
-		0,
-		++mLanInputSequence,
-		static_cast<uint32_t>(theClickCount),
-		PvzMultiplayer::NormalizeCoordinate(theX, mWidth),
-		PvzMultiplayer::NormalizeCoordinate(theY, mHeight),
-		0,
-		mSharedInputState.GetLocalPlayerId(),
-		theDown ? PvzMultiplayer::InputKind::POINTER_DOWN : PvzMultiplayer::InputKind::POINTER_UP
-	};
-
-	if (aMode == PvzMultiplayer::LanMode::HOSTING)
+	if (mBoard)
 	{
-		anInput.mHostTick = mLanSimulationTick + 12;
-		if (mLanInputTimeline.Schedule(anInput, mLanSimulationTick) == PvzMultiplayer::ScheduleResult::ACCEPTED)
-			mLanCoordinator->BroadcastFromHost(anInput);
+		int aMenuX = theX - mBoard->mX;
+		int aMenuY = theY - mBoard->mY;
+		if (mBoard->mMenuButton && Rect(mBoard->mMenuButton->mX, mBoard->mMenuButton->mY,
+			mBoard->mMenuButton->mWidth, mBoard->mMenuButton->mHeight).Contains(aMenuX, aMenuY))
+		{
+			// The menu is intentionally local, just like ESC.  Both down and up
+			// must continue through WidgetManager for the button to activate.
+			return false;
+		}
+	}
+
+	// Releases never enter the simulation protocol.  They remain useful to the
+	// local window and cursor renderer, but PvZ actions are discrete commands.
+	if (!theDown)
+		return true;
+	if (theClickCount < 0)
+	{
+		mLocalLanSeedBankIndex = -1;
+		mLocalLanShovelSelected = false;
+		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
+		return true;
+	}
+	if (theClickCount != 1 || !mBoard || mGameScene != GameScenes::SCENE_PLAYING)
+		return true;
+
+	int aBoardX = theX - mBoard->mX;
+	int aBoardY = theY - mBoard->mY;
+	HitResult aHitResult{};
+	mBoard->MouseHitTest(aBoardX, aBoardY, &aHitResult);
+	LanTrace("mouse hit sim=%llu boardXY=%d,%d object=%u seed=%d shovel=%d cob=%u sun=%d\n",
+		static_cast<unsigned long long>(mLanSimulationTick), aBoardX, aBoardY,
+		static_cast<unsigned>(aHitResult.mObjectType), mLocalLanSeedBankIndex,
+		mLocalLanShovelSelected ? 1 : 0, static_cast<unsigned>(mLocalLanCobCannonPlantId),
+		mBoard->mSunMoney);
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_COIN)
+	{
+		Coin* aCoin = static_cast<Coin*>(aHitResult.mObject);
+		LanTrace("mouse coin sim=%llu id=%u\n", static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned>(mBoard->mCoins.DataArrayGetID(aCoin)));
+		QueueLocalLanAction({0, 0,
+			static_cast<uint32_t>(mBoard->mCoins.DataArrayGetID(aCoin)), 0, 0, 0,
+			PvzMultiplayer::ActionKind::COLLECT_COIN});
+		return true;
+	}
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SEEDPACKET)
+	{
+		SeedPacket* aPacket = static_cast<SeedPacket*>(aHitResult.mObject);
+		bool aCanPickUp = aPacket->CanPickUp();
+		LanTrace("mouse seed packet sim=%llu index=%d type=%u canPickUp=%d active=%d sun=%d\n",
+			static_cast<unsigned long long>(mLanSimulationTick), aPacket->mIndex,
+			static_cast<unsigned>(aPacket->mPacketType), aCanPickUp ? 1 : 0,
+			aPacket->mActive ? 1 : 0, mBoard->mSunMoney);
+		if (aCanPickUp)
+		{
+			mLocalLanSeedBankIndex = aPacket->mIndex;
+			mLocalLanShovelSelected = false;
+			mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
+		}
+		else
+		{
+			PlaySample(SOUND_BUZZER);
+		}
+		return true;
+	}
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SHOVEL)
+	{
+		mLocalLanSeedBankIndex = -1;
+		mLocalLanShovelSelected = true;
+		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
 		return true;
 	}
 
-	mLanCoordinator->SendInput(anInput);
-	// A connected client waits for the host's accepted command instead of
-	// mutating its local simulation speculatively.
+	if (mLocalLanCobCannonPlantId != PlantID::PLANTID_NULL)
+	{
+		PlantID aCobCannonId = mLocalLanCobCannonPlantId;
+		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
+		QueueLocalLanAction({0, 0, static_cast<uint32_t>(aCobCannonId),
+			PvzMultiplayer::NormalizeCoordinate(aBoardX, mBoard->mWidth),
+			PvzMultiplayer::NormalizeCoordinate(aBoardY, mBoard->mHeight), 0,
+			PvzMultiplayer::ActionKind::FIRE_COB_CANNON});
+		return true;
+	}
+	if (mLocalLanShovelSelected)
+	{
+		mLocalLanShovelSelected = false;
+		if (aHitResult.mObjectType != GameObjectType::OBJECT_TYPE_PLANT)
+			return true;
+		Plant* aPlant = static_cast<Plant*>(aHitResult.mObject);
+		QueueLocalLanAction({0, 0,
+			static_cast<uint32_t>(mBoard->mPlants.DataArrayGetID(aPlant)), 0, 0, 0,
+			PvzMultiplayer::ActionKind::SHOVEL_PLANT});
+		return true;
+	}
+	if (mLocalLanSeedBankIndex >= 0)
+	{
+		int aSeedBankIndex = mLocalLanSeedBankIndex;
+		if (aSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+		{
+			mLocalLanSeedBankIndex = -1;
+			return true;
+		}
+		SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[aSeedBankIndex];
+		SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
+			aPacket.mImitaterType : aPacket.mPacketType;
+		int aGridX = mBoard->PlantingPixelToGridX(aBoardX, aBoardY, aSeedType);
+		int aGridY = mBoard->PlantingPixelToGridY(aBoardX, aBoardY, aSeedType);
+		if (aGridX < 0 || aGridX >= MAX_GRID_SIZE_X || aGridY < 0 || aGridY >= MAX_GRID_SIZE_Y)
+		{
+			LanTrace("mouse plant outside grid sim=%llu packet=%d pixel=%d,%d grid=%d,%d\n",
+				static_cast<unsigned long long>(mLanSimulationTick), aSeedBankIndex,
+				aBoardX, aBoardY, aGridX, aGridY);
+			return true;
+		}
+		PlantingReason aReason = mBoard->CanPlantAt(aGridX, aGridY, aSeedType);
+		if (!IsIZombieLevel() && aReason != PlantingReason::PLANTING_OK)
+		{
+			LanTrace("mouse plant invalid sim=%llu packet=%d type=%u grid=%d,%d reason=%u\n",
+				static_cast<unsigned long long>(mLanSimulationTick), aSeedBankIndex,
+				static_cast<unsigned>(aSeedType), aGridX, aGridY, static_cast<unsigned>(aReason));
+			PlayFoley(FoleyType::FOLEY_DROP);
+			return true;
+		}
+		mLocalLanSeedBankIndex = -1;
+		QueueLocalLanAction({0, 0, static_cast<uint32_t>(aSeedBankIndex),
+			static_cast<uint16_t>(aGridX), static_cast<uint16_t>(aGridY), 0,
+			PvzMultiplayer::ActionKind::PLANT_SEED});
+		return true;
+	}
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_PLANT)
+	{
+		Plant* aPlant = static_cast<Plant*>(aHitResult.mObject);
+		if (aPlant->mSeedType == SeedType::SEED_COBCANNON &&
+			aPlant->mState == PlantState::STATE_COBCANNON_READY)
+		{
+			mLocalLanCobCannonPlantId = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(aPlant));
+		}
+	}
 	return true;
+}
+
+bool LawnApp::QueueLocalLanAction(PvzMultiplayer::GameAction theAction)
+{
+	using namespace PvzMultiplayer;
+
+	if (!IsValidLanAction(theAction) || !mLanSessionBegun)
+	{
+		LanTrace("queue reject tick=%llu begun=%d kind=%u parameter=%u target=%u,%u player=%u\n",
+			static_cast<unsigned long long>(mLanSimulationTick), mLanSessionBegun ? 1 : 0,
+			static_cast<unsigned>(theAction.mKind), theAction.mParameter, theAction.mTargetX,
+			theAction.mTargetY, theAction.mPlayerId);
+		return false;
+	}
+	theAction.mSequence = ++mLanActionSequence;
+	theAction.mPlayerId = mSharedInputState.GetLocalPlayerId();
+	LanMode aMode = mLanCoordinator->GetMode();
+	if (aMode == LanMode::HOSTING)
+	{
+		theAction.mHostTick = mLanSimulationTick + LAN_INPUT_DELAY;
+		ScheduleResult aResult = mLanActionTimeline.Schedule(theAction, mLanSimulationTick);
+		if (aResult != ScheduleResult::ACCEPTED)
+		{
+			LanTrace("queue host schedule failed local=%llu host=%llu seq=%u player=%u kind=%u result=%u\n",
+				static_cast<unsigned long long>(mLanSimulationTick),
+				static_cast<unsigned long long>(theAction.mHostTick), theAction.mSequence,
+				theAction.mPlayerId, static_cast<unsigned>(theAction.mKind), static_cast<unsigned>(aResult));
+			return false;
+		}
+		bool aSent = mLanCoordinator->BroadcastFromHost(theAction);
+		LanTrace("queue host local=%llu host=%llu seq=%u player=%u kind=%u parameter=%u target=%u,%u sent=%d\n",
+			static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned long long>(theAction.mHostTick), theAction.mSequence,
+			theAction.mPlayerId, static_cast<unsigned>(theAction.mKind), theAction.mParameter,
+			theAction.mTargetX, theAction.mTargetY, aSent ? 1 : 0);
+		return aSent;
+	}
+	if (aMode == LanMode::CONNECTED)
+	{
+		bool aSent = mLanCoordinator->SendAction(theAction);
+		LanTrace("queue client local=%llu seq=%u player=%u kind=%u parameter=%u target=%u,%u sent=%d\n",
+			static_cast<unsigned long long>(mLanSimulationTick), theAction.mSequence,
+			theAction.mPlayerId, static_cast<unsigned>(theAction.mKind), theAction.mParameter,
+			theAction.mTargetX, theAction.mTargetY, aSent ? 1 : 0);
+		return aSent;
+	}
+	LanTrace("queue rejected by mode=%u\n", static_cast<unsigned>(aMode));
+	return false;
+}
+
+bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) const
+{
+	using namespace PvzMultiplayer;
+
+	if (theAction.mPlayerId >= MAX_PLAYERS)
+		return false;
+	switch (theAction.mKind)
+	{
+	case ActionKind::PLANT_SEED:
+		return theAction.mParameter < SEEDBANK_MAX && theAction.mTargetX < MAX_GRID_SIZE_X &&
+			theAction.mTargetY < MAX_GRID_SIZE_Y;
+	case ActionKind::COLLECT_COIN:
+		return theAction.mParameter != static_cast<uint32_t>(CoinID::COINID_NULL) &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::SHOVEL_PLANT:
+		return theAction.mParameter != static_cast<uint32_t>(PlantID::PLANTID_NULL) &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::FIRE_COB_CANNON:
+		return theAction.mParameter != static_cast<uint32_t>(PlantID::PLANTID_NULL);
+	}
+	return false;
 }
 
 void LawnApp::UpdateLanSession()
@@ -1800,10 +2034,11 @@ void LawnApp::UpdateLanSession()
 			aLocalPlayerId = mLanCoordinator->GetClientSession().GetWelcome()->mPlayerId;
 		mSharedInputState.Reset(aLocalPlayerId);
 		mLanCursorSequence = 0;
-		mLanInputSequence = 0;
+		mLanActionSequence = 0;
 		mLastLanCursorSendTick = 0;
 		mHasSentLanCursor = false;
 		mLastLanModeValue = aModeValue;
+		LanTrace("mode changed mode=%u localPlayer=%u\n", static_cast<unsigned>(aMode), aLocalPlayerId);
 	}
 
 	if (aMode == LanMode::HOSTING)
@@ -1826,14 +2061,27 @@ void LawnApp::UpdateLanSession()
 					mLanCoordinator->BroadcastFromHost(anAcceptedCursor);
 				continue;
 			}
-			if (const auto* anInput = std::get_if<InputCommand>(&anEvent))
+			if (const auto* anInput = std::get_if<GameAction>(&anEvent))
 			{
-				InputCommand anAcceptedInput = *anInput;
-				if (!mLanSessionBegun)
+				GameAction anAcceptedInput = *anInput;
+				if (!mLanSessionBegun || !IsValidLanAction(anAcceptedInput))
+				{
+					LanTrace("host rejected remote action local=%llu begun=%d seq=%u player=%u kind=%u\n",
+						static_cast<unsigned long long>(mLanSimulationTick), mLanSessionBegun ? 1 : 0,
+						anAcceptedInput.mSequence, anAcceptedInput.mPlayerId,
+						static_cast<unsigned>(anAcceptedInput.mKind));
 					continue;
-				anAcceptedInput.mHostTick = mLanSimulationTick + 12;
-				if (mLanInputTimeline.Schedule(anAcceptedInput, mLanSimulationTick) == ScheduleResult::ACCEPTED)
+				}
+				anAcceptedInput.mHostTick = mLanSimulationTick + LAN_INPUT_DELAY;
+				ScheduleResult aResult = mLanActionTimeline.Schedule(anAcceptedInput, mLanSimulationTick);
+				bool aSent = aResult == ScheduleResult::ACCEPTED &&
 					mLanCoordinator->BroadcastFromHost(anAcceptedInput);
+				LanTrace("host remote action local=%llu host=%llu seq=%u player=%u kind=%u parameter=%u target=%u,%u result=%u sent=%d\n",
+					static_cast<unsigned long long>(mLanSimulationTick),
+					static_cast<unsigned long long>(anAcceptedInput.mHostTick), anAcceptedInput.mSequence,
+					anAcceptedInput.mPlayerId, static_cast<unsigned>(anAcceptedInput.mKind),
+					anAcceptedInput.mParameter, anAcceptedInput.mTargetX, anAcceptedInput.mTargetY,
+					static_cast<unsigned>(aResult), aSent ? 1 : 0);
 				continue;
 			}
 			if (const auto* aReady = std::get_if<SessionReady>(&anEvent))
@@ -1851,16 +2099,45 @@ void LawnApp::UpdateLanSession()
 			{
 				mSharedInputState.ApplyCursor(*aCursor, mAppCounter);
 			}
-			else if (const auto* anInput = std::get_if<InputCommand>(&aMessage))
+			else if (const auto* anInput = std::get_if<GameAction>(&aMessage))
 			{
-				if (mLanSessionBegun && mLanSessionStart &&
-					mLanInputTimeline.Schedule(*anInput, mLanSimulationTick) == ScheduleResult::PAST_TICK)
+				if (!IsValidLanAction(*anInput))
+				{
+					Sexy::PrintF("LAN desync: host sent an invalid game action\n");
+					LanTrace("client invalid action local=%llu host=%llu seq=%u player=%u kind=%u\n",
+						static_cast<unsigned long long>(mLanSimulationTick),
+						static_cast<unsigned long long>(anInput->mHostTick), anInput->mSequence,
+						anInput->mPlayerId, static_cast<unsigned>(anInput->mKind));
 					mLanDesynchronized = true;
+				}
+				else if (mLanSessionBegun && mLanSessionStart)
+				{
+					ScheduleResult aResult = mLanActionTimeline.Schedule(*anInput, mLanSimulationTick);
+					LanTrace("client received action local=%llu host=%llu seq=%u player=%u kind=%u parameter=%u target=%u,%u result=%u\n",
+						static_cast<unsigned long long>(mLanSimulationTick),
+						static_cast<unsigned long long>(anInput->mHostTick), anInput->mSequence,
+						anInput->mPlayerId, static_cast<unsigned>(anInput->mKind), anInput->mParameter,
+						anInput->mTargetX, anInput->mTargetY, static_cast<unsigned>(aResult));
+					if (aResult == ScheduleResult::PAST_TICK || aResult == ScheduleResult::FULL)
+					{
+						Sexy::PrintF("LAN desync: rejected action at local tick %llu for host tick %llu\n",
+							static_cast<unsigned long long>(mLanSimulationTick),
+							static_cast<unsigned long long>(anInput->mHostTick));
+						mLanDesynchronized = true;
+					}
+				}
+				else
+					LanTrace("client dropped pre-begin action host=%llu seq=%u player=%u kind=%u\n",
+						static_cast<unsigned long long>(anInput->mHostTick), anInput->mSequence,
+						anInput->mPlayerId, static_cast<unsigned>(anInput->mKind));
 			}
 			else if (const auto* aStart = std::get_if<SessionStart>(&aMessage))
 			{
 				if (!ApplyLanSessionStart(*aStart, false))
+				{
+					Sexy::PrintF("LAN desync: rejected session start\n");
 					mLanDesynchronized = true;
+				}
 			}
 			else if (const auto* aBegin = std::get_if<SessionBegin>(&aMessage))
 			{
@@ -1869,6 +2146,9 @@ void LawnApp::UpdateLanSession()
 					mLanTargetTick = aBegin->mHostTick;
 					mLanWaitingForBegin = false;
 					mLanSessionBegun = true;
+					LanTrace("client begin start=%llu hostTick=%llu\n",
+						static_cast<unsigned long long>(aBegin->mStartId),
+						static_cast<unsigned long long>(aBegin->mHostTick));
 				}
 			}
 			else if (const auto* aTick = std::get_if<TickSync>(&aMessage))
@@ -1881,7 +2161,12 @@ void LawnApp::UpdateLanSession()
 				if (mLanSessionStart && aHash->mStartId == mLanSessionStart->mStartId)
 				{
 					if (aHash->mHostTick < mLanSimulationTick)
+					{
+						Sexy::PrintF("LAN desync: state hash for past tick %llu arrived at local tick %llu\n",
+							static_cast<unsigned long long>(aHash->mHostTick),
+							static_cast<unsigned long long>(mLanSimulationTick));
 						mLanDesynchronized = true;
+					}
 					else
 						mExpectedLanStateHashes[aHash->mHostTick] = aHash->mHash;
 				}
@@ -1904,9 +2189,12 @@ void LawnApp::PublishLocalLanCursor()
 
 	uint16_t aNormalizedX = NormalizeCoordinate(mLocalLanCursorX, mWidth);
 	uint16_t aNormalizedY = NormalizeCoordinate(mLocalLanCursorY, mHeight);
+	uint8_t aHeldSeedBankIndex = mLocalLanSeedBankIndex >= 0 &&
+		mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
+		static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
 	bool aChanged = !mHasSentLanCursor || aNormalizedX != mLastLanCursorX ||
-		aNormalizedY != mLastLanCursorY || mLocalLanCursorButtons != mLastLanCursorButtons ||
-		mLocalLanCursorVisible != mLastLanCursorVisible;
+		aNormalizedY != mLastLanCursorY || mLocalLanCursorVisible != mLastLanCursorVisible ||
+		aHeldSeedBankIndex != mLastLanHeldSeedBankIndex;
 	if (!aChanged && mAppCounter - mLastLanCursorSendTick < LAN_CURSOR_KEEPALIVE_INTERVAL)
 		return;
 
@@ -1916,8 +2204,8 @@ void LawnApp::PublishLocalLanCursor()
 		aNormalizedX,
 		aNormalizedY,
 		mSharedInputState.GetLocalPlayerId(),
-		mLocalLanCursorButtons,
-		mLocalLanCursorVisible
+		mLocalLanCursorVisible,
+		aHeldSeedBankIndex
 	};
 	if (aMode == LanMode::HOSTING)
 	{
@@ -1932,37 +2220,37 @@ void LawnApp::PublishLocalLanCursor()
 	mLastLanCursorSendTick = mAppCounter;
 	mLastLanCursorX = aNormalizedX;
 	mLastLanCursorY = aNormalizedY;
-	mLastLanCursorButtons = mLocalLanCursorButtons;
 	mLastLanCursorVisible = mLocalLanCursorVisible;
+	mLastLanHeldSeedBankIndex = aHeldSeedBankIndex;
 	mHasSentLanCursor = true;
 }
 
-bool LawnApp::ApplyLanInput(const PvzMultiplayer::InputCommand& theInput)
+bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 {
 	using namespace PvzMultiplayer;
 
-	if ((!mBoard && !mSeedChooserScreen) ||
-		(theInput.mKind != InputKind::POINTER_DOWN && theInput.mKind != InputKind::POINTER_UP))
+	if (!mBoard || !IsValidLanAction(theAction))
 		return false;
-	int aClickCount = static_cast<int32_t>(theInput.mCode);
-	if (!IsValidPointerClickCount(aClickCount) || theInput.mModifiers != 0)
-		return false;
-
-	int aScreenX = DenormalizeCoordinate(theInput.mNormalizedX, mWidth);
-	int aScreenY = DenormalizeCoordinate(theInput.mNormalizedY, mHeight);
-	int anOldMouseX = mWidgetManager->mLastMouseX;
-	int anOldMouseY = mWidgetManager->mLastMouseY;
-	mWidgetManager->mLastMouseX = aScreenX;
-	mWidgetManager->mLastMouseY = aScreenY;
-	if (theInput.mKind == InputKind::POINTER_DOWN)
-		mWidgetManager->MouseDown(aScreenX, aScreenY, aClickCount);
-	else
-		mWidgetManager->MouseUp(aScreenX, aScreenY, aClickCount);
-	mWidgetManager->mLastMouseX = anOldMouseX;
-	mWidgetManager->mLastMouseY = anOldMouseY;
-	if (mBoard)
-		mBoard->UpdateMousePosition();
-	return true;
+	switch (theAction.mKind)
+	{
+	case ActionKind::PLANT_SEED:
+		return mBoard->PlantSeedFromBank(static_cast<int>(theAction.mParameter),
+			static_cast<int>(theAction.mTargetX), static_cast<int>(theAction.mTargetY));
+	case ActionKind::COLLECT_COIN:
+	{
+		Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(static_cast<CoinID>(theAction.mParameter));
+		if (aCoin)
+			aCoin->MouseDown(0, 0, 1);
+		return true;
+	}
+	case ActionKind::SHOVEL_PLANT:
+		return mBoard->ShovelPlantById(static_cast<PlantID>(theAction.mParameter));
+	case ActionKind::FIRE_COB_CANNON:
+		return mBoard->FireCobCannonById(static_cast<PlantID>(theAction.mParameter),
+			DenormalizeCoordinate(theAction.mTargetX, mBoard->mWidth),
+			DenormalizeCoordinate(theAction.mTargetY, mBoard->mHeight));
+	}
+	return false;
 }
 
 bool LawnApp::IsBoardInputAt(int theX, int theY)
@@ -2020,9 +2308,14 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 		static_cast<uint16_t>(theGameMode),
 		CaptureGameplayProfile()
 	};
+	LanTrace("host session start requested start=%llu seed=%u mode=%u players=%zu app=%u\n",
+		static_cast<unsigned long long>(aStartId), aSimulationSeed, static_cast<unsigned>(theGameMode),
+		aPlayerCount, mAppCounter);
 	if (!mLanSessionBarrier.Start(aStartId, std::span<const PlayerId>(aPlayers.data(), aPlayerCount)) ||
 		!mLanCoordinator->BroadcastFromHost(aStart))
 	{
+		LanTrace("host session start broadcast failed start=%llu\n",
+			static_cast<unsigned long long>(aStartId));
 		mLanSessionBarrier.Reset();
 		return false;
 	}
@@ -2051,12 +2344,15 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 	}
 
 	mLanSessionStart = theStart;
-	mLanInputTimeline.Reset();
+	mLanActionTimeline.Reset();
 	mLanSimulationTick = 0;
 	mLanTargetTick = 0;
 	mLanWaitingForBegin = true;
 	mLanSessionBegun = false;
 	mLanDesynchronized = false;
+	LanTrace("apply session start role=%s start=%llu seed=%u mode=%u\n", theHost ? "host" : "client",
+		static_cast<unsigned long long>(theStart.mStartId), theStart.mSimulationSeed,
+		static_cast<unsigned>(theStart.mGameMode));
 
 	if (!theHost)
 		InstallLanGameplayProfile(theStart.mProfile);
@@ -2069,7 +2365,6 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 	mApplyingLanSessionStart = false;
 	if (!mBoard)
 		return false;
-
 	if (!theHost && !mLanCoordinator->SendReady(SessionReady{
 		theStart.mStartId, mSharedInputState.GetLocalPlayerId()}))
 		return false;
@@ -2086,17 +2381,30 @@ void LawnApp::MaybeBeginLanSession()
 
 	SessionBegin aBegin{mLanSimulationTick, mLanSessionStart->mStartId};
 	if (!mLanCoordinator->BroadcastFromHost(aBegin))
+	{
+		LanTrace("host begin broadcast failed start=%llu tick=%llu\n",
+			static_cast<unsigned long long>(aBegin.mStartId),
+			static_cast<unsigned long long>(aBegin.mHostTick));
 		return;
+	}
 	mLanTargetTick = aBegin.mHostTick;
 	mLanWaitingForBegin = false;
 	mLanSessionBegun = true;
+	LanTrace("host begin start=%llu tick=%llu\n", static_cast<unsigned long long>(aBegin.mStartId),
+		static_cast<unsigned long long>(aBegin.mHostTick));
 }
 
-void LawnApp::ProcessLanInputsForCurrentTick()
+void LawnApp::ProcessLanActionsForCurrentTick()
 {
-	for (const PvzMultiplayer::InputCommand& anInput : mLanInputTimeline.TakeForTick(mLanSimulationTick))
+	for (const PvzMultiplayer::GameAction& anInput : mLanActionTimeline.TakeForTick(mLanSimulationTick))
 	{
-		if (!ApplyLanInput(anInput))
+		bool anApplied = ApplyLanAction(anInput);
+		LanTrace("apply action tick=%llu seq=%u player=%u kind=%u parameter=%u target=%u,%u applied=%d sun=%d plants=%u coins=%u\n",
+			static_cast<unsigned long long>(mLanSimulationTick), anInput.mSequence, anInput.mPlayerId,
+			static_cast<unsigned>(anInput.mKind), anInput.mParameter, anInput.mTargetX,
+			anInput.mTargetY, anApplied ? 1 : 0, mBoard ? mBoard->mSunMoney : -1,
+			mBoard ? mBoard->mPlants.mSize : 0, mBoard ? mBoard->mCoins.mSize : 0);
+		if (!anApplied)
 			mLanDesynchronized = true;
 	}
 }
@@ -2108,6 +2416,37 @@ void LawnApp::PublishOrVerifyLanStateHash()
 	if (!mBoard || !mLanSessionStart || mLanSimulationTick % 100 != 0)
 		return;
 	uint64_t aHash = ComputeBoardStateHash(*mBoard);
+	PvzMultiplayer::BoardStateHashBreakdown aBoardHash =
+		PvzMultiplayer::ComputeBoardStateHashBreakdown(*mBoard);
+	PvzMultiplayer::DeterministicHash64 aRandHash;
+	aRandHash.AddString(Sexy::GetRandState());
+	Sexy::PrintF("LAN state tick %llu: full=%016llx core=%016llx grid=%016llx fog=%016llx rows=%016llx waves=%016llx "
+		"seeds=%016llx challenge=%016llx "
+		"plants=%016llx zombies=%016llx projectiles=%016llx coins=%016llx mowers=%016llx items=%016llx "
+		"rand=%016llx scene=%d main=%u update=%u sun=%d\n",
+		static_cast<unsigned long long>(mLanSimulationTick),
+		static_cast<unsigned long long>(aHash),
+		static_cast<unsigned long long>(aBoardHash.mCore),
+		static_cast<unsigned long long>(aBoardHash.mGrid),
+		static_cast<unsigned long long>(aBoardHash.mFog),
+		static_cast<unsigned long long>(aBoardHash.mRowsAndIce),
+		static_cast<unsigned long long>(aBoardHash.mWaves),
+		static_cast<unsigned long long>(aBoardHash.mSeedBank),
+		static_cast<unsigned long long>(aBoardHash.mChallenge),
+		static_cast<unsigned long long>(aBoardHash.mPlants),
+		static_cast<unsigned long long>(aBoardHash.mZombies),
+		static_cast<unsigned long long>(aBoardHash.mProjectiles),
+		static_cast<unsigned long long>(aBoardHash.mCoins),
+		static_cast<unsigned long long>(aBoardHash.mMowers),
+		static_cast<unsigned long long>(aBoardHash.mGridItems),
+		static_cast<unsigned long long>(aRandHash.Finish()),
+		static_cast<int>(mGameScene), mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney);
+	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d main=%u update=%u sun=%d plants=%016llx coins=%016llx\n",
+		static_cast<unsigned long long>(mLanSimulationTick), static_cast<unsigned long long>(aHash),
+		static_cast<unsigned long long>(aRandHash.Finish()), static_cast<int>(mGameScene),
+		mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney,
+		static_cast<unsigned long long>(aBoardHash.mPlants),
+		static_cast<unsigned long long>(aBoardHash.mCoins));
 	if (mLanCoordinator->GetMode() == LanMode::HOSTING)
 	{
 		mLanCoordinator->BroadcastFromHost(StateHash{
@@ -2118,6 +2457,14 @@ void LawnApp::PublishOrVerifyLanStateHash()
 	auto anExpected = mExpectedLanStateHashes.find(mLanSimulationTick);
 	if (anExpected == mExpectedLanStateHashes.end() || anExpected->second != aHash)
 	{
+		Sexy::PrintF("LAN desync: state mismatch at tick %llu (expected %016llx, actual %016llx)\n",
+			static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned long long>(anExpected == mExpectedLanStateHashes.end() ? 0 : anExpected->second),
+			static_cast<unsigned long long>(aHash));
+		LanTrace("desync mismatch tick=%llu expected=%016llx actual=%016llx\n",
+			static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned long long>(anExpected == mExpectedLanStateHashes.end() ? 0 : anExpected->second),
+			static_cast<unsigned long long>(aHash));
 		mLanDesynchronized = true;
 		return;
 	}
@@ -2127,7 +2474,7 @@ void LawnApp::PublishOrVerifyLanStateHash()
 void LawnApp::ResetLanGameState()
 {
 	mLanSessionBarrier.Reset();
-	mLanInputTimeline.Reset();
+	mLanActionTimeline.Reset();
 	mLanSessionStart.reset();
 	mExpectedLanStateHashes.clear();
 	mLanSimulationTick = 0;
@@ -2135,6 +2482,10 @@ void LawnApp::ResetLanGameState()
 	mLanWaitingForBegin = false;
 	mLanSessionBegun = false;
 	mLanDesynchronized = false;
+	mLocalLanSeedBankIndex = -1;
+	mLastLanHeldSeedBankIndex = PvzMultiplayer::NO_CURSOR_SEED_BANK_INDEX;
+	mLocalLanShovelSelected = false;
+	mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
 	RestoreLocalPlayerProfile();
 }
 
@@ -2229,9 +2580,120 @@ bool LawnApp::IsLanGameplayActive() const
 	return mLanSessionStart.has_value();
 }
 
+void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
+{
+	using namespace PvzMultiplayer;
+
+	if (!mBoard || !mLanSessionStart || !mLanSessionBegun || mLanDesynchronized ||
+		mGameScene != GameScenes::SCENE_PLAYING)
+		return;
+
+	auto DrawPreview = [&](uint8_t theSeedBankIndex, int theAppX, int theAppY)
+	{
+		if (theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
+			theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+			return;
+
+		const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
+		if (aPacket.mPacketType == SeedType::SEED_NONE)
+			return;
+		SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
+			aPacket.mImitaterType : aPacket.mPacketType;
+		int aBoardX = theAppX - mBoard->mX;
+		int aBoardY = theAppY - mBoard->mY;
+		int aGridX = mBoard->PlantingPixelToGridX(aBoardX, aBoardY, aSeedType);
+		int aGridY = mBoard->PlantingPixelToGridY(aBoardX, aBoardY, aSeedType);
+		if (aGridX < 0 || aGridX >= MAX_GRID_SIZE_X || aGridY < 0 || aGridY >= MAX_GRID_SIZE_Y ||
+			mBoard->CanPlantAt(aGridX, aGridY, aSeedType) != PlantingReason::PLANTING_OK)
+			return;
+
+		Sexy::GraphicsAutoState aState(theGraphics);
+		theGraphics->SetColorizeImages(true);
+		theGraphics->SetColor(Sexy::Color(255, 255, 255, 100));
+		float aPreviewX = static_cast<float>(mBoard->GridToPixelX(aGridX, aGridY));
+		float aPreviewY = static_cast<float>(mBoard->GridToPixelY(aGridX, aGridY));
+		if (mBoard->mApp->IsIZombieLevel())
+		{
+			float aHeight = PlantDrawHeightOffset(mBoard, nullptr, aSeedType, aGridX, aGridY);
+			if (aSeedType == SeedType::SEED_ZOMBIE_GARGANTUAR)
+				aHeight -= 30.0f;
+			aPreviewX -= 49.0f;
+			aPreviewY += aHeight - 78.0f;
+		}
+		else
+		{
+			aPreviewY += PlantDrawHeightOffset(mBoard, nullptr, aSeedType, aGridX, aGridY);
+		}
+		Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+			DrawVariation::VARIATION_NORMAL, aPreviewX, aPreviewY);
+
+		if (mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN)
+		{
+			for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; ++aRow)
+			{
+				if (aRow == aGridY || mBoard->CanPlantAt(aGridX, aRow, aSeedType) != PlantingReason::PLANTING_OK)
+					continue;
+				float aRowY = static_cast<float>(mBoard->GridToPixelY(aGridX, aRow)) +
+					PlantDrawHeightOffset(mBoard, nullptr, aSeedType, aGridX, aRow);
+				Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+					DrawVariation::VARIATION_NORMAL, aPreviewX, aRowY);
+			}
+		}
+	};
+
+	if (mLocalLanCursorVisible)
+	{
+		uint8_t aLocalSeed = mLocalLanSeedBankIndex >= 0 &&
+			mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
+			static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
+		DrawPreview(aLocalSeed, mLocalLanCursorX, mLocalLanCursorY);
+	}
+	for (const auto& aCursorSlot : mSharedInputState.GetCursors())
+	{
+		if (!aCursorSlot || aCursorSlot->mUpdate.mPlayerId == mSharedInputState.GetLocalPlayerId() ||
+			!aCursorSlot->mUpdate.mVisible || mAppCounter - aCursorSlot->mReceivedAtTick > LAN_CURSOR_TIMEOUT)
+			continue;
+		DrawPreview(aCursorSlot->mUpdate.mHeldSeedBankIndex,
+			DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedX, mWidth),
+			DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedY, mHeight));
+	}
+}
+
 void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int theOriginY) const
 {
 	using namespace PvzMultiplayer;
+
+	auto DrawHeldSeed = [&](uint8_t theSeedBankIndex, int theAppX, int theAppY)
+	{
+		if (!mBoard || theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
+			theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+			return;
+		const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
+		if (aPacket.mPacketType == SeedType::SEED_NONE)
+			return;
+		SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
+			aPacket.mImitaterType : aPacket.mPacketType;
+		float aX = static_cast<float>(theAppX - theOriginX - 35);
+		float aY = static_cast<float>(theAppY - theOriginY) +
+			PlantDrawHeightOffset(mBoard, nullptr, aSeedType, -1, -1) - 60.0f;
+		if (Plant::IsFlying(aSeedType) || aSeedType == SeedType::SEED_GRAVEBUSTER)
+			aY += 30.0f;
+		if (mBoard->mApp->IsIZombieLevel())
+		{
+			aX -= 55.0f;
+			aY -= 70.0f;
+		}
+		Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+			DrawVariation::VARIATION_NORMAL, aX, aY);
+	};
+
+	if (mLocalLanCursorVisible)
+	{
+		uint8_t aLocalSeed = mLocalLanSeedBankIndex >= 0 &&
+			mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
+			static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
+		DrawHeldSeed(aLocalSeed, mLocalLanCursorX, mLocalLanCursorY);
+	}
 
 	for (const auto& aCursorSlot : mSharedInputState.GetCursors())
 	{
@@ -2241,6 +2703,7 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 
 		int aX = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedX, mWidth) - theOriginX;
 		int aY = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedY, mHeight) - theOriginY;
+		DrawHeldSeed(aCursorSlot->mUpdate.mHeldSeedBankIndex, aX + theOriginX, aY + theOriginY);
 		Sexy::Point aPointer[] = {
 			{aX, aY}, {aX + 3, aY + 18}, {aX + 8, aY + 13}, {aX + 13, aY + 22},
 			{aX + 17, aY + 20}, {aX + 12, aY + 11}, {aX + 20, aY + 9}
@@ -2257,11 +2720,6 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			const Sexy::Point& aStart = aPointer[anIndex];
 			const Sexy::Point& anEnd = aPointer[(anIndex + 1) % std::size(aPointer)];
 			theGraphics->DrawLineAA(aStart.mX, aStart.mY, anEnd.mX, anEnd.mY);
-		}
-		if (aCursorSlot->mUpdate.mButtons != 0)
-		{
-			theGraphics->SetColor(Sexy::Color(255, 255, 255));
-			theGraphics->FillRect(aX - 3, aY - 3, 6, 6);
 		}
 	}
 }
@@ -2404,6 +2862,25 @@ void LawnApp::LoadingCompleted()
 	mResourceManager->DeleteImage("IMAGE_TITLESCREEN");
 
 	ShowGameSelector();
+	std::string aPlayerName = mPlayerInfo && !mPlayerInfo->mName.empty() ? mPlayerInfo->mName :
+		(mAutoHostLan ? "Host" : "Guest");
+	if (!PvzMultiplayer::IsValidDisplayName(aPlayerName, PvzMultiplayer::MAX_PLAYER_NAME_LENGTH))
+		aPlayerName = mAutoHostLan ? "Host" : "Guest";
+	if (mAutoHostLan)
+		mLanCoordinator->StartHosting("PvZ 95 LAN", aPlayerName, PvzRules::GetActiveRulesetProtocolId());
+	else if (mAutoJoinLan)
+	{
+		std::optional<PvzMultiplayer::Ipv4Endpoint> aDiscoveryEndpoint;
+		if (!mLanDiscoveryAddress.empty())
+			aDiscoveryEndpoint = PvzMultiplayer::Ipv4Endpoint::Parse(
+				mLanDiscoveryAddress, PvzMultiplayer::DEFAULT_DISCOVERY_PORT);
+		if (!mLanDiscoveryAddress.empty() && !aDiscoveryEndpoint)
+		{
+			Popup("Invalid -lan-address IPv4 address.");
+			return;
+		}
+		mLanCoordinator->StartJoining(aPlayerName, PvzRules::GetActiveRulesetProtocolId(), aDiscoveryEndpoint);
+	}
 }
 
 void LawnApp::URLOpenFailed(const std::string& theURL)

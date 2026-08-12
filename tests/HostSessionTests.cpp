@@ -62,7 +62,7 @@ int main()
 	if (anEvents.size() != 1 || !std::holds_alternative<PlayerJoined>(anEvents.front()))
 		Fail("host did not report the join");
 
-	CursorUpdate aCursor{42, 7, 11111, 22222, aWelcome.mPlayerId, 1, true};
+	CursorUpdate aCursor{42, 7, 11111, 22222, aWelcome.mPlayerId, true};
 	if (!aClient.Queue(aCursor))
 		Fail("client failed to queue cursor");
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);

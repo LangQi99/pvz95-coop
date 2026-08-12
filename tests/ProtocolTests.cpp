@@ -59,8 +59,8 @@ int main()
 	ExpectRoundTrip(Hello{0x0102030405060708ULL, 0x50563935, 3, "Player Two"});
 	ExpectRoundTrip(Welcome{0x8877665544332211ULL, 0x50563935, 0x45A3FF, 100, 1, 4});
 	ExpectRoundTrip(Reject{RejectReason::RULESET_MISMATCH, "PvZ95 rules required"});
-	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, 1, true});
-	ExpectRoundTrip(InputCommand{4570, 100, 1, 40000, 25000, 0, 2, InputKind::POINTER_DOWN});
+	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, true, 3});
+	ExpectRoundTrip(GameAction{4570, 100, 1, 4, 2, 2, ActionKind::PLANT_SEED});
 	ExpectRoundTrip(SessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile});
 	ExpectRoundTrip(SessionReady{0x1020304050607080ULL, 2});
 	ExpectRoundTrip(SessionBegin{4590, 0x1020304050607080ULL});
@@ -95,10 +95,13 @@ int main()
 		Fail("invalid cursor color encoded successfully");
 	if (Encode(Message(DiscoveryOffer{1, 43096, 1, MAX_PLAYERS, 0x50563935, ""})))
 		Fail("empty session name encoded successfully");
-	if (Encode(Message(CursorUpdate{1, 1, 0, 0, 1, 0x80, true})))
-		Fail("invalid cursor button mask encoded successfully");
-	if (Encode(Message(InputCommand{1, 1, 0, 0, 0, 0, 1, InputKind::POINTER_DOWN})))
-		Fail("invalid pointer click code encoded successfully");
+	if (Encode(Message(CursorUpdate{1, 1, 0, 0, MAX_PLAYERS, true})))
+		Fail("invalid cursor player encoded successfully");
+	if (Encode(Message(CursorUpdate{1, 1, 0, 0, 1, true,
+		static_cast<uint8_t>(MAX_CURSOR_SEED_BANK_INDEX + 1)})))
+		Fail("invalid cursor held seed index encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1, static_cast<ActionKind>(0)})))
+		Fail("invalid game action kind encoded successfully");
 	aProfile.mFlags = 0x80000000U;
 	if (Encode(Message(SessionStart{1, 1, 1, 0, aProfile})))
 		Fail("invalid session profile flags encoded successfully");

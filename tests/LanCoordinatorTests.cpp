@@ -93,7 +93,7 @@ int main()
 	if (aMessages.size() != 1 || aMessages.front() != Message{aBegin})
 		Fail("coordinator client did not receive session begin");
 
-	CursorUpdate aCursor{10, 1, 12345, 54321, 99, 1, true};
+	CursorUpdate aCursor{10, 1, 12345, 54321, 99, true};
 	if (!aClient.SendCursor(aCursor))
 		Fail("coordinator failed to send cursor");
 	anEvents.clear();
@@ -109,9 +109,9 @@ int main()
 		std::get<CursorUpdate>(anEvents.front()).mPlayerId != 1)
 		Fail("coordinator did not bind cursor to the assigned player");
 
-	InputCommand anInput{12, 1, 1, 20000, 30000, 0, 99, InputKind::POINTER_DOWN};
-	if (!aClient.SendInput(anInput))
-		Fail("coordinator failed to send input");
+	GameAction anAction{12, 1, 1, 4, 2, 99, ActionKind::PLANT_SEED};
+	if (!aClient.SendAction(anAction))
+		Fail("coordinator failed to send action");
 	anEvents.clear();
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
@@ -121,13 +121,13 @@ int main()
 		anEvents = aHost.TakeHostEvents();
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	}
-	if (anEvents.size() != 1 || !std::holds_alternative<InputCommand>(anEvents.front()) ||
-		std::get<InputCommand>(anEvents.front()).mPlayerId != 1)
-		Fail("coordinator did not bind input to the assigned player");
-	InputCommand anAcceptedInput = std::get<InputCommand>(anEvents.front());
+	if (anEvents.size() != 1 || !std::holds_alternative<GameAction>(anEvents.front()) ||
+		std::get<GameAction>(anEvents.front()).mPlayerId != 1)
+		Fail("coordinator did not bind action to the assigned player");
+	GameAction anAcceptedInput = std::get<GameAction>(anEvents.front());
 	anAcceptedInput.mHostTick = 20;
 	if (!aHost.BroadcastFromHost(anAcceptedInput))
-		Fail("coordinator failed to broadcast accepted input");
+		Fail("coordinator failed to broadcast accepted action");
 	aMessages.clear();
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
@@ -138,7 +138,7 @@ int main()
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	}
 	if (aMessages.size() != 1 || aMessages.front() != Message{anAcceptedInput})
-		Fail("coordinator client did not receive accepted input");
+		Fail("coordinator client did not receive accepted action");
 
 	StateHash aHash{20, 77, 0x0102030405060708ULL};
 	if (!aHost.BroadcastFromHost(aHash))

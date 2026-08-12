@@ -60,7 +60,7 @@ int main()
 		Fail("client did not retain its Welcome");
 	aHost.TakeEvents();
 
-	CursorUpdate aCursor{55, 1, 12000, 34000, 99, 1, true};
+	CursorUpdate aCursor{55, 1, 12000, 34000, 99, true};
 	if (!aClient.SendCursor(aCursor) || aClient.SendCursor(aCursor))
 		Fail("client cursor sequence validation failed");
 

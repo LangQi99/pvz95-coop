@@ -18,7 +18,7 @@
 
 namespace PvzMultiplayer
 {
-	constexpr uint16_t PROTOCOL_VERSION = 2;
+	constexpr uint16_t PROTOCOL_VERSION = 4;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint8_t MAX_PLAYERS = 4;
 	constexpr size_t MAX_PACKET_SIZE = 1024;
@@ -26,6 +26,8 @@ namespace PvzMultiplayer
 	constexpr size_t MAX_PLAYER_NAME_LENGTH = 24;
 	constexpr size_t MAX_SESSION_NAME_LENGTH = 48;
 	constexpr size_t MAX_REJECT_MESSAGE_LENGTH = 96;
+	constexpr uint8_t MAX_CURSOR_SEED_BANK_INDEX = 9;
+	constexpr uint8_t NO_CURSOR_SEED_BANK_INDEX = UINT8_MAX;
 	constexpr uint16_t MAX_GAME_MODE_VALUE = 72;
 	constexpr uint16_t MAX_ADVENTURE_LEVEL = 50;
 	constexpr size_t GAMEPLAY_CHALLENGE_RECORD_COUNT = 100;
@@ -41,7 +43,7 @@ namespace PvzMultiplayer
 		WELCOME,
 		REJECT,
 		CURSOR_UPDATE,
-		INPUT_COMMAND,
+		GAME_ACTION,
 		SESSION_START,
 		SESSION_READY,
 		SESSION_BEGIN,
@@ -60,13 +62,12 @@ namespace PvzMultiplayer
 		INTERNAL_ERROR
 	};
 
-	enum class InputKind : uint8_t
+	enum class ActionKind : uint8_t
 	{
-		POINTER_DOWN = 1,
-		POINTER_UP,
-		KEY_DOWN,
-		KEY_UP,
-		PAUSE_TOGGLE
+		PLANT_SEED = 1,
+		COLLECT_COIN,
+		SHOVEL_PLANT,
+		FIRE_COB_CANNON
 	};
 
 	enum class CodecError : uint8_t
@@ -137,24 +138,23 @@ namespace PvzMultiplayer
 		uint16_t mNormalizedX{};
 		uint16_t mNormalizedY{};
 		PlayerId mPlayerId{};
-		uint8_t mButtons{};
 		bool mVisible{};
+		uint8_t mHeldSeedBankIndex{NO_CURSOR_SEED_BANK_INDEX};
 
 		bool operator==(const CursorUpdate&) const = default;
 	};
 
-	struct InputCommand
+	struct GameAction
 	{
 		uint64_t mHostTick{};
 		uint32_t mSequence{};
-		uint32_t mCode{};
-		uint16_t mNormalizedX{};
-		uint16_t mNormalizedY{};
-		uint16_t mModifiers{};
+		uint32_t mParameter{};
+		uint16_t mTargetX{};
+		uint16_t mTargetY{};
 		PlayerId mPlayerId{};
-		InputKind mKind{InputKind::POINTER_DOWN};
+		ActionKind mKind{ActionKind::PLANT_SEED};
 
-		bool operator==(const InputCommand&) const = default;
+		bool operator==(const GameAction&) const = default;
 	};
 
 	enum SessionProfileFlags : uint32_t
@@ -233,7 +233,7 @@ namespace PvzMultiplayer
 	};
 
 	using Message = std::variant<DiscoveryQuery, DiscoveryOffer, Hello, Welcome, Reject, CursorUpdate,
-		InputCommand, SessionStart, SessionReady, SessionBegin, TickSync, StateHash>;
+		GameAction, SessionStart, SessionReady, SessionBegin, TickSync, StateHash>;
 
 	struct DecodeResult
 	{

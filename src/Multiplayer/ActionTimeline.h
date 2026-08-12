@@ -21,28 +21,28 @@ namespace PvzMultiplayer
 		FULL
 	};
 
-	class InputTimeline
+	class ActionTimeline
 	{
 	public:
-		explicit InputTimeline(size_t theCapacity = 512);
+		explicit ActionTimeline(size_t theCapacity = 512);
 
-		ScheduleResult Schedule(const InputCommand& theInput, uint64_t theCurrentTick);
-		std::vector<InputCommand> TakeForTick(uint64_t theTick);
+		ScheduleResult Schedule(const GameAction& theAction, uint64_t theCurrentTick);
+		std::vector<GameAction> TakeForTick(uint64_t theTick);
 		void Reset();
 
 		size_t GetSize() const;
-		bool HasLateInput() const;
+		bool HasLateAction() const;
 
 	private:
-		struct ScheduledInput
+		struct ScheduledAction
 		{
-			InputCommand mInput;
+			GameAction mAction;
 			uint64_t mArrivalOrder{};
 		};
 
-		std::vector<ScheduledInput> mInputs;
+		std::vector<ScheduledAction> mActions;
 		size_t mCapacity;
 		uint64_t mNextArrivalOrder{};
-		bool mHasLateInput{};
+		bool mHasLateAction{};
 	};
 }

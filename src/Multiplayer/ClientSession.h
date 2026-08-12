@@ -44,7 +44,7 @@ namespace PvzMultiplayer
 		void Poll();
 
 		bool SendCursor(CursorUpdate theCursor);
-		bool SendInput(InputCommand theInput);
+		bool SendAction(GameAction theAction);
 		bool SendReady(SessionReady theReady);
 		std::vector<Message> TakeMessages();
 
@@ -63,9 +63,9 @@ namespace PvzMultiplayer
 		std::vector<Message> mMessages;
 		ClientSessionState mState{ClientSessionState::IDLE};
 		uint32_t mLastCursorSequence{};
-		uint32_t mLastInputSequence{};
+		uint32_t mLastActionSequence{};
 		bool mHasCursorSequence{};
-		bool mHasInputSequence{};
+		bool mHasActionSequence{};
 		std::string mLastError;
 	};
 }

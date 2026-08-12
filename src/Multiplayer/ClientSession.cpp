@@ -53,9 +53,9 @@ namespace PvzMultiplayer
 		mMessages.clear();
 		mState = ClientSessionState::IDLE;
 		mLastCursorSequence = 0;
-		mLastInputSequence = 0;
+		mLastActionSequence = 0;
 		mHasCursorSequence = false;
-		mHasInputSequence = false;
+		mHasActionSequence = false;
 		mLastError.clear();
 	}
 
@@ -98,7 +98,7 @@ namespace PvzMultiplayer
 
 			if (const auto* aCursor = std::get_if<CursorUpdate>(&aMessage))
 			{
-				if (aCursor->mPlayerId >= mWelcome->mMaxPlayers || (aCursor->mButtons & 0xE0U) != 0)
+				if (aCursor->mPlayerId >= mWelcome->mMaxPlayers)
 				{
 					Fail("host sent an invalid cursor update");
 					return;
@@ -106,11 +106,11 @@ namespace PvzMultiplayer
 				mMessages.push_back(std::move(aMessage));
 				continue;
 			}
-			if (const auto* anInput = std::get_if<InputCommand>(&aMessage))
+			if (const auto* anAction = std::get_if<GameAction>(&aMessage))
 			{
-				if (anInput->mPlayerId >= mWelcome->mMaxPlayers)
+				if (anAction->mPlayerId >= mWelcome->mMaxPlayers)
 				{
-					Fail("host sent an invalid input command");
+					Fail("host sent an invalid game action");
 					return;
 				}
 				mMessages.push_back(std::move(aMessage));
@@ -141,7 +141,7 @@ namespace PvzMultiplayer
 	bool ClientSession::SendCursor(CursorUpdate theCursor)
 	{
 		if (mState != ClientSessionState::CONNECTED || !mChannel || !mWelcome ||
-			(mHasCursorSequence && !IsSequenceNewer(theCursor.mSequence, mLastCursorSequence)) || (theCursor.mButtons & 0xE0U) != 0)
+			(mHasCursorSequence && !IsSequenceNewer(theCursor.mSequence, mLastCursorSequence)))
 			return false;
 
 		theCursor.mPlayerId = mWelcome->mPlayerId;
@@ -152,17 +152,17 @@ namespace PvzMultiplayer
 		return true;
 	}
 
-	bool ClientSession::SendInput(InputCommand theInput)
+	bool ClientSession::SendAction(GameAction theAction)
 	{
 		if (mState != ClientSessionState::CONNECTED || !mChannel || !mWelcome ||
-			(mHasInputSequence && !IsSequenceNewer(theInput.mSequence, mLastInputSequence)))
+			(mHasActionSequence && !IsSequenceNewer(theAction.mSequence, mLastActionSequence)))
 			return false;
 
-		theInput.mPlayerId = mWelcome->mPlayerId;
-		if (!mChannel->Queue(theInput))
+		theAction.mPlayerId = mWelcome->mPlayerId;
+		if (!mChannel->Queue(theAction))
 			return false;
-		mLastInputSequence = theInput.mSequence;
-		mHasInputSequence = true;
+		mLastActionSequence = theAction.mSequence;
+		mHasActionSequence = true;
 		return true;
 	}
 
