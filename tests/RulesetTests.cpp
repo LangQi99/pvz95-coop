@@ -6,6 +6,7 @@
 
 #include "GameRules/Ruleset.h"
 
+#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <string_view>
@@ -34,6 +35,46 @@ namespace
 int main()
 {
 	using namespace PvzRules;
+	struct SeedRuleCase
+	{
+		GameMode mGameMode;
+		int mIndex;
+		SeedType mOriginal;
+		SeedType mPvZ95;
+	};
+	struct ZombieRuleCase
+	{
+		GameMode mGameMode;
+		int mIndex;
+		ZombieType mOriginal;
+		ZombieType mPvZ95;
+	};
+
+	const std::array<SeedRuleCase, 10> aScarySeedCases = {{
+		{GAMEMODE_SCARY_POTTER_1, 0, SEED_PEASHOOTER, SEED_REPEATER},
+		{GAMEMODE_SCARY_POTTER_1, 2, SEED_SQUASH, SEED_PEASHOOTER},
+		{GAMEMODE_SCARY_POTTER_2, 0, SEED_LEFTPEATER, SEED_POTATOMINE},
+		{GAMEMODE_SCARY_POTTER_2, 1, SEED_SNOWPEA, SEED_ICESHROOM},
+		{GAMEMODE_SCARY_POTTER_2, 2, SEED_WALLNUT, SEED_EXPLODE_O_NUT},
+		{GAMEMODE_SCARY_POTTER_2, 3, SEED_POTATOMINE, SEED_CHERRYBOMB},
+		{GAMEMODE_SCARY_POTTER_3, 4, SEED_WALLNUT, SEED_HYPNOSHROOM},
+		{GAMEMODE_SCARY_POTTER_4, 0, SEED_PUFFSHROOM, SEED_BLOVER},
+		{GAMEMODE_SCARY_POTTER_4, 1, SEED_HYPNOSHROOM, SEED_POTATOMINE},
+		{GAMEMODE_SCARY_POTTER_4, 2, SEED_LEFTPEATER, SEED_BLOVER}
+	}};
+	const std::array<ZombieRuleCase, 11> aScaryZombieCases = {{
+		{GAMEMODE_SCARY_POTTER_1, 5, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_DOOR},
+		{GAMEMODE_SCARY_POTTER_2, 4, ZOMBIE_NORMAL, ZOMBIE_FOOTBALL},
+		{GAMEMODE_SCARY_POTTER_2, 5, ZOMBIE_PAIL, ZOMBIE_NEWSPAPER},
+		{GAMEMODE_SCARY_POTTER_2, 6, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_REDEYE_GARGANTUAR},
+		{GAMEMODE_SCARY_POTTER_3, 5, ZOMBIE_NORMAL, ZOMBIE_PAIL},
+		{GAMEMODE_SCARY_POTTER_3, 6, ZOMBIE_PAIL, ZOMBIE_NEWSPAPER},
+		{GAMEMODE_SCARY_POTTER_3, 7, ZOMBIE_DANCER, ZOMBIE_GARGANTUAR},
+		{GAMEMODE_SCARY_POTTER_3, 8, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_FLAG},
+		{GAMEMODE_SCARY_POTTER_4, 3, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_TRAFFIC_CONE},
+		{GAMEMODE_SCARY_POTTER_4, 4, ZOMBIE_NORMAL, ZOMBIE_POLEVAULTER},
+		{GAMEMODE_SCARY_POTTER_4, 5, ZOMBIE_FOOTBALL, ZOMBIE_DANCER}
+	}};
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
@@ -48,6 +89,13 @@ int main()
 	ExpectEqual("original cold removal", ResolveChillAfterRemovingCold(500), 0);
 	ExpectEqual("original maximum sun", ResolveMaximumSunMoney(9990), 9990);
 	ExpectEqual("original raining seeds countdown", ResolveRainingSeedsCountdown(123), 623);
+	ExpectEqual("original portal conveyor seed", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 0, SEED_PEASHOOTER), SEED_PEASHOOTER);
+	ExpectEqual("original whack group size", ResolveWhackZombieGroupSize(1), 1);
+	ExpectEqual("original whack speed curve", ResolveWhackZombieSpeedCurveStart(1), 1);
+	for (const SeedRuleCase& aCase : aScarySeedCases)
+		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
+	for (const ZombieRuleCase& aCase : aScaryZombieCases)
+		ExpectEqual("original Scary Potter zombie", ResolveScaryPotterZombie(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
@@ -137,6 +185,20 @@ int main()
 	ExpectEqual("maximum sun", ResolveMaximumSunMoney(9990), 2000000000);
 	ExpectEqual("Beghouled winning score", ResolveBeghouledWinningScore(75), 100);
 	ExpectEqual("raining seeds countdown", ResolveRainingSeedsCountdown(123), 323);
+	ExpectEqual("Portal Combat threepeater", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 0, SEED_PEASHOOTER), SEED_THREEPEATER);
+	ExpectEqual("Portal Combat explodo-nut", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 4, SEED_WALLNUT), SEED_EXPLODE_O_NUT);
+	ExpectEqual("Portal Combat doom-shroom", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 5, SEED_CHERRYBOMB), SEED_DOOMSHROOM);
+	ExpectEqual("Invisighoul threepeater", ResolveConveyorSeed(GAMEMODE_CHALLENGE_INVISIGHOUL, 0, SEED_PEASHOOTER), SEED_THREEPEATER);
+	ExpectEqual("Invisighoul cherry bomb", ResolveConveyorSeed(GAMEMODE_CHALLENGE_INVISIGHOUL, 3, SEED_SQUASH), SEED_CHERRYBOMB);
+	ExpectEqual("unmodified conveyor seed", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 1, SEED_REPEATER), SEED_REPEATER);
+	ExpectEqual("Whack-a-Zombie group size", ResolveWhackZombieGroupSize(1), 2);
+	ExpectEqual("Whack-a-Zombie speed curve", ResolveWhackZombieSpeedCurveStart(1), 3);
+	for (const SeedRuleCase& aCase : aScarySeedCases)
+		ExpectEqual("PvZ 95 Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mPvZ95);
+	for (const ZombieRuleCase& aCase : aScaryZombieCases)
+		ExpectEqual("PvZ 95 Scary Potter zombie", ResolveScaryPotterZombie(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mPvZ95);
+	ExpectEqual("unmodified Scary Potter seed", ResolveScaryPotterSeed(GAMEMODE_SCARY_POTTER_3, 0, SEED_LEFTPEATER), SEED_LEFTPEATER);
+	ExpectEqual("unmodified Scary Potter zombie", ResolveScaryPotterZombie(GAMEMODE_SCARY_POTTER_1, 3, ZOMBIE_NORMAL), ZOMBIE_NORMAL);
 
 	if (SetActiveRuleset("not-a-ruleset"))
 		return 1;

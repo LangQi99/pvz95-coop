@@ -429,4 +429,149 @@ namespace PvzRules
 	{
 		return theRandomValue + (gActiveRuleset == RulesetId::PVZ95 ? 200 : 500);
 	}
+
+	SeedType ResolveConveyorSeed(GameMode theGameMode, int theSeedIndex, SeedType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT)
+		{
+			switch (theSeedIndex)
+			{
+			case 0:
+				return SeedType::SEED_THREEPEATER;
+			case 4:
+				return SeedType::SEED_EXPLODE_O_NUT;
+			case 5:
+				return SeedType::SEED_DOOMSHROOM;
+			default:
+				return theOriginalValue;
+			}
+		}
+
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL)
+		{
+			if (theSeedIndex == 0)
+				return SeedType::SEED_THREEPEATER;
+			if (theSeedIndex == 3)
+				return SeedType::SEED_CHERRYBOMB;
+		}
+
+		return theOriginalValue;
+	}
+
+	int ResolveWhackZombieGroupSize(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 2 : theOriginalValue;
+	}
+
+	int ResolveWhackZombieSpeedCurveStart(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 3 : theOriginalValue;
+	}
+
+	SeedType ResolveScaryPotterSeed(GameMode theGameMode, int thePlacementIndex, SeedType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theGameMode)
+		{
+		case GameMode::GAMEMODE_SCARY_POTTER_1:
+			if (thePlacementIndex == 0)
+				return SeedType::SEED_REPEATER;
+			if (thePlacementIndex == 2)
+				return SeedType::SEED_PEASHOOTER;
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_2:
+			switch (thePlacementIndex)
+			{
+			case 0:
+				return SeedType::SEED_POTATOMINE;
+			case 1:
+				return SeedType::SEED_ICESHROOM;
+			case 2:
+				return SeedType::SEED_EXPLODE_O_NUT;
+			case 3:
+				return SeedType::SEED_CHERRYBOMB;
+			default:
+				break;
+			}
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_3:
+			if (thePlacementIndex == 4)
+				return SeedType::SEED_HYPNOSHROOM;
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_4:
+			if (thePlacementIndex == 0 || thePlacementIndex == 2)
+				return SeedType::SEED_BLOVER;
+			if (thePlacementIndex == 1)
+				return SeedType::SEED_POTATOMINE;
+			break;
+		default:
+			break;
+		}
+
+		return theOriginalValue;
+	}
+
+	ZombieType ResolveScaryPotterZombie(GameMode theGameMode, int thePlacementIndex, ZombieType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theGameMode)
+		{
+		case GameMode::GAMEMODE_SCARY_POTTER_1:
+			if (thePlacementIndex == 5)
+				return ZombieType::ZOMBIE_DOOR;
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_2:
+			switch (thePlacementIndex)
+			{
+			case 4:
+				return ZombieType::ZOMBIE_FOOTBALL;
+			case 5:
+				return ZombieType::ZOMBIE_NEWSPAPER;
+			case 6:
+				return ZombieType::ZOMBIE_REDEYE_GARGANTUAR;
+			default:
+				break;
+			}
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_3:
+			switch (thePlacementIndex)
+			{
+			case 5:
+				return ZombieType::ZOMBIE_PAIL;
+			case 6:
+				return ZombieType::ZOMBIE_NEWSPAPER;
+			case 7:
+				return ZombieType::ZOMBIE_GARGANTUAR;
+			case 8:
+				return ZombieType::ZOMBIE_FLAG;
+			default:
+				break;
+			}
+			break;
+		case GameMode::GAMEMODE_SCARY_POTTER_4:
+			switch (thePlacementIndex)
+			{
+			case 3:
+				return ZombieType::ZOMBIE_TRAFFIC_CONE;
+			case 4:
+				return ZombieType::ZOMBIE_POLEVAULTER;
+			case 5:
+				return ZombieType::ZOMBIE_DANCER;
+			default:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
+
+		return theOriginalValue;
+	}
 }

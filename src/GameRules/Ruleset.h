@@ -93,4 +93,9 @@ namespace PvzRules
 	int ResolveMaximumSunMoney(int theOriginalValue);
 	int ResolveBeghouledWinningScore(int theOriginalValue);
 	int ResolveRainingSeedsCountdown(int theRandomValue);
+	SeedType ResolveConveyorSeed(GameMode theGameMode, int theSeedIndex, SeedType theOriginalValue);
+	int ResolveWhackZombieGroupSize(int theOriginalValue);
+	int ResolveWhackZombieSpeedCurveStart(int theOriginalValue);
+	SeedType ResolveScaryPotterSeed(GameMode theGameMode, int thePlacementIndex, SeedType theOriginalValue);
+	ZombieType ResolveScaryPotterZombie(GameMode theGameMode, int thePlacementIndex, ZombieType theOriginalValue);
 }

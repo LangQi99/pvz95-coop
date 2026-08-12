@@ -1872,6 +1872,7 @@ void Challenge::UpdateConveyorBelt()
 	for (int i = 0; i < aSeedPickCount; i++)
 	{
 		PvzpWeightedArray& aSeedPick = aSeedPickArray[i];
+		aSeedPick.mItem = PvzRules::ResolveConveyorSeed(mApp->mGameMode, i, (SeedType)aSeedPick.mItem);
 		SeedType aSeedType = (SeedType)aSeedPick.mItem;
 		int aCountInBank = mBoard->mSeedBank->CountOfTypeOnConveyorBelt(aSeedType);
 		int aTotalCount = mBoard->CountPlantByType(aSeedType) + aCountInBank;
@@ -2825,7 +2826,7 @@ void Challenge::WhackAZombieSpawning()
 		const int aTripleChance[6] = { 0, 0, 0, 0, 10, 13 };
 		const int aPailChance[6] = { 0, 0, 0, 10, 15, 15 };
 		const int aConeChance[6] = { 0, 0, 30, 30, 30, 30 };
-		int aZombieCount = 1;
+		int aZombieCount = PvzRules::ResolveWhackZombieGroupSize(1);
 		ZombieType aZombieType = ZOMBIE_NORMAL;
 		int aNumHit = Rand(100);
 		int aTypeHit = Rand(100);
@@ -2871,7 +2872,8 @@ void Challenge::WhackAZombieSpawning()
 				}
 			}
 		}
-		float aMaxSpeed = PvzpAnimateCurve(1, 12, mBoard->mCurrentWave, 1, 3, CURVE_EASE_IN);
+		float aMaxSpeed = PvzpAnimateCurve(1, 12, mBoard->mCurrentWave,
+			PvzRules::ResolveWhackZombieSpeedCurveStart(1), 3, CURVE_EASE_IN);
 		aZombieCount = std::min(aZombieCount, aGridPicksCount);
 
 		for (int i = 0; i < aZombieCount; i++)
@@ -3862,12 +3864,16 @@ void Challenge::ScaryPotterPopulate()
 			ScaryPotterDontPlaceInCol(1, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(2, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_PEASHOOTER, 5, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID,
+				PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 0, SEED_PEASHOOTER), 5, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_SNOWPEA, 5, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_SQUASH, 5, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID,
+				PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 2, SEED_SQUASH), 5, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_NORMAL, SEED_NONE, 6, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_PAIL, SEED_NONE, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_JACK_IN_THE_BOX, SEED_NONE, 1, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE,
+				PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 5, ZOMBIE_JACK_IN_THE_BOX),
+				SEED_NONE, 1, aGridArray, aGridArrayCount);
 			ScaryPotterChangePotType(GRIDITEM_STATE_SCARY_POT_LEAF, 2);
 			break;
 		case GAMEMODE_SCARY_POTTER_2:
@@ -3875,13 +3881,13 @@ void Challenge::ScaryPotterPopulate()
 			ScaryPotterDontPlaceInCol(1, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(2, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(8, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_LEFTPEATER, 7, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_SNOWPEA, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_WALLNUT, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_POTATOMINE, 2, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_NORMAL, SEED_NONE, 6, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_PAIL, SEED_NONE, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_JACK_IN_THE_BOX, SEED_NONE, 1, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 0, SEED_LEFTPEATER), 7, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 1, SEED_SNOWPEA), 3, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 2, SEED_WALLNUT), 3, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 3, SEED_POTATOMINE), 2, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 4, ZOMBIE_NORMAL), SEED_NONE, 6, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 5, ZOMBIE_PAIL), SEED_NONE, 3, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 6, ZOMBIE_JACK_IN_THE_BOX), SEED_NONE, 1, aGridArray, aGridArrayCount);
 			ScaryPotterChangePotType(GRIDITEM_STATE_SCARY_POT_LEAF, 2);
 			break;
 		case GAMEMODE_SCARY_POTTER_3:
@@ -3892,22 +3898,22 @@ void Challenge::ScaryPotterPopulate()
 			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_SNOWPEA, 4, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_SQUASH, 2, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_HYPNOSHROOM, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_WALLNUT, 3, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_NORMAL, SEED_NONE, 8, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_PAIL, SEED_NONE, 2, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_DANCER, SEED_NONE, 1, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_JACK_IN_THE_BOX, SEED_NONE, 1, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 4, SEED_WALLNUT), 3, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 5, ZOMBIE_NORMAL), SEED_NONE, 8, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 6, ZOMBIE_PAIL), SEED_NONE, 2, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 7, ZOMBIE_DANCER), SEED_NONE, 1, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 8, ZOMBIE_JACK_IN_THE_BOX), SEED_NONE, 1, aGridArray, aGridArrayCount);
 			ScaryPotterChangePotType(GRIDITEM_STATE_SCARY_POT_LEAF, 2);
 			break;
 		case GAMEMODE_SCARY_POTTER_4:
 			ScaryPotterDontPlaceInCol(0, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(1, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_PUFFSHROOM, 11, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_HYPNOSHROOM, 4, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_LEFTPEATER, 4, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_JACK_IN_THE_BOX, SEED_NONE, 8, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_NORMAL, SEED_NONE, 7, aGridArray, aGridArrayCount);
-			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, ZOMBIE_FOOTBALL, SEED_NONE, 1, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 0, SEED_PUFFSHROOM), 11, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 1, SEED_HYPNOSHROOM), 4, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, PvzRules::ResolveScaryPotterSeed(mApp->mGameMode, 2, SEED_LEFTPEATER), 4, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 3, ZOMBIE_JACK_IN_THE_BOX), SEED_NONE, 8, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 4, ZOMBIE_NORMAL), SEED_NONE, 7, aGridArray, aGridArrayCount);
+			ScaryPotterPlacePot(SCARYPOT_ZOMBIE, PvzRules::ResolveScaryPotterZombie(mApp->mGameMode, 5, ZOMBIE_FOOTBALL), SEED_NONE, 1, aGridArray, aGridArrayCount);
 			ScaryPotterChangePotType(GRIDITEM_STATE_SCARY_POT_LEAF, 2);
 			break;
 		case GAMEMODE_SCARY_POTTER_5:

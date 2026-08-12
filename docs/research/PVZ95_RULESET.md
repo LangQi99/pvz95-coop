@@ -113,12 +113,33 @@ Two unusual translations are intentional and evidence-backed:
 - The modified executable compares zombie type `1` (Flag) instead of `19` (Yeti) immediately before the unchanged call to `UpdateYeti` at `0x52B214`. This looks like a gameplay glitch, but the ruleset preserves it because both bytes and call target are unambiguous.
 - At `0x4680F2`, the executable literally stores `0x7fffffff` in the Fume-shroom rectangle's **width**, not its right edge. The original 32-bit overlap routine subsequently adds `x + width`, which wraps. Copying that literal into portable C++ would be signed-overflow undefined behavior and can make the attack miss everything. The source port uses `BOARD_WIDTH` instead: this safely preserves the apparent intended behavior of reaching every target to the right while remaining deterministic on Windows and macOS.
 
+## Implemented verified behavior batch 3
+
+This batch restores 28 changed immediates in `Challenge`. Conveyor weights, Scary Potter pot counts, and all entries not listed below remain unchanged. Placement indices are zero-based call order within one Scary Potter level and are used only to express the executable's exact per-slot replacements.
+
+| Area | PvZ 95 behavior | Evidence |
+|---|---|---:|
+| Portal Combat conveyor | slot 0 Peashooter → Threepeater; slot 4 Wall-nut → Explode-o-nut; slot 5 Cherry Bomb → Doom-shroom | `0x4231B4`, `0x4231E0`, `0x4231EC`, injected `0x400638` |
+| Invisighoul conveyor | slot 0 Peashooter → Threepeater; slot 3 Squash → Cherry Bomb | `0x42325A`, `0x42327E`, injected `0x4004E8` |
+| Whack-a-Zombie | ordinary spawn group starts at 2 instead of 1; maximum-speed curve starts at 3 instead of 1 | `0x426193`, `0x42630B` |
+| Scary Potter 1 seeds | slot 0 Peashooter → Repeater; slot 2 Squash → Peashooter | `0x428B39`, `0x428B66` |
+| Scary Potter 1 zombies | slot 5 Jack-in-the-box → Screen Door | `0x428BA3` |
+| Scary Potter 2 seeds | slots 0–3: Leftpeater → Potato Mine, Snow Pea → Ice-shroom, Wall-nut → Explode-o-nut, Potato Mine → Cherry Bomb | `0x428C3A`, `0x428C53`, `0x428C67`, `0x428C7B` |
+| Scary Potter 2 zombies | slots 4–6: Normal → Football, Buckethead → Newspaper, Jack-in-the-box → Red-eye Gargantuar | `0x428C90`, `0x428CA3`, `0x428CB6` |
+| Scary Potter 3 seed | slot 4 Wall-nut → Hypno-shroom | `0x428D8B` |
+| Scary Potter 3 zombies | slots 5–8: Normal → Buckethead, Buckethead → Newspaper, Dancing → Gargantuar, Jack-in-the-box → Flag | `0x428DA1`, `0x428DB4`, `0x428DC6`, `0x428DD9` |
+| Scary Potter 4 seeds | slots 0–2: Puff-shroom → Blover, Hypno-shroom → Potato Mine, Leftpeater → Blover | `0x428E38`, `0x428E4E`, `0x428E61` |
+| Scary Potter 4 zombies | slots 3–5: Jack-in-the-box → Conehead, Normal → Pole Vaulter, Football → Dancing | `0x428E76`, `0x428E8A`, `0x428E9E` |
+
+The Portal Combat and Invisighoul slot-0 edits enter tiny injected stubs, but those stubs only replace the seed-type immediate and return to the unchanged weight assignment. The portable implementation therefore applies the replacement before the common conveyor weighting loop. Scary Potter 5 and later contain no direct type change in this contiguous patch region.
+
 ## Still pending translation
 
 The following groups have been located but are not marked complete. They require decoding their injected branches and then adding behavior tests; merely finding a changed instruction is not treated as implementation.
 
 - Board wave selection, zombie spawn eligibility, sun-spawn timing, loot, future/dance/super-mower modes, and typing hooks.
-- Challenge conveyor contents, Whack-a-Zombie population, challenge-specific wave construction, and the full Scary Potter pot population tables.
+- Challenge-specific wave construction and `SpawnZombieWave`'s injected board-state gate. Its nearby current-wave threshold change from 5 to 9 is intentionally pending with that gate so the two dependent edits are not translated separately.
+- Remaining Scary Potter 5+ behavior hooks, if later analysis finds any outside the decoded direct type-immediate region.
 - Plant bowling, Magnet-shroom, squish, burn-row and Blover target changes; remaining projectile update/death hooks.
 - Gargantuar actions, board-edge behavior, plant targeting and square squishing; remaining zombie damage branches and special-head behavior.
 - The changed `.data` zombie-allowed-level table and remaining `.rdata` presentation strings.
