@@ -68,6 +68,7 @@
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
+#include <iterator>
 
 #include "widget/Checkbox.h"
 #include "widget/Dialog.h"
@@ -95,6 +96,28 @@ static bool HasUnshownAchievements(PlayerInfo* thePlayerInfo)
 	}
 
 	return false;
+}
+
+namespace
+{
+	constexpr uint64_t LAN_CURSOR_SEND_INTERVAL = 4;
+	constexpr uint64_t LAN_CURSOR_KEEPALIVE_INTERVAL = 50;
+	constexpr uint64_t LAN_CURSOR_TIMEOUT = 300;
+
+	uint8_t MouseButtonMask(int theClickCount)
+	{
+		if (theClickCount < 0)
+			return 0x02;
+		if (theClickCount == 3)
+			return 0x04;
+		return 0x01;
+	}
+
+	bool IsValidPointerClickCount(int theClickCount)
+	{
+		return theClickCount == -2 || theClickCount == -1 || theClickCount == 1 ||
+			theClickCount == 2 || theClickCount == 3;
+	}
 }
 
 bool LawnGetCloseRequest()
@@ -1655,6 +1678,7 @@ void LawnApp::UpdateFrames()
 	{
 		mAppCounter++;
 		mLanCoordinator->Poll();
+		UpdateLanSession();
 
 		if (mBoard)
 		{
@@ -1670,6 +1694,254 @@ void LawnApp::UpdateFrames()
 		mMusic->MusicUpdate();
 
 		CheckForGameEnd();
+	}
+}
+
+void LawnApp::LocalMouseMove(int theX, int theY)
+{
+	mLocalLanCursorX = theX;
+	mLocalLanCursorY = theY;
+	mLocalLanCursorVisible = true;
+}
+
+bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDown)
+{
+	LocalMouseMove(theX, theY);
+	uint8_t aButtonMask = MouseButtonMask(theClickCount);
+	if (theDown)
+		mLocalLanCursorButtons |= aButtonMask;
+	else
+		mLocalLanCursorButtons &= static_cast<uint8_t>(~aButtonMask);
+
+	if (!mBoard || !IsBoardInputAt(theX, theY) || !IsValidPointerClickCount(theClickCount))
+		return false;
+
+	PvzMultiplayer::LanMode aMode = mLanCoordinator->GetMode();
+	if (aMode != PvzMultiplayer::LanMode::HOSTING && aMode != PvzMultiplayer::LanMode::CONNECTED)
+		return false;
+
+	PvzMultiplayer::InputCommand anInput{
+		mAppCounter,
+		++mLanInputSequence,
+		static_cast<uint32_t>(theClickCount),
+		PvzMultiplayer::NormalizeCoordinate(theX, mWidth),
+		PvzMultiplayer::NormalizeCoordinate(theY, mHeight),
+		0,
+		mSharedInputState.GetLocalPlayerId(),
+		theDown ? PvzMultiplayer::InputKind::POINTER_DOWN : PvzMultiplayer::InputKind::POINTER_UP
+	};
+
+	if (aMode == PvzMultiplayer::LanMode::HOSTING)
+	{
+		mLanCoordinator->BroadcastFromHost(anInput);
+		return false;
+	}
+
+	mLanCoordinator->SendInput(anInput);
+	// A connected client waits for the host's accepted command instead of
+	// mutating its local simulation speculatively.
+	return true;
+}
+
+void LawnApp::UpdateLanSession()
+{
+	using namespace PvzMultiplayer;
+
+	LanMode aMode = mLanCoordinator->GetMode();
+	uint8_t aModeValue = static_cast<uint8_t>(aMode);
+	if (aModeValue != mLastLanModeValue)
+	{
+		PlayerId aLocalPlayerId = 0;
+		if (aMode == LanMode::CONNECTED && mLanCoordinator->GetClientSession().GetWelcome())
+			aLocalPlayerId = mLanCoordinator->GetClientSession().GetWelcome()->mPlayerId;
+		mSharedInputState.Reset(aLocalPlayerId);
+		mLanCursorSequence = 0;
+		mLanInputSequence = 0;
+		mLastLanCursorSendTick = 0;
+		mHasSentLanCursor = false;
+		mLastLanModeValue = aModeValue;
+	}
+
+	if (aMode == LanMode::HOSTING)
+	{
+		mLanCoordinator->SetSessionStarted(mBoard != nullptr);
+		for (HostSessionEvent& anEvent : mLanCoordinator->TakeHostEvents())
+		{
+			if (const auto* aPlayerLeft = std::get_if<PlayerLeft>(&anEvent))
+			{
+				mSharedInputState.RemovePlayer(aPlayerLeft->mPlayerId);
+				continue;
+			}
+			if (const auto* aCursor = std::get_if<CursorUpdate>(&anEvent))
+			{
+				CursorUpdate anAcceptedCursor = *aCursor;
+				anAcceptedCursor.mHostTick = mAppCounter;
+				if (mSharedInputState.ApplyCursor(anAcceptedCursor, mAppCounter))
+				{
+					ApplyLanCursorMotion(anAcceptedCursor);
+					mLanCoordinator->BroadcastFromHost(anAcceptedCursor);
+				}
+				continue;
+			}
+			if (const auto* anInput = std::get_if<InputCommand>(&anEvent))
+			{
+				InputCommand anAcceptedInput = *anInput;
+				anAcceptedInput.mHostTick = mAppCounter;
+				if (ApplyLanInput(anAcceptedInput))
+					mLanCoordinator->BroadcastFromHost(anAcceptedInput);
+			}
+		}
+	}
+	else if (aMode == LanMode::CONNECTED)
+	{
+		for (Message& aMessage : mLanCoordinator->TakeClientMessages())
+		{
+			if (const auto* aCursor = std::get_if<CursorUpdate>(&aMessage))
+			{
+				if (mSharedInputState.ApplyCursor(*aCursor, mAppCounter))
+					ApplyLanCursorMotion(*aCursor);
+			}
+			else if (const auto* anInput = std::get_if<InputCommand>(&aMessage))
+				ApplyLanInput(*anInput);
+		}
+	}
+
+	PublishLocalLanCursor();
+}
+
+void LawnApp::PublishLocalLanCursor()
+{
+	using namespace PvzMultiplayer;
+
+	LanMode aMode = mLanCoordinator->GetMode();
+	if (!mBoard || (aMode != LanMode::HOSTING && aMode != LanMode::CONNECTED))
+		return;
+	if (mHasSentLanCursor && mAppCounter - mLastLanCursorSendTick < LAN_CURSOR_SEND_INTERVAL)
+		return;
+
+	uint16_t aNormalizedX = NormalizeCoordinate(mLocalLanCursorX, mWidth);
+	uint16_t aNormalizedY = NormalizeCoordinate(mLocalLanCursorY, mHeight);
+	bool aChanged = !mHasSentLanCursor || aNormalizedX != mLastLanCursorX ||
+		aNormalizedY != mLastLanCursorY || mLocalLanCursorButtons != mLastLanCursorButtons ||
+		mLocalLanCursorVisible != mLastLanCursorVisible;
+	if (!aChanged && mAppCounter - mLastLanCursorSendTick < LAN_CURSOR_KEEPALIVE_INTERVAL)
+		return;
+
+	CursorUpdate aCursor{
+		mAppCounter,
+		++mLanCursorSequence,
+		aNormalizedX,
+		aNormalizedY,
+		mSharedInputState.GetLocalPlayerId(),
+		mLocalLanCursorButtons,
+		mLocalLanCursorVisible
+	};
+	if (aMode == LanMode::HOSTING)
+	{
+		mSharedInputState.ApplyCursor(aCursor, mAppCounter);
+		mLanCoordinator->BroadcastFromHost(aCursor);
+	}
+	else
+	{
+		mLanCoordinator->SendCursor(aCursor);
+	}
+
+	mLastLanCursorSendTick = mAppCounter;
+	mLastLanCursorX = aNormalizedX;
+	mLastLanCursorY = aNormalizedY;
+	mLastLanCursorButtons = mLocalLanCursorButtons;
+	mLastLanCursorVisible = mLocalLanCursorVisible;
+	mHasSentLanCursor = true;
+}
+
+void LawnApp::ApplyLanCursorMotion(const PvzMultiplayer::CursorUpdate& theCursor)
+{
+	if (!mBoard || theCursor.mPlayerId == mSharedInputState.GetLocalPlayerId())
+		return;
+	int aScreenX = PvzMultiplayer::DenormalizeCoordinate(theCursor.mNormalizedX, mWidth);
+	int aScreenY = PvzMultiplayer::DenormalizeCoordinate(theCursor.mNormalizedY, mHeight);
+	int anOldMouseX = mWidgetManager->mLastMouseX;
+	int anOldMouseY = mWidgetManager->mLastMouseY;
+	mWidgetManager->mLastMouseX = aScreenX;
+	mWidgetManager->mLastMouseY = aScreenY;
+	int aBoardX = aScreenX - mBoard->mX;
+	int aBoardY = aScreenY - mBoard->mY;
+	if (theCursor.mButtons != 0)
+		mBoard->MouseDrag(aBoardX, aBoardY);
+	else
+		mBoard->MouseMove(aBoardX, aBoardY);
+	mWidgetManager->mLastMouseX = anOldMouseX;
+	mWidgetManager->mLastMouseY = anOldMouseY;
+	mBoard->UpdateMousePosition();
+}
+
+bool LawnApp::ApplyLanInput(const PvzMultiplayer::InputCommand& theInput)
+{
+	using namespace PvzMultiplayer;
+
+	if (!mBoard || (theInput.mKind != InputKind::POINTER_DOWN && theInput.mKind != InputKind::POINTER_UP))
+		return false;
+	int aClickCount = static_cast<int32_t>(theInput.mCode);
+	if (!IsValidPointerClickCount(aClickCount) || theInput.mModifiers != 0)
+		return false;
+
+	int aScreenX = DenormalizeCoordinate(theInput.mNormalizedX, mWidth);
+	int aScreenY = DenormalizeCoordinate(theInput.mNormalizedY, mHeight);
+	int anOldMouseX = mWidgetManager->mLastMouseX;
+	int anOldMouseY = mWidgetManager->mLastMouseY;
+	mWidgetManager->mLastMouseX = aScreenX;
+	mWidgetManager->mLastMouseY = aScreenY;
+	int aBoardX = aScreenX - mBoard->mX;
+	int aBoardY = aScreenY - mBoard->mY;
+	if (theInput.mKind == InputKind::POINTER_DOWN)
+		mBoard->MouseDown(aBoardX, aBoardY, aClickCount);
+	else
+		mBoard->MouseUp(aBoardX, aBoardY, aClickCount);
+	mWidgetManager->mLastMouseX = anOldMouseX;
+	mWidgetManager->mLastMouseY = anOldMouseY;
+	mBoard->UpdateMousePosition();
+	return true;
+}
+
+bool LawnApp::IsBoardInputAt(int theX, int theY)
+{
+	return mWidgetManager && mBoard && mWidgetManager->GetWidgetAt(theX, theY, nullptr, nullptr) == mBoard;
+}
+
+void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int theOriginY) const
+{
+	using namespace PvzMultiplayer;
+
+	for (const auto& aCursorSlot : mSharedInputState.GetCursors())
+	{
+		if (!aCursorSlot || aCursorSlot->mUpdate.mPlayerId == mSharedInputState.GetLocalPlayerId() ||
+			!aCursorSlot->mUpdate.mVisible || mAppCounter - aCursorSlot->mReceivedAtTick > LAN_CURSOR_TIMEOUT)
+			continue;
+
+		int aX = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedX, mWidth) - theOriginX;
+		int aY = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedY, mHeight) - theOriginY;
+		Sexy::Point aPointer[] = {
+			{aX, aY}, {aX + 3, aY + 18}, {aX + 8, aY + 13}, {aX + 13, aY + 22},
+			{aX + 17, aY + 20}, {aX + 12, aY + 11}, {aX + 20, aY + 9}
+		};
+		uint32_t aRgb = aCursorSlot->mRgb;
+		theGraphics->SetColor(Sexy::Color(
+			static_cast<int>((aRgb >> 16) & 0xFFU),
+			static_cast<int>((aRgb >> 8) & 0xFFU),
+			static_cast<int>(aRgb & 0xFFU)));
+		theGraphics->PolyFillAA(aPointer, static_cast<int>(std::size(aPointer)), true);
+		theGraphics->SetColor(Sexy::Color(25, 25, 25));
+		for (size_t anIndex = 0; anIndex < std::size(aPointer); ++anIndex)
+		{
+			const Sexy::Point& aStart = aPointer[anIndex];
+			const Sexy::Point& anEnd = aPointer[(anIndex + 1) % std::size(aPointer)];
+			theGraphics->DrawLineAA(aStart.mX, aStart.mY, anEnd.mX, anEnd.mY);
+		}
+		if (aCursorSlot->mUpdate.mButtons != 0)
+		{
+			theGraphics->SetColor(Sexy::Color(255, 255, 255));
+			theGraphics->FillRect(aX - 3, aY - 3, 6, 6);
+		}
 	}
 }
 

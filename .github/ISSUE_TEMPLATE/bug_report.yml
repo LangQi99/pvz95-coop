@@ -29,14 +29,7 @@ body:
       label: Platform
       description: Which platform are you running PvZ-Portable on?
       options:
-        - Linux (x86_64)
-        - Linux (aarch64)
-        - Linux (riscv64)
-        - Linux (loongarch64)
-        - Linux (other)
         - Windows (x64)
-        - Windows (ARM64)
-        - Windows (x86)
         - macOS (Apple Silicon)
         - macOS (Intel)
         - Android
@@ -55,13 +48,12 @@ body:
       label: OS / Environment Info
       description: >
         Provide details about your operating system and environment.
-        For Linux: distro name and version, kernel version, desktop environment, GPU driver, etc.
-        For Windows: Windows version, GPU driver version.
-        For macOS: macOS version, chip model.
+        For Windows: Windows version and GPU driver version.
+        For macOS: macOS version and chip model.
         For consoles: firmware version, CFW version.
       placeholder: |
         e.g.
-        Arch Linux, kernel 6.18.9, KDE Plasma 6, AMD Radeon Graphics
+        Windows 11 24H2, NVIDIA driver 591.74
     validations:
       required: true
 

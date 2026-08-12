@@ -41,6 +41,7 @@ namespace PvzMultiplayer
 
 		bool Broadcast(const Message& theMessage);
 		bool SendTo(PlayerId thePlayerId, const Message& theMessage);
+		void SetSessionStarted(bool theStarted);
 		std::vector<HostSessionEvent> TakeEvents();
 
 		bool IsRunning() const;

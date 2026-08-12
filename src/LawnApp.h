@@ -25,6 +25,7 @@
 #include "ConstEnums.h"
 #include "SexyAppFramework/SexyApp.h"
 #include "PvzpLib/PvzpFoley.h"
+#include "Multiplayer/SharedInputState.h"
 
 #include <memory>
 
@@ -148,6 +149,20 @@ public:
 	bool							mDebugTrialLocked;
 	bool							mMuteSoundsForCutscene;
 	std::unique_ptr<PvzMultiplayer::LanCoordinator> mLanCoordinator;
+	PvzMultiplayer::SharedInputState mSharedInputState;
+	uint32_t                        mLanCursorSequence{};
+	uint32_t                        mLanInputSequence{};
+	uint64_t                        mLastLanCursorSendTick{};
+	uint16_t                        mLastLanCursorX{};
+	uint16_t                        mLastLanCursorY{};
+	uint8_t                         mLocalLanCursorButtons{};
+	uint8_t                         mLastLanCursorButtons{};
+	uint8_t                         mLastLanModeValue{0xFF};
+	int                             mLocalLanCursorX{};
+	int                             mLocalLanCursorY{};
+	bool                            mLocalLanCursorVisible{};
+	bool                            mLastLanCursorVisible{};
+	bool                            mHasSentLanCursor{};
 
 public:
 	LawnApp();
@@ -230,6 +245,14 @@ public:
 	void							ButtonMouseLeave(int theId) override;
 	void							ButtonMouseMove(int theId, int theX, int theY) override;
 	void							UpdateFrames() override;
+	void                            LocalMouseMove(int theX, int theY) override;
+	bool                            LocalMouseButton(int theX, int theY, int theClickCount, bool theDown) override;
+	void                            DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int theOriginY) const;
+	void                            UpdateLanSession();
+	void                            PublishLocalLanCursor();
+	void                            ApplyLanCursorMotion(const PvzMultiplayer::CursorUpdate& theCursor);
+	bool                            ApplyLanInput(const PvzMultiplayer::InputCommand& theInput);
+	bool                            IsBoardInputAt(int theX, int theY);
 	bool							UpdateAppStep(bool* updated) override;
 	bool							UpdateApp() override;
 	bool					IsAdventureMode();

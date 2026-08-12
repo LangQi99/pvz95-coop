@@ -672,6 +672,7 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 
 				mLastUserInputTick = mLastTimerTime;
 
+				LocalMouseMove(x, y);
 				mWidgetManager->MouseMove(x, y);
 				break;
 			}
@@ -687,6 +688,7 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 
 				mLastUserInputTick = mLastTimerTime;
 
+				LocalMouseMove(x, y);
 				mWidgetManager->MouseMove(x, y);
 				int btn =
 					(event.button.button == SDL_BUTTON_LEFT) ? 1 :
@@ -695,7 +697,8 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 				if (event.button.clicks == 2)
 					btn = (event.button.button == SDL_BUTTON_LEFT) ? 2 : -2;
 
-				mWidgetManager->MouseDown(x, y, btn);
+				if (!LocalMouseButton(x, y, btn, true))
+					mWidgetManager->MouseDown(x, y, btn);
 				break;
 			}
 
@@ -710,13 +713,15 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 
 				mLastUserInputTick = mLastTimerTime;
 
+				LocalMouseMove(x, y);
 				mWidgetManager->MouseMove(x, y);
 				int btn =
 					(event.button.button == SDL_BUTTON_LEFT) ? 1 :
 					(event.button.button == SDL_BUTTON_RIGHT) ? -1 :
 					3;
 
-				mWidgetManager->MouseUp(x, y, btn);
+				if (!LocalMouseButton(x, y, btn, false))
+					mWidgetManager->MouseUp(x, y, btn);
 				break;
 			}
 

@@ -184,6 +184,12 @@ namespace PvzMultiplayer
 		return mMode == LanMode::HOSTING && mHostSession.Broadcast(theMessage);
 	}
 
+	void LanCoordinator::SetSessionStarted(bool theStarted)
+	{
+		if (mMode == LanMode::HOSTING)
+			mHostSession.SetSessionStarted(theStarted);
+	}
+
 	LanMode LanCoordinator::GetMode() const
 	{
 		return mMode;

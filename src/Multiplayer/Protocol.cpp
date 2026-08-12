@@ -143,6 +143,30 @@ namespace PvzMultiplayer
 			return thePlayerId < MAX_PLAYERS;
 		}
 
+		bool IsValidInputPayload(const InputCommand& theInput)
+		{
+			if (!IsValidPlayer(theInput.mPlayerId) ||
+				!IsValidInputKind(static_cast<uint8_t>(theInput.mKind)))
+				return false;
+
+			switch (theInput.mKind)
+			{
+			case InputKind::POINTER_DOWN:
+			case InputKind::POINTER_UP:
+			{
+				int aClickCount = static_cast<int32_t>(theInput.mCode);
+				return theInput.mModifiers == 0 && (aClickCount == -2 || aClickCount == -1 ||
+					aClickCount == 1 || aClickCount == 2 || aClickCount == 3);
+			}
+			case InputKind::KEY_DOWN:
+			case InputKind::KEY_UP:
+				return theInput.mCode < 0xFFU;
+			case InputKind::PAUSE_TOGGLE:
+				return theInput.mCode == 0 && theInput.mModifiers == 0;
+			}
+			return false;
+		}
+
 		bool WritePayload(PacketWriter& theWriter, const Message& theMessage)
 		{
 			return std::visit([&](const auto& thePayload)
@@ -195,7 +219,7 @@ namespace PvzMultiplayer
 				}
 				else if constexpr (std::is_same_v<Payload, CursorUpdate>)
 				{
-					if (!IsValidPlayer(thePayload.mPlayerId))
+					if (!IsValidPlayer(thePayload.mPlayerId) || (thePayload.mButtons & 0xE0U) != 0)
 						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
 					theWriter.WriteU32(thePayload.mSequence);
@@ -207,7 +231,7 @@ namespace PvzMultiplayer
 				}
 				else if constexpr (std::is_same_v<Payload, InputCommand>)
 				{
-					if (!IsValidPlayer(thePayload.mPlayerId) || !IsValidInputKind(static_cast<uint8_t>(thePayload.mKind)))
+					if (!IsValidInputPayload(thePayload))
 						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
 					theWriter.WriteU32(thePayload.mSequence);
@@ -355,7 +379,8 @@ namespace PvzMultiplayer
 			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU32(aMessage.mSequence) ||
 				!aReader.ReadU16(aMessage.mNormalizedX) || !aReader.ReadU16(aMessage.mNormalizedY) ||
 				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aMessage.mButtons) ||
-				!aReader.ReadU8(aVisible) || !IsValidPlayer(aMessage.mPlayerId) || aVisible > 1)
+				!aReader.ReadU8(aVisible) || !IsValidPlayer(aMessage.mPlayerId) ||
+				(aMessage.mButtons & 0xE0U) != 0 || aVisible > 1)
 				break;
 			aMessage.mVisible = aVisible != 0;
 			return FinishDecode(aReader, std::move(aMessage));
@@ -367,10 +392,11 @@ namespace PvzMultiplayer
 			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU32(aMessage.mSequence) ||
 				!aReader.ReadU32(aMessage.mCode) || !aReader.ReadU16(aMessage.mNormalizedX) ||
 				!aReader.ReadU16(aMessage.mNormalizedY) || !aReader.ReadU16(aMessage.mModifiers) ||
-				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aKind) ||
-				!IsValidPlayer(aMessage.mPlayerId) || !IsValidInputKind(aKind))
+				!aReader.ReadU8(aMessage.mPlayerId) || !aReader.ReadU8(aKind) || !IsValidInputKind(aKind))
 				break;
 			aMessage.mKind = static_cast<InputKind>(aKind);
+			if (!IsValidInputPayload(aMessage))
+				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}
 		case MessageKind::STATE_HASH:

@@ -5,6 +5,7 @@
  */
 
 #include "Lobby.h"
+#include "SharedInputState.h"
 
 #include <algorithm>
 #include <utility>
@@ -13,13 +14,6 @@ namespace PvzMultiplayer
 {
 	namespace
 	{
-		constexpr std::array<uint32_t, MAX_PLAYERS> CURSOR_COLORS = {
-			0xEF5350, // red
-			0x42A5F5, // blue
-			0x66BB6A, // green
-			0xAB47BC  // purple
-		};
-
 		bool IsContinuationByte(uint8_t theByte)
 		{
 			return (theByte & 0xC0U) == 0x80U;
@@ -120,7 +114,7 @@ namespace PvzMultiplayer
 			return false;
 
 		mConfig = std::move(theConfig);
-		mPlayers[0] = LobbyPlayer{0, CURSOR_COLORS[0], 0, mConfig.mHostName};
+		mPlayers[0] = LobbyPlayer{0, GetPlayerCursorColor(0), 0, mConfig.mHostName};
 		mRunning = true;
 		return true;
 	}
@@ -158,7 +152,7 @@ namespace PvzMultiplayer
 			if (mPlayers[aPlayerId])
 				continue;
 
-			LobbyPlayer aPlayer{theHello.mClientNonce, CURSOR_COLORS[aPlayerId], aPlayerId, theHello.mPlayerName};
+			LobbyPlayer aPlayer{theHello.mClientNonce, GetPlayerCursorColor(aPlayerId), aPlayerId, theHello.mPlayerName};
 			mPlayers[aPlayerId] = aPlayer;
 			return MakeWelcome(aPlayer);
 		}

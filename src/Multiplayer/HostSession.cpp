@@ -5,6 +5,7 @@
  */
 
 #include "HostSession.h"
+#include "SharedInputState.h"
 
 #include <algorithm>
 #include <utility>
@@ -112,6 +113,11 @@ namespace PvzMultiplayer
 		return false;
 	}
 
+	void HostSession::SetSessionStarted(bool theStarted)
+	{
+		mLobby.SetSessionStarted(theStarted);
+	}
+
 	std::vector<HostSessionEvent> HostSession::TakeEvents()
 	{
 		std::vector<HostSessionEvent> anEvents;
@@ -157,7 +163,7 @@ namespace PvzMultiplayer
 				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid cursor update");
 				return;
 			}
-			if (thePeer.mHasCursorSequence && aCursor->mSequence <= thePeer.mLastCursorSequence)
+			if (thePeer.mHasCursorSequence && !IsSequenceNewer(aCursor->mSequence, thePeer.mLastCursorSequence))
 				return;
 			thePeer.mLastCursorSequence = aCursor->mSequence;
 			thePeer.mHasCursorSequence = true;
@@ -172,7 +178,7 @@ namespace PvzMultiplayer
 				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid input command");
 				return;
 			}
-			if (thePeer.mHasInputSequence && anInput->mSequence <= thePeer.mLastInputSequence)
+			if (thePeer.mHasInputSequence && !IsSequenceNewer(anInput->mSequence, thePeer.mLastInputSequence))
 				return;
 			thePeer.mLastInputSequence = anInput->mSequence;
 			thePeer.mHasInputSequence = true;

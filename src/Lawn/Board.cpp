@@ -7461,6 +7461,7 @@ void Board::DrawUITop(Graphics* g)
 		mCursorObject->Draw(g);
 		mCursorObject->EndDraw(g);
 	}
+	mApp->DrawSharedCursors(g, mX, mY);
 
 	mToolTip->Draw(g);
 	DrawDebugText(g);

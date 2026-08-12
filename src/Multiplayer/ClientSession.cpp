@@ -5,6 +5,7 @@
  */
 
 #include "ClientSession.h"
+#include "SharedInputState.h"
 
 #include <utility>
 
@@ -139,7 +140,7 @@ namespace PvzMultiplayer
 	bool ClientSession::SendCursor(CursorUpdate theCursor)
 	{
 		if (mState != ClientSessionState::CONNECTED || !mChannel || !mWelcome ||
-			(mHasCursorSequence && theCursor.mSequence <= mLastCursorSequence) || (theCursor.mButtons & 0xE0U) != 0)
+			(mHasCursorSequence && !IsSequenceNewer(theCursor.mSequence, mLastCursorSequence)) || (theCursor.mButtons & 0xE0U) != 0)
 			return false;
 
 		theCursor.mPlayerId = mWelcome->mPlayerId;
@@ -153,7 +154,7 @@ namespace PvzMultiplayer
 	bool ClientSession::SendInput(InputCommand theInput)
 	{
 		if (mState != ClientSessionState::CONNECTED || !mChannel || !mWelcome ||
-			(mHasInputSequence && theInput.mSequence <= mLastInputSequence))
+			(mHasInputSequence && !IsSequenceNewer(theInput.mSequence, mLastInputSequence)))
 			return false;
 
 		theInput.mPlayerId = mWelcome->mPlayerId;

@@ -36,6 +36,7 @@ namespace PvzMultiplayer
 		bool SendCursor(CursorUpdate theCursor);
 		bool SendInput(InputCommand theInput);
 		bool BroadcastFromHost(const Message& theMessage);
+		void SetSessionStarted(bool theStarted);
 
 		LanMode GetMode() const;
 		const std::string& GetStatusText() const;

@@ -63,10 +63,41 @@ int main()
 		std::get<CursorUpdate>(anEvents.front()).mPlayerId != 1)
 		Fail("coordinator did not bind cursor to the assigned player");
 
+	InputCommand anInput{12, 1, 1, 20000, 30000, 0, 99, InputKind::POINTER_DOWN};
+	if (!aClient.SendInput(anInput))
+		Fail("coordinator failed to send input");
+	anEvents.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
+	{
+		aClient.Poll();
+		aHost.Poll();
+		anEvents = aHost.TakeHostEvents();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (anEvents.size() != 1 || !std::holds_alternative<InputCommand>(anEvents.front()) ||
+		std::get<InputCommand>(anEvents.front()).mPlayerId != 1)
+		Fail("coordinator did not bind input to the assigned player");
+	InputCommand anAcceptedInput = std::get<InputCommand>(anEvents.front());
+	anAcceptedInput.mHostTick = 20;
+	if (!aHost.BroadcastFromHost(anAcceptedInput))
+		Fail("coordinator failed to broadcast accepted input");
+	std::vector<Message> aMessages;
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{anAcceptedInput})
+		Fail("coordinator client did not receive accepted input");
+
 	StateHash aHash{20, 0x0102030405060708ULL};
 	if (!aHost.BroadcastFromHost(aHash))
 		Fail("coordinator host broadcast failed");
-	std::vector<Message> aMessages;
+	aMessages.clear();
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
 	{

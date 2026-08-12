@@ -52,7 +52,7 @@ int main()
 	ExpectRoundTrip(Welcome{0x8877665544332211ULL, 0x50563935, 0x45A3FF, 100, 1, 4});
 	ExpectRoundTrip(Reject{RejectReason::RULESET_MISMATCH, "PvZ95 rules required"});
 	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, 1, true});
-	ExpectRoundTrip(InputCommand{4570, 100, 1, 40000, 25000, 2, 2, InputKind::POINTER_DOWN});
+	ExpectRoundTrip(InputCommand{4570, 100, 1, 40000, 25000, 0, 2, InputKind::POINTER_DOWN});
 	ExpectRoundTrip(StateHash{4600, 0xDEADBEEFCAFEBABEULL});
 
 	ExpectDecodeError({}, CodecError::PACKET_TOO_SHORT);
@@ -83,6 +83,10 @@ int main()
 		Fail("invalid cursor color encoded successfully");
 	if (Encode(Message(DiscoveryOffer{1, 43096, 1, MAX_PLAYERS, 0x50563935, ""})))
 		Fail("empty session name encoded successfully");
+	if (Encode(Message(CursorUpdate{1, 1, 0, 0, 1, 0x80, true})))
+		Fail("invalid cursor button mask encoded successfully");
+	if (Encode(Message(InputCommand{1, 1, 0, 0, 0, 0, 1, InputKind::POINTER_DOWN})))
+		Fail("invalid pointer click code encoded successfully");
 
 	std::cout << "PvZ 95 multiplayer protocol tests passed\n";
 	return 0;

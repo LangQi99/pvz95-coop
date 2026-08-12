@@ -16,7 +16,8 @@ PvZ 95 Co-op aims to let two to four people control one shared Plants vs. Zombie
 - [x] Host/join main-menu controls connected to the LAN session coordinator
 - [x] Original retail/PvZ 95 compiled-resource compatibility and Chinese text conversion
 - [ ] Restore the remaining injected PvZ 95 behavior hooks with regression tests
-- [ ] Render colored remote pointers and dispatch host-authoritative input
+- [x] Render colored remote pointers and dispatch validated, host-authoritative pointer input
+- [ ] Synchronize session start, level parameters, and deterministic random state
 - [ ] Add deterministic state hashing, resynchronization, reconnect, and soak tests
 - [ ] Produce signed/notarized macOS and packaged Windows releases
 
@@ -98,7 +99,8 @@ The current native test suite covers:
 - UTF-8 passthrough plus Windows-1252 and legacy Chinese GBK conversion;
 - real UDP discovery between a host and client over loopback;
 - non-blocking TCP connection, framed two-way handshake traffic, and peer-close detection;
-- end-to-end host/client join, ruleset rejection, player-ID binding, cursor sequencing, and host broadcast.
+- coordinate normalization, colored cursor state, stale/wrapped sequence handling, and player removal;
+- end-to-end host/client join, ruleset rejection, player-ID binding, accepted-input rebroadcast, cursor sequencing, and host broadcast.
 
 The protocol never sends native C++ struct layouts. It uses explicit fixed-width little-endian fields and validates packet length and enum/player ranges before use.
 

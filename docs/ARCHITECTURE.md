@@ -25,7 +25,7 @@ Game UI and simulation
 PvZ 95 ruleset/behavior layer
         |
 Host-authoritative session controller
-   | reliable commands | lossy cursors
+   | reliable commands | throttled cursors
 Versioned wire protocol
         |
 LAN discovery + reliable game transport
@@ -47,9 +47,9 @@ The resource loader supports both native compiled definitions and the original r
 
 ## Session model
 
-The host is authoritative. All local and remote input becomes an `InputCommand`; the host validates and orders commands at a simulation tick, then broadcasts the accepted order. This prevents two clients from independently spending the same sun or acting on different UI states.
+The host is authoritative. Board pointer presses and releases become an `InputCommand`; the host validates and orders remote commands at a simulation tick, then broadcasts the accepted order. A connected client waits for that accepted command before mutating its local board. This is the input-ordering foundation; session-start and deterministic-state synchronization are separate required layers and are not complete yet.
 
-Cursor movement is presentation state. It can be sent at 20–30 Hz, may be dropped, and is interpolated by recipients. Clicks, key events, pause requests, and game-affecting actions are reliable and ordered. Each player receives a stable ID and cursor color for the lifetime of the session.
+Cursor movement is presentation state. It is rate-limited to 25 Hz, includes a periodic keepalive, and is discarded when its per-player sequence is stale. It currently shares the bounded TCP channel with commands; a future transport may drop or replace queued movement without affecting reliable clicks. Each player receives a stable ID and cursor color for the lifetime of the session.
 
 The initial implementation targets up to four players on a trusted LAN. Network input is still treated as untrusted: packet sizes, enum ranges, player IDs, sequence numbers, and current UI state must be validated by the host.
 

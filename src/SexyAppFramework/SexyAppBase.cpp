@@ -2289,6 +2289,15 @@ bool SexyAppBase::DebugKeyDown(int theKey)
 	return false;
 }
 
+void SexyAppBase::LocalMouseMove(int, int)
+{
+}
+
+bool SexyAppBase::LocalMouseButton(int, int, int, bool)
+{
+	return false;
+}
+
 void SexyAppBase::CloseRequestAsync()
 {
 }
