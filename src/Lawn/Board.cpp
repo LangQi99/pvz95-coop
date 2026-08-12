@@ -366,7 +366,7 @@ bool Board::NeedSaveGame()
 {
 	return
 		!mApp->IsLanGameplayActive() &&
-		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ICE &&
+		!PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) &&
 		mApp->mGameMode != GameMode::GAMEMODE_UPSELL &&
 		mApp->mGameMode != GameMode::GAMEMODE_INTRO &&
 		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN &&
@@ -1024,6 +1024,7 @@ void Board::PickBackground()
 		PVZP_ASSERT(false);
 		break;
 	}
+	mBackground = PvzRules::ResolveChallengeBackground(mApp->mGameMode, mBackground);
 	LoadBackgroundImages();
 
 	if (mBackground == BackgroundType::BACKGROUND_1_DAY || mBackground == BackgroundType::BACKGROUND_GREENHOUSE || mBackground == BackgroundType::BACKGROUND_TREEOFWISDOM)
@@ -1432,15 +1433,15 @@ void Board::InitLevel()
 		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_PEASHOOTER);
 		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_SNOWPEA);
 	}
-	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
+	else if (PvzRules::UsesLegacyIceChallengeSpecialCase(aGameMode))
 	{
 		PVZP_ASSERT(mSeedBank->mNumPackets == 6);
-		mSeedBank->mSeedPackets[0].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 0, SeedType::SEED_PEASHOOTER));
-		mSeedBank->mSeedPackets[1].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 1, SeedType::SEED_CHERRYBOMB));
-		mSeedBank->mSeedPackets[2].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 2, SeedType::SEED_WALLNUT));
-		mSeedBank->mSeedPackets[3].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 3, SeedType::SEED_REPEATER));
-		mSeedBank->mSeedPackets[4].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 4, SeedType::SEED_SNOWPEA));
-		mSeedBank->mSeedPackets[5].SetPacketType(PvzRules::ResolveInitialSeedPacket(aGameMode, false, 5, SeedType::SEED_CHOMPER));
+		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_PEASHOOTER);
+		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_CHERRYBOMB);
+		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_WALLNUT);
+		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_REPEATER);
+		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_SNOWPEA);
+		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_CHOMPER);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1)
 	{
@@ -1656,7 +1657,7 @@ bool Board::ChooseSeedsOnCurrentLevel()
 	if (mApp->IsChallengeWithoutSeedBank() || HasConveyorBeltSeedBank())
 		return false;
 
-	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
+	if (PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM)
@@ -1688,7 +1689,7 @@ void Board::StartLevel()
 		mApp->mSoundSystem->GamePause(false);
 	}
 
-	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
+	if (PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
 		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
 		mApp->mGameMode == GameMode::GAMEMODE_UPSELL ||
@@ -8693,7 +8694,7 @@ int Board::GetNumSeedsInBank()
 	{
 		return 3;
 	}
-	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
+	if (PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode))
 	{
 		return 6;
 	}

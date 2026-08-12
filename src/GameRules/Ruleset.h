@@ -149,6 +149,9 @@ namespace PvzRules
 	int ResolveShortAdventureReplayWaveCount(int theOriginalValue);
 	int ResolveNonAdventureWaveCount(GameMode theGameMode, int theOriginalValue);
 	int ResolveZombieWavePointMultiplier(GameMode theGameMode, int theOriginalValue);
+	bool UsesLegacyIceChallengeSpecialCase(GameMode theGameMode);
+	BackgroundType ResolveChallengeBackground(GameMode theGameMode, BackgroundType theOriginalValue);
+	bool ShouldIceChallengeLoseBeforeAward(GameMode theGameMode, int theSunMoney);
 	bool ZombiePassesDefinitionSpawnGate(int theLevel, int theStartingLevel, int thePickWeight);
 	bool ResolveZombieAllowedOnLevel(ZombieType theZombieType, int theLevel, bool theOriginalValue);
 	bool ShouldEnforceZombieWaveBudgetGate(GameMode theGameMode, bool theOriginalValue);

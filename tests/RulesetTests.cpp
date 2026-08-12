@@ -112,6 +112,16 @@ int main()
 		GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1, 10), 10);
 	ExpectEqual("original zombie-point multiplier", ResolveZombieWavePointMultiplier(
 		GameMode::GAMEMODE_ADVENTURE, 1), 1);
+	ExpectEqual("original Ice uses legacy special-case chain", UsesLegacyIceChallengeSpecialCase(
+		GameMode::GAMEMODE_CHALLENGE_ICE), true);
+	ExpectEqual("original ordinary mode does not use Ice chain", UsesLegacyIceChallengeSpecialCase(
+		GameMode::GAMEMODE_ADVENTURE), false);
+	ExpectEqual("original Ice background", ResolveChallengeBackground(
+		GameMode::GAMEMODE_CHALLENGE_ICE, BackgroundType::BACKGROUND_1_DAY), BackgroundType::BACKGROUND_1_DAY);
+	ExpectEqual("original Air Raid background", ResolveChallengeBackground(
+		GameMode::GAMEMODE_CHALLENGE_AIR_RAID, BackgroundType::BACKGROUND_4_FOG), BackgroundType::BACKGROUND_4_FOG);
+	ExpectEqual("original Ice award never uses sun loss gate", ShouldIceChallengeLoseBeforeAward(
+		GameMode::GAMEMODE_CHALLENGE_ICE, 27499), false);
 	ExpectEqual("original early zombie definition gate", ZombiePassesDefinitionSpawnGate(3, 5, 10), false);
 	ExpectEqual("original zero-weight zombie definition gate", ZombiePassesDefinitionSpawnGate(5, 5, 0), false);
 	ExpectEqual("original zombie allowed table value", ResolveZombieAllowedOnLevel(
@@ -122,6 +132,8 @@ int main()
 		GameMode::GAMEMODE_CHALLENGE_ICE, false, 1, SeedType::SEED_CHERRYBOMB), SeedType::SEED_CHERRYBOMB);
 	ExpectEqual("original Ice suppresses sky sun", ShouldSuppressSkySunSpawning(
 		GameMode::GAMEMODE_CHALLENGE_ICE, true), true);
+	ExpectEqual("original Ice preserves a false sky-sun input", ShouldSuppressSkySunSpawning(
+		GameMode::GAMEMODE_CHALLENGE_ICE, false), false);
 	ExpectEqual("original Sunny Day falling sun", ResolveFallingSunType(
 		GameMode::GAMEMODE_CHALLENGE_SUNNY_DAY, CoinType::COIN_LARGESUN), CoinType::COIN_LARGESUN);
 	ExpectEqual("original non-Whack sun drop gate", ShouldUseWhackSunDrop(false), false);
@@ -325,19 +337,22 @@ int main()
 		GameMode::GAMEMODE_ADVENTURE, true), false);
 	ExpectEqual("already-exempt zombie wave-budget gate", ShouldEnforceZombieWaveBudgetGate(
 		GameMode::GAMEMODE_CHALLENGE_POGO_PARTY, false), false);
-	const std::array<SeedType, 6> aPvZ95IceSeeds = {{
-		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB,
-		SeedType::SEED_WALLNUT, SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA
-	}};
-	const std::array<SeedType, 6> anOriginalIceSeeds = {{
-		SeedType::SEED_PEASHOOTER, SeedType::SEED_CHERRYBOMB, SeedType::SEED_WALLNUT,
-		SeedType::SEED_REPEATER, SeedType::SEED_SNOWPEA, SeedType::SEED_CHOMPER
-	}};
-	for (int i = 0; i < static_cast<int>(aPvZ95IceSeeds.size()); ++i)
-	{
-		ExpectEqual("PvZ 95 Ice initial seed", ResolveInitialSeedPacket(
-			GameMode::GAMEMODE_CHALLENGE_ICE, false, i, anOriginalIceSeeds[i]), aPvZ95IceSeeds[i]);
-	}
+	ExpectEqual("PvZ 95 Ice disables every legacy special-case compare", UsesLegacyIceChallengeSpecialCase(
+		GameMode::GAMEMODE_CHALLENGE_ICE), false);
+	ExpectEqual("PvZ 95 Ice no longer rewrites an intermediate fixed packet", ResolveInitialSeedPacket(
+		GameMode::GAMEMODE_CHALLENGE_ICE, false, 1, SeedType::SEED_CHERRYBOMB), SeedType::SEED_CHERRYBOMB);
+	ExpectEqual("PvZ 95 Ice pool background", ResolveChallengeBackground(
+		GameMode::GAMEMODE_CHALLENGE_ICE, BackgroundType::BACKGROUND_1_DAY), BackgroundType::BACKGROUND_3_POOL);
+	ExpectEqual("PvZ 95 Air Raid day background", ResolveChallengeBackground(
+		GameMode::GAMEMODE_CHALLENGE_AIR_RAID, BackgroundType::BACKGROUND_4_FOG), BackgroundType::BACKGROUND_1_DAY);
+	ExpectEqual("PvZ 95 ordinary background unchanged", ResolveChallengeBackground(
+		GameMode::GAMEMODE_ADVENTURE, BackgroundType::BACKGROUND_2_NIGHT), BackgroundType::BACKGROUND_2_NIGHT);
+	ExpectEqual("PvZ 95 Ice loses below sun threshold", ShouldIceChallengeLoseBeforeAward(
+		GameMode::GAMEMODE_CHALLENGE_ICE, 27499), true);
+	ExpectEqual("PvZ 95 Ice wins at sun threshold", ShouldIceChallengeLoseBeforeAward(
+		GameMode::GAMEMODE_CHALLENGE_ICE, 27500), false);
+	ExpectEqual("PvZ 95 non-Ice ignores sun threshold", ShouldIceChallengeLoseBeforeAward(
+		GameMode::GAMEMODE_ADVENTURE, 0), false);
 	ExpectEqual("Scary Potter initial Plantern", ResolveInitialSeedPacket(
 		GameMode::GAMEMODE_ADVENTURE, true, 0, SeedType::SEED_CHERRYBOMB), SeedType::SEED_PLANTERN);
 	ExpectEqual("unmodified initial seed", ResolveInitialSeedPacket(

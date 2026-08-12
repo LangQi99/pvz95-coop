@@ -2228,7 +2228,7 @@ void Challenge::Update()
 	{
 		TreeOfWisdomUpdate();
 	}
-	if (mApp->mGameMode == GAMEMODE_CHALLENGE_ICE && mBoard->mMainCounter == 3000)
+	if (PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) && mBoard->mMainCounter == 3000)
 	{
 		mApp->PlayFoley(FOLEY_FLOOP);
 		mApp->PlaySample(Sexy::SOUND_LOSEMUSIC);
@@ -2919,7 +2919,7 @@ int Challenge::UpdateZombieSpawning()
 	}
 	else return
 		mApp->IsFinalBossLevel() ||
-		mApp->mGameMode == GAMEMODE_CHALLENGE_ICE ||
+		PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) ||
 		mApp->mGameMode == GAMEMODE_CHALLENGE_ZEN_GARDEN ||
 		mApp->mGameMode == GAMEMODE_TREE_OF_WISDOM ||
 		mApp->mGameMode == GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||

@@ -33,6 +33,7 @@
 #include "widget/Slider.h"
 #include "widget/Checkbox.h"
 #include "../../PvzpLib/PvzpStringFile.h"
+#include "GameRules/Ruleset.h"
 
 using namespace Sexy;
 
@@ -91,7 +92,7 @@ NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) :
 		}
 	}
 
-	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
+	if (PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
 		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM)
 	{

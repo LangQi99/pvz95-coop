@@ -33,6 +33,7 @@
 #include "MessageWidget.h"
 #include "../GameConstants.h"
 #include "Widget/LawnDialog.h"
+#include "GameRules/Ruleset.h"
 #include "Widget/GameButton.h"
 #include "System/PlayerInfo.h"
 #include "Widget/StoreScreen.h"
@@ -635,7 +636,7 @@ bool CutScene::IsSurvivalRepick()
 bool CutScene::IsNonScrollingCutscene()
 {
 	return
-		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
+		PvzRules::UsesLegacyIceChallengeSpecialCase(mApp->mGameMode) ||
 		mApp->mGameMode == GameMode::GAMEMODE_UPSELL ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
 		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||

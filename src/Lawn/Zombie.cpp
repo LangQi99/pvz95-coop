@@ -7298,7 +7298,14 @@ bool Zombie::TrySpawnLevelAward()
 	if (aCoinType != CoinType::COIN_NONE)
 	{
 		mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
-		mBoard->AddCoin(aCenterX, aCenterY, aCoinType, aCoinMotion);
+		if (PvzRules::ShouldIceChallengeLoseBeforeAward(mApp->mGameMode, mBoard->mSunMoney))
+		{
+			mApp->mGameScene = GameScenes::SCENE_ZOMBIES_WON;
+		}
+		else
+		{
+			mBoard->AddCoin(aCenterX, aCenterY, aCoinType, aCoinMotion);
+		}
 	}
 
 	mDroppedLoot = true;

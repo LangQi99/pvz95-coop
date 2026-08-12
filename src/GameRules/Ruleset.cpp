@@ -593,6 +593,30 @@ namespace PvzRules
 		return theGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN ? 6 : 4;
 	}
 
+	bool UsesLegacyIceChallengeSpecialCase(GameMode theGameMode)
+	{
+		return gActiveRuleset != RulesetId::PVZ95 &&
+			theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE;
+	}
+
+	BackgroundType ResolveChallengeBackground(GameMode theGameMode, BackgroundType theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
+			return BackgroundType::BACKGROUND_3_POOL;
+		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_AIR_RAID)
+			return BackgroundType::BACKGROUND_1_DAY;
+		return theOriginalValue;
+	}
+
+	bool ShouldIceChallengeLoseBeforeAward(GameMode theGameMode, int theSunMoney)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 &&
+			theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE && theSunMoney < 27500;
+	}
+
 	bool ZombiePassesDefinitionSpawnGate(int theLevel, int theStartingLevel, int thePickWeight)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 ||
@@ -631,8 +655,6 @@ namespace PvzRules
 		if (gActiveRuleset != RulesetId::PVZ95)
 			return theOriginalValue;
 
-		if (theGameMode == GameMode::GAMEMODE_CHALLENGE_ICE && theSeedIndex >= 0 && theSeedIndex < 6)
-			return static_cast<SeedType>(theSeedIndex);
 		if (theIsScaryPotterLevel && theSeedIndex == 0)
 			return SeedType::SEED_PLANTERN;
 
