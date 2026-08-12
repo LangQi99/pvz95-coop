@@ -12,6 +12,7 @@ PvZ 95 Co-op aims to let two to four people control one shared Plants vs. Zombie
 - [x] Runtime-selectable PvZ 95 ruleset and verified direct data changes
 - [x] Versioned discovery, handshake, cursor, input, and state-hash packet codec
 - [x] Non-blocking WinSock/BSD Socket UDP LAN discovery with loopback integration tests
+- [x] Bounded reliable channel plus validated host/client lobby sessions over TCP
 - [ ] Restore the remaining injected PvZ 95 behavior hooks with regression tests
 - [ ] Connect the implemented lobby/transport core to the host/join game UI
 - [ ] Render colored remote pointers and dispatch host-authoritative input
@@ -95,6 +96,7 @@ The current native test suite covers:
 - malformed, oversized, mismatched-version, and invalid-field packets;
 - real UDP discovery between a host and client over loopback;
 - non-blocking TCP connection, framed two-way handshake traffic, and peer-close detection.
+- end-to-end host/client join, ruleset rejection, player-ID binding, cursor sequencing, and host broadcast.
 
 The protocol never sends native C++ struct layouts. It uses explicit fixed-width little-endian fields and validates packet length and enum/player ranges before use.
 

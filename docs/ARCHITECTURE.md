@@ -39,6 +39,8 @@ SDL/CMake cross-platform engine
 
 LAN discovery uses non-blocking IPv4 UDP on port `43095` by default. A client broadcasts a versioned query; a host replies directly with its session ID, player count, ruleset ID, and reliable game port. Discovery is kept separate from the reliable gameplay connection so cursor/input traffic never depends on broadcast delivery.
 
+The reliable path is a non-blocking TCP channel with bounded outgoing queues and incremental frame decoding. `HostSession` accepts and validates `Hello`, binds each connection to the assigned player ID, rejects stale cursor/input sequences, and exposes validated commands as events. `ClientSession` validates the selected room and ruleset against `Welcome`, stamps outbound commands with its assigned player ID, and accepts only gameplay messages after the handshake.
+
 ## Session model
 
 The host is authoritative. All local and remote input becomes an `InputCommand`; the host validates and orders commands at a simulation tick, then broadcasts the accepted order. This prevents two clients from independently spending the same sun or acting on different UI states.

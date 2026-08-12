@@ -258,6 +258,47 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-tcp-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-tcp COMMAND pvz95-tcp-tests)
 
+	add_executable(pvz95-channel-tests
+		tests/ReliableChannelTests.cpp
+		src/Multiplayer/ReliableChannel.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/Socket.cpp
+	)
+	target_include_directories(pvz95-channel-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-channel-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-channel-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-channel COMMAND pvz95-channel-tests)
+
+	add_executable(pvz95-host-session-tests
+		tests/HostSessionTests.cpp
+		src/Multiplayer/HostSession.cpp
+		src/Multiplayer/Lobby.cpp
+		src/Multiplayer/ReliableChannel.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/Socket.cpp
+	)
+	target_include_directories(pvz95-host-session-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-host-session-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-host-session-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-host-session COMMAND pvz95-host-session-tests)
+
+	add_executable(pvz95-client-session-tests
+		tests/ClientSessionTests.cpp
+		src/Multiplayer/ClientSession.cpp
+		src/Multiplayer/HostSession.cpp
+		src/Multiplayer/Lobby.cpp
+		src/Multiplayer/ReliableChannel.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/Socket.cpp
+	)
+	target_include_directories(pvz95-client-session-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-client-session-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-client-session-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-client-session COMMAND pvz95-client-session-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-protocol-tests PRIVATE /utf-8)
@@ -265,7 +306,13 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-lobby-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-stream-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-tcp-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-channel-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-host-session-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-client-session-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
+		target_link_libraries(pvz95-channel-tests PRIVATE ws2_32)
+		target_link_libraries(pvz95-host-session-tests PRIVATE ws2_32)
+		target_link_libraries(pvz95-client-session-tests PRIVATE ws2_32)
 	endif()
 
 	if(WIN32)

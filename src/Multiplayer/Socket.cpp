@@ -17,6 +17,9 @@
 #include <utility>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
@@ -558,7 +561,7 @@ namespace PvzMultiplayer
 			return {SocketIoStatus::CLOSED, 0};
 		if (theBytes.empty())
 			return {SocketIoStatus::COMPLETED, 0};
-		if (theBytes.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+		if (theBytes.size() > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
 			mLastError = "TCP send is too large";
 			return {SocketIoStatus::ERROR, 0};
@@ -603,7 +606,7 @@ namespace PvzMultiplayer
 			return {SocketIoStatus::CLOSED, 0};
 		if (theBuffer.empty())
 			return {SocketIoStatus::COMPLETED, 0};
-		if (theBuffer.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+		if (theBuffer.size() > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
 			mLastError = "TCP receive buffer is too large";
 			return {SocketIoStatus::ERROR, 0};
