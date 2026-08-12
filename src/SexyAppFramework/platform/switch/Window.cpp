@@ -109,7 +109,7 @@ void SexyAppBase::MakeWindow()
 		}
 
 		mGLInterface->UpdateViewport();
-		mWidgetManager->Resize(mScreenBounds, mGLInterface->mPresentationRect);
+		mWidgetManager->Resize(mScreenBounds, mGLInterface->mInputPresentationRect);
 	}
 
 	bool isActive = mActive;

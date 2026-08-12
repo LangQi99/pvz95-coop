@@ -2852,7 +2852,7 @@ void SexyAppBase::EmscriptenMainLoopCallback()
 	if (app->mWindow != nullptr && app->mGLInterface != nullptr)
 	{
 		app->mGLInterface->UpdateViewport();
-		app->mWidgetManager->Resize(app->mScreenBounds, app->mGLInterface->mPresentationRect);
+		app->mWidgetManager->Resize(app->mScreenBounds, app->mGLInterface->mInputPresentationRect);
 	}
 	if (app->mShutdown)
 	{
@@ -2986,7 +2986,7 @@ int SexyAppBase::InitGLInterface()
 		mScreenBounds.mY = ( mHeight - mGLInterface->mHeight ) / 2;
 		mScreenBounds.mWidth = mGLInterface->mWidth;
 		mScreenBounds.mHeight = mGLInterface->mHeight;
-		mWidgetManager->Resize(mScreenBounds, mGLInterface->mPresentationRect);
+		mWidgetManager->Resize(mScreenBounds, mGLInterface->mInputPresentationRect);
 		PostGLInterfaceInitHook();
 	}
 	return aResult;

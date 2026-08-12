@@ -68,6 +68,7 @@
 #include "GameRules/Ruleset.h"
 #include "Multiplayer/DeterministicHash.h"
 #include "Multiplayer/LanCoordinator.h"
+#include "Multiplayer/LocalInput.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
@@ -1817,14 +1818,16 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	// local window and cursor renderer, but PvZ actions are discrete commands.
 	if (!theDown)
 		return true;
-	if (theClickCount < 0)
+	PvzMultiplayer::PointerIntent aPointerIntent = PvzMultiplayer::DecodePointerIntent(theClickCount);
+	if (aPointerIntent == PvzMultiplayer::PointerIntent::CANCEL_SELECTION)
 	{
 		mLocalLanSeedBankIndex = -1;
 		mLocalLanShovelSelected = false;
 		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
 		return true;
 	}
-	if (theClickCount != 1 || !mBoard || mGameScene != GameScenes::SCENE_PLAYING)
+	if (aPointerIntent != PvzMultiplayer::PointerIntent::PRIMARY_ACTION ||
+		!mBoard || mGameScene != GameScenes::SCENE_PLAYING)
 		return true;
 
 	int aBoardX = theX - mBoard->mX;
@@ -2441,10 +2444,10 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		static_cast<unsigned long long>(aBoardHash.mGridItems),
 		static_cast<unsigned long long>(aRandHash.Finish()),
 		static_cast<int>(mGameScene), mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney);
-	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d main=%u update=%u sun=%d plants=%016llx coins=%016llx\n",
+	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d level=%d main=%u update=%u sun=%d plants=%016llx coins=%016llx\n",
 		static_cast<unsigned long long>(mLanSimulationTick), static_cast<unsigned long long>(aHash),
 		static_cast<unsigned long long>(aRandHash.Finish()), static_cast<int>(mGameScene),
-		mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney,
+		mBoard->mLevel, mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney,
 		static_cast<unsigned long long>(aBoardHash.mPlants),
 		static_cast<unsigned long long>(aBoardHash.mCoins));
 	if (mLanCoordinator->GetMode() == LanMode::HOSTING)

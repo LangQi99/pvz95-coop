@@ -221,7 +221,23 @@ namespace PvzMultiplayer
 		for (int32_t aValue : b.mIceMinX) h.AddI32(aValue);
 		for (int32_t aValue : b.mIceTimer) h.AddI32(aValue);
 		aBreakdown.mRowsAndIce = h.Finish();
-		for (const auto& aWave : b.mZombiesInWave) for (ZombieType aValue : aWave) AddEnum(h, aValue);
+		// Only the prefix ending at ZOMBIE_INVALID is gameplay state.  PvZ leaves
+		// the rest of every fixed-size wave row untouched, so hashing all 50 slots
+		// compares uninitialized padding and produces false desyncs between
+		// otherwise identical processes.
+		h.AddI32(b.mNumWaves);
+		for (int aWaveIndex = 0; aWaveIndex < b.mNumWaves; ++aWaveIndex)
+		{
+			int aZombieCount = 0;
+			while (aZombieCount < MAX_ZOMBIES_IN_WAVE &&
+				b.mZombiesInWave[aWaveIndex][aZombieCount] != ZombieType::ZOMBIE_INVALID)
+			{
+				++aZombieCount;
+			}
+			h.AddI32(aZombieCount);
+			for (int aZombieIndex = 0; aZombieIndex < aZombieCount; ++aZombieIndex)
+				AddEnum(h, b.mZombiesInWave[aWaveIndex][aZombieIndex]);
+		}
 		aBreakdown.mWaves = h.Finish();
 
 		h.AddU32(b.mSeedBank->mNumPackets); h.AddI32(b.mSeedBank->mConveyorBeltCounter);

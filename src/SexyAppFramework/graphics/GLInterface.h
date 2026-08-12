@@ -187,6 +187,7 @@ public:
 	int						mDisplayHeight;
 
 	Rect					mPresentationRect;
+	Rect					mInputPresentationRect;
 	int						mRefreshRate;
 	int						mMillisecondsPerFrame;
 

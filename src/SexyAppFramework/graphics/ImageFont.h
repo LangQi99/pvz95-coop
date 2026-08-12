@@ -205,6 +205,8 @@ public:
 
 	virtual void			Prepare();
 	char32_t				GetMappedChar(char32_t theChar);
+	bool					HasImageGlyph(char32_t theChar);
+	int					GetFallbackPixelHeight();
 };
 
 }

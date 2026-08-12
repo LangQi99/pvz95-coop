@@ -32,6 +32,7 @@
 #include "graphics/Graphics.h"
 #include "graphics/MemoryImage.h"
 #include "SexyAppBase.h"
+#include "platform/default/InputCoordinates.h"
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -1063,6 +1064,7 @@ GLInterface::GLInterface(SexyAppBase* theApp)
 	mDisplayWidth  = mWidth;
 	mDisplayHeight = mHeight;
 	mPresentationRect = Rect(0, 0, mWidth, mHeight);
+	mInputPresentationRect = mPresentationRect;
 	mRefreshRate = 60;
 	mMillisecondsPerFrame = 1000 / mRefreshRate;
 	mScreenImage = nullptr;
@@ -1145,6 +1147,14 @@ void GLInterface::UpdateViewport()
 
 	glViewport(vx, vy, vw, vh);
 	mPresentationRect = Rect(vx, vy, vw, vh);
+	mInputPresentationRect = mPresentationRect;
+#ifndef __SWITCH__
+	int aWindowWidth = width;
+	int aWindowHeight = height;
+	SDL_GetWindowSize(static_cast<SDL_Window*>(mApp->mWindow), &aWindowWidth, &aWindowHeight);
+	mInputPresentationRect = PresentationRectForWindow(mPresentationRect,
+		width, height, aWindowWidth, aWindowHeight);
+#endif
 }
 
 int GLInterface::Init(bool IsWindowed)

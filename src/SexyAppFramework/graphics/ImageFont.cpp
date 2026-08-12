@@ -27,6 +27,7 @@
 #include "Image.h"
 #include "SexyAppBase.h"
 #include "MemoryImage.h"
+#include "TrueTypeFontFallback.h"
 #include "graphics/GLImage.h"
 #include <algorithm>
 #include <mutex>
@@ -1393,6 +1394,13 @@ int ImageFont::StringWidth(std::string_view theString)
 int ImageFont::CharWidthKern(char32_t theChar, char32_t thePrevChar)
 {
 	Prepare();
+	if (!HasImageGlyph(theChar))
+	{
+		TrueTypeFallbackGlyph aGlyph;
+		if (TrueTypeFontFallback::Instance().GetGlyph(mFontData->mApp, theChar,
+			GetFallbackPixelHeight(), aGlyph))
+			return aGlyph.mAdvance;
+	}
 
 	int aMaxXPos = 0;
 	double aPointSize = mPointSize * mScale;
@@ -1498,6 +1506,46 @@ void ImageFont::DrawStringEx(Graphics* g, int theX, int theY, std::string_view t
 	while (aHasCur)
 	{
 		bool aHasNext = UTF8DecodeNext(theString, aDecodeOffset, aNextRawChar);
+		if (!HasImageGlyph(aCurRawChar))
+		{
+			TrueTypeFallbackGlyph aGlyph;
+			if (TrueTypeFontFallback::Instance().GetGlyph(mFontData->mApp, aCurRawChar,
+				GetFallbackPixelHeight(), aGlyph))
+			{
+				if (aGlyph.mImage && aCurPoolIdx < POOL_SIZE)
+				{
+					RenderCommand* aRenderCommand = &gRenderCommandPool[aCurPoolIdx++];
+					aRenderCommand->mImage = aGlyph.mImage;
+					aRenderCommand->mColor = theColor;
+					aRenderCommand->mDest[0] = aCurXPos + aGlyph.mBearingX;
+					aRenderCommand->mDest[1] = theY - aGlyph.mBearingY;
+					aRenderCommand->mSrc[0] = 0;
+					aRenderCommand->mSrc[1] = 0;
+					aRenderCommand->mSrc[2] = aGlyph.mWidth;
+					aRenderCommand->mSrc[3] = aGlyph.mHeight;
+					aRenderCommand->mMode = Graphics::DRAWMODE_NORMAL;
+					aRenderCommand->mUseAlphaCorrection = false;
+					aRenderCommand->mNext = nullptr;
+					if (gRenderTail[128])
+					{
+						gRenderTail[128]->mNext = aRenderCommand;
+						gRenderTail[128] = aRenderCommand;
+					}
+					else
+					{
+						gRenderHead[128] = aRenderCommand;
+						gRenderTail[128] = aRenderCommand;
+					}
+					if (theDrawnAreas)
+						theDrawnAreas->emplace_back(aRenderCommand->mDest[0],
+							aRenderCommand->mDest[1], aGlyph.mWidth, aGlyph.mHeight);
+				}
+				aCurXPos += aGlyph.mAdvance;
+				aCurRawChar = aNextRawChar;
+				aHasCur = aHasNext;
+				continue;
+			}
+		}
 
 		char32_t aChar = GetMappedChar(aCurRawChar);
 
@@ -1730,4 +1778,26 @@ char32_t ImageFont::GetMappedChar(char32_t theChar)
 		return anItr->second;
 	}
 	return theChar;
+}
+
+bool ImageFont::HasImageGlyph(char32_t theChar)
+{
+	Prepare();
+	char32_t aMappedChar = GetMappedChar(theChar);
+	for (const ActiveFontLayer& anActiveLayer : mActiveLayerList)
+	{
+		auto aData = anActiveLayer.mBaseFontLayer->mCharDataMap.find(aMappedChar);
+		if (aData == anActiveLayer.mBaseFontLayer->mCharDataMap.end())
+			continue;
+		if (aData->second.mWidth != 0 || aData->second.mImageRect.mWidth != 0 ||
+			aData->second.mImageRect.mHeight != 0)
+			return true;
+	}
+	return false;
+}
+
+int ImageFont::GetFallbackPixelHeight()
+{
+	Prepare();
+	return std::max({8, mHeight, mAscent, static_cast<int>(mPointSize * mScale)});
 }

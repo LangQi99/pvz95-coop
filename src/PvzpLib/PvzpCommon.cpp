@@ -34,6 +34,7 @@
 #include "graphics/Graphics.h"
 #include "graphics/ImageFont.h"
 #include "graphics/MemoryImage.h"
+#include "graphics/TrueTypeFontFallback.h"
 #include "misc/PerfTimer.h"
 #include "misc/SexyMatrix.h"
 #include "graphics/GLInterface.h"
@@ -467,6 +468,43 @@ void PvzpDrawStringMatrix(Graphics* g, const _Font* theFont, const SexyMatrix3& 
 	while (aHasCur)
 	{
 		const bool aHasNext = UTF8DecodeNext(aFinalString, aDecodeOffset, aNextRawChar);
+		if (!aFont->HasImageGlyph(aCurRawChar))
+		{
+			TrueTypeFallbackGlyph aGlyph;
+			if (TrueTypeFontFallback::Instance().GetGlyph(aFont->mFontData->mApp,
+				aCurRawChar, aFont->GetFallbackPixelHeight(), aGlyph))
+			{
+				if (aGlyph.mImage && aCurPoolIdx < POOL_SIZE)
+				{
+					RenderCommand* aRenderCommand = &gRenderCommandPool[aCurPoolIdx++];
+					aRenderCommand->mImage = aGlyph.mImage;
+					aRenderCommand->mColor = theColor;
+					aRenderCommand->mDest[0] = aCurXPos + aGlyph.mBearingX;
+					aRenderCommand->mDest[1] = -aGlyph.mBearingY;
+					aRenderCommand->mSrc[0] = 0;
+					aRenderCommand->mSrc[1] = 0;
+					aRenderCommand->mSrc[2] = aGlyph.mWidth;
+					aRenderCommand->mSrc[3] = aGlyph.mHeight;
+					aRenderCommand->mMode = Graphics::DRAWMODE_NORMAL;
+					aRenderCommand->mUseAlphaCorrection = false;
+					aRenderCommand->mNext = nullptr;
+					if (gRenderTail[128])
+					{
+						gRenderTail[128]->mNext = aRenderCommand;
+						gRenderTail[128] = aRenderCommand;
+					}
+					else
+					{
+						gRenderHead[128] = aRenderCommand;
+						gRenderTail[128] = aRenderCommand;
+					}
+				}
+				aCurXPos += aGlyph.mAdvance;
+				aCurRawChar = aNextRawChar;
+				aHasCur = aHasNext;
+				continue;
+			}
+		}
 		const char32_t aChar = aFont->GetMappedChar(aCurRawChar);
 		const char32_t aNextChar = aHasNext ? aFont->GetMappedChar(aNextRawChar) : 0;
 

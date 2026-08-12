@@ -150,5 +150,5 @@ void SexyAppBase::MakeWindow()
 	mWidgetManager->MarkAllDirty();
 
 	mGLInterface->UpdateViewport();
-	mWidgetManager->Resize(mScreenBounds, mGLInterface->mPresentationRect);
+	mWidgetManager->Resize(mScreenBounds, mGLInterface->mInputPresentationRect);
 }

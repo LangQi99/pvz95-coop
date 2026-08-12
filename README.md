@@ -52,7 +52,7 @@ Writable settings and saves use the separate product ID `io.github.langqi99.pvz9
 Install dependencies with Homebrew:
 
 ```bash
-brew install cmake ninja sdl2 libpng jpeg-turbo libogg libvorbis libopenmpt mpg123 dylibbundler
+brew install cmake ninja sdl2 freetype libpng jpeg-turbo libogg libvorbis libopenmpt mpg123 dylibbundler
 ```
 
 Configure, build, and test:

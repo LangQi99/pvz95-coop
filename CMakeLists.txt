@@ -128,6 +128,10 @@ else()
 	find_package(JPEG REQUIRED)
 	find_package(PNG REQUIRED)
 	find_package(SDL2 REQUIRED)
+	if(WIN32 OR (APPLE AND NOT IOS))
+		find_package(Freetype REQUIRED)
+		set(PVZ_HAS_FREETYPE TRUE)
+	endif()
 	if(NOT WIN32 AND NOT NINTENDO_SWITCH)
 		find_package(Iconv REQUIRED)
 		set(PVZ_USE_SYSTEM_ICONV TRUE)
@@ -198,6 +202,7 @@ target_compile_definitions(pvz-portable PRIVATE
 	$<$<BOOL:${PVZ_DEBUG}>:PVZ_DEBUG>
 	$<$<BOOL:${DO_FIX_BUGS}>:DO_FIX_BUGS>
 	$<$<BOOL:${PVZ_USE_SYSTEM_ICONV}>:PVZ_USE_SYSTEM_ICONV>
+	$<$<BOOL:${PVZ_HAS_FREETYPE}>:PVZ_HAS_FREETYPE>
 )
 target_compile_features(pvz-portable PRIVATE cxx_std_20)
 set_target_properties(pvz-portable PROPERTIES
@@ -382,6 +387,17 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-action-timeline-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-action-timeline COMMAND pvz95-action-timeline-tests)
 
+	add_executable(pvz95-local-input-tests
+		tests/LocalInputTests.cpp
+	)
+	target_include_directories(pvz95-local-input-tests PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/src/SexyAppFramework
+	)
+	target_compile_features(pvz95-local-input-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-local-input-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-local-input COMMAND pvz95-local-input-tests)
+
 	add_executable(pvz95-deterministic-hash-tests
 		tests/DeterministicHashTests.cpp
 		src/Multiplayer/DeterministicHash.cpp
@@ -407,6 +423,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-shared-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-session-barrier-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-action-timeline-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-local-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-deterministic-hash-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-channel-tests PRIVATE ws2_32)
@@ -471,6 +488,7 @@ else()
 		SDL2::SDL2main
 		${SDL2_LINK_TARGET}
 		Threads::Threads
+		$<$<BOOL:${PVZ_HAS_FREETYPE}>:Freetype::Freetype>
 	)
 endif()
 
