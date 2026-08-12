@@ -436,10 +436,18 @@ bool LawnApp::CanPauseNow()
 
 void LawnApp::GotFocus()
 {
+	if (mLanCoordinator)
+		LanTrace("focus gained app=%u sim=%llu mode=%u seed=%d\n", mAppCounter,
+			static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned>(mLanCoordinator->GetMode()), mLocalLanSeedBankIndex);
 }
 
 void LawnApp::LostFocus()
 {
+	if (mLanCoordinator)
+		LanTrace("focus lost app=%u sim=%llu mode=%u seed=%d\n", mAppCounter,
+			static_cast<unsigned long long>(mLanSimulationTick),
+			static_cast<unsigned>(mLanCoordinator->GetMode()), mLocalLanSeedBankIndex);
 #if (defined(__ANDROID__) && !defined(__TERMUX__)) || defined(__IPHONEOS__)
 	if (!mCheatKeys && CanPauseNow())
 	{
@@ -1847,8 +1855,10 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 		static_cast<unsigned>(aHitResult.mObjectType), mLocalLanSeedBankIndex,
 		mLocalLanShovelSelected ? 1 : 0, static_cast<unsigned>(mLocalLanCobCannonPlantId),
 		mBoard->mSunMoney);
-	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_COIN)
+	auto QueueHitCoin = [&]()
 	{
+		if (aHitResult.mObjectType != GameObjectType::OBJECT_TYPE_COIN)
+			return false;
 		Coin* aCoin = static_cast<Coin*>(aHitResult.mObject);
 		LanTrace("mouse coin sim=%llu id=%u\n", static_cast<unsigned long long>(mLanSimulationTick),
 			static_cast<unsigned>(mBoard->mCoins.DataArrayGetID(aCoin)));
@@ -1856,7 +1866,7 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 			static_cast<uint32_t>(mBoard->mCoins.DataArrayGetID(aCoin)), 0, 0, 0,
 			PvzMultiplayer::ActionKind::COLLECT_COIN});
 		return true;
-	}
+	};
 	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SEEDPACKET)
 	{
 		SeedPacket* aPacket = static_cast<SeedPacket*>(aHitResult.mObject);
@@ -1865,7 +1875,12 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 			static_cast<unsigned long long>(mLanSimulationTick), aPacket->mIndex,
 			static_cast<unsigned>(aPacket->mPacketType), aCanPickUp ? 1 : 0,
 			aPacket->mActive ? 1 : 0, mBoard->mSunMoney);
-		if (aCanPickUp)
+		if (mLocalLanSeedBankIndex == aPacket->mIndex)
+		{
+			mLocalLanSeedBankIndex = -1;
+			PlayFoley(FoleyType::FOLEY_DROP);
+		}
+		else if (aCanPickUp)
 		{
 			mLocalLanSeedBankIndex = aPacket->mIndex;
 			mLocalLanShovelSelected = false;
@@ -1877,14 +1892,10 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 		}
 		return true;
 	}
-	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SHOVEL)
-	{
-		mLocalLanSeedBankIndex = -1;
-		mLocalLanShovelSelected = true;
-		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
-		return true;
-	}
-
+	// These local selections are presentation state.  Honor them before the
+	// normal-cursor hit result so coins and packets cannot steal a planting,
+	// shovel, or cob-cannon click.  This matches Board::MouseDown, where holding
+	// a tool/plant suppresses coin hit testing.
 	if (mLocalLanCobCannonPlantId != PlantID::PLANTID_NULL)
 	{
 		PlantID aCobCannonId = mLocalLanCobCannonPlantId;
@@ -1898,9 +1909,11 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	if (mLocalLanShovelSelected)
 	{
 		mLocalLanShovelSelected = false;
-		if (aHitResult.mObjectType != GameObjectType::OBJECT_TYPE_PLANT)
+		HitResult aPlantHit{};
+		Plant* aPlant = mBoard->MouseHitTestPlant(aBoardX, aBoardY, &aPlantHit) ?
+			mBoard->ToolHitTestHelper(&aPlantHit) : nullptr;
+		if (!aPlant)
 			return true;
-		Plant* aPlant = static_cast<Plant*>(aHitResult.mObject);
 		QueueLocalLanAction({0, 0,
 			static_cast<uint32_t>(mBoard->mPlants.DataArrayGetID(aPlant)), 0, 0, 0,
 			PvzMultiplayer::ActionKind::SHOVEL_PLANT});
@@ -1924,6 +1937,7 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 			LanTrace("mouse plant outside grid sim=%llu packet=%d pixel=%d,%d grid=%d,%d\n",
 				static_cast<unsigned long long>(mLanSimulationTick), aSeedBankIndex,
 				aBoardX, aBoardY, aGridX, aGridY);
+			QueueHitCoin();
 			return true;
 		}
 		PlantingReason aReason = mBoard->CanPlantAt(aGridX, aGridY, aSeedType);
@@ -1932,13 +1946,23 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 			LanTrace("mouse plant invalid sim=%llu packet=%d type=%u grid=%d,%d reason=%u\n",
 				static_cast<unsigned long long>(mLanSimulationTick), aSeedBankIndex,
 				static_cast<unsigned>(aSeedType), aGridX, aGridY, static_cast<unsigned>(aReason));
-			PlayFoley(FoleyType::FOLEY_DROP);
+			if (!QueueHitCoin())
+				PlayFoley(FoleyType::FOLEY_DROP);
 			return true;
 		}
 		mLocalLanSeedBankIndex = -1;
 		QueueLocalLanAction({0, 0, static_cast<uint32_t>(aSeedBankIndex),
 			static_cast<uint16_t>(aGridX), static_cast<uint16_t>(aGridY), 0,
 			PvzMultiplayer::ActionKind::PLANT_SEED});
+		return true;
+	}
+	if (QueueHitCoin())
+		return true;
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SHOVEL)
+	{
+		mLocalLanSeedBankIndex = -1;
+		mLocalLanShovelSelected = true;
+		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
 		return true;
 	}
 	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_PLANT)

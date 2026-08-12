@@ -263,6 +263,7 @@ public:
 	_Font*					mDefaultFont = nullptr; // app-injected fallback for widgets without an explicit font
 	WidgetSafeDeleteList	mSafeDeleteList;
 	bool					mMouseIn;
+	uint32_t				mLastPhysicalMouseButtons;
 	bool					mRunning;
 	bool					mActive;
 	bool					mMinimized;

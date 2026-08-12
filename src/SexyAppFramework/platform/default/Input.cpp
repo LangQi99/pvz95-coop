@@ -679,6 +679,7 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 
 			case SDL_MOUSEBUTTONDOWN:
 			{
+				mLastPhysicalMouseButtons |= SDL_BUTTON(event.button.button);
 				if (!mMouseIn)
 					mMouseIn = true;
 
@@ -704,6 +705,7 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 
 			case SDL_MOUSEBUTTONUP:
 			{
+				mLastPhysicalMouseButtons &= ~SDL_BUTTON(event.button.button);
 				if (!mMouseIn)
 					mMouseIn = true;
 
@@ -757,6 +759,46 @@ bool SexyAppBase::ProcessDeferredMessages(bool singleMessage)
 				mWidgetManager->KeyText(std::string_view(event.text.text));
 				break;
 		}
+	}
+	else if (!mPlayingDemoBuffer && mActive && !mMinimized && mWindow &&
+		SDL_GetMouseFocus() == static_cast<SDL_Window*>(mWindow))
+	{
+		// Cocoa can occasionally focus a second game window without queuing the
+		// corresponding button event.  Polling the physical edge after the SDL
+		// queue drains recovers that click while the tracked mask prevents a
+		// normal queued event from being emitted twice.
+		int x = 0;
+		int y = 0;
+		Uint32 aPhysicalButtons = SDL_GetMouseState(&x, &y);
+		constexpr Uint32 aWatchedButtons = SDL_BUTTON_LMASK | SDL_BUTTON_RMASK | SDL_BUTTON_MMASK;
+		Uint32 aChangedButtons = (aPhysicalButtons ^ mLastPhysicalMouseButtons) & aWatchedButtons;
+		if (aChangedButtons != 0)
+		{
+			Uint32 aButtonMask = (aChangedButtons & SDL_BUTTON_LMASK) ? SDL_BUTTON_LMASK :
+				(aChangedButtons & SDL_BUTTON_RMASK) ? SDL_BUTTON_RMASK : SDL_BUTTON_MMASK;
+			bool aDown = (aPhysicalButtons & aButtonMask) != 0;
+			if (aDown)
+				mLastPhysicalMouseButtons |= aButtonMask;
+			else
+				mLastPhysicalMouseButtons &= ~aButtonMask;
+
+			mWidgetManager->RemapMouse(x, y);
+			mLastUserInputTick = mLastTimerTime;
+			LocalMouseMove(x, y);
+			mWidgetManager->MouseMove(x, y);
+			int aButton = aButtonMask == SDL_BUTTON_LMASK ? 1 :
+				aButtonMask == SDL_BUTTON_RMASK ? -1 : 3;
+			if (!LocalMouseButton(x, y, aButton, aDown))
+			{
+				if (aDown)
+					mWidgetManager->MouseDown(x, y, aButton);
+				else
+					mWidgetManager->MouseUp(x, y, aButton);
+			}
+			return true;
+		}
+		mLastPhysicalMouseButtons =
+			(mLastPhysicalMouseButtons & ~aWatchedButtons) | (aPhysicalButtons & aWatchedButtons);
 	}
 
 	return SDL_HasEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);

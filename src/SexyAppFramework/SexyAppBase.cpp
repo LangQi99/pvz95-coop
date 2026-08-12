@@ -260,6 +260,7 @@ SexyAppBase::SexyAppBase()
 	mSoundManager = nullptr;
 	mCursorNum = CURSOR_POINTER;
 	mMouseIn = false;
+	mLastPhysicalMouseButtons = 0;
 	mRunning = false;
 	mActive = true;
 	mProcessInTimer = false;
@@ -2036,6 +2037,7 @@ void SexyAppBase::RehupFocus()
 		}
 		else
 		{
+			mLastPhysicalMouseButtons = 0;
 			if (mMuteOnLostFocus)
 				Mute(true);
 
