@@ -48,6 +48,20 @@ namespace PvzRules
 		int mHelmHealth;
 	};
 
+	struct ZombieFlagArmor
+	{
+		bool mShowBucket;
+		HelmType mHelmType;
+		int mHelmHealth;
+		int mHelmMaxHealth;
+	};
+
+	struct ZombieShieldDamagePolicy
+	{
+		bool mTakeShieldDamage;
+		bool mRestoreOriginalDamage;
+	};
+
 	struct BurnRowEffects
 	{
 		bool mUseSpecialSequence;
@@ -121,6 +135,7 @@ namespace PvzRules
 	ZombieType ResolveZombieMemberType(ZombieType theRequestedType);
 	ZombiePreSwitchArmor ResolveZombiePreSwitchArmor(
 		ZombieType theMemberType, HelmType theOriginalHelmType, int theOriginalHelmHealth);
+	ZombieFlagArmor ResolveZombieFlagArmor(HelmType theOriginalHelmType, int theOriginalHelmHealth);
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue);
 	int ResolveZombieInitialHelmHealth(ZombieType theZombieType, int theOriginalValue);
 	int ResolveZombieInitialShieldHealth(ZombieType theZombieType, int theOriginalValue);
@@ -136,8 +151,11 @@ namespace PvzRules
 		int theBodyMaxHealth, int theHelmHealth, int theHelmMaxHealth, int theShieldHealth,
 		int theShieldMaxHealth, int theChilled, float theScale);
 	int ResolveZombieBodyHealthAfterDamage(ZombiePhase theZombiePhase, int theOriginalValue);
+	ZombieShieldDamagePolicy ResolveZombieShieldDamagePolicy(
+		int theDamageRemaining, ShieldType theShieldType, unsigned int theDamageFlags);
 	bool ShouldTakeBurnDamage(ZombieType theZombieType, ZombiePhase theZombiePhase,
 		int theBodyHealth, int theHelmHealth, int theShieldHealth);
+	int ResolveApplyBurnDamage(bool theFromPlantBurnRow, int theOriginalValue);
 	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped);
 	int ResolveChillAfterRemovingCold(int theOriginalValue);
 	bool IsForcedChilledMovement(ZombiePhase theZombiePhase);

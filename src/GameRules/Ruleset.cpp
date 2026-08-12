@@ -394,6 +394,14 @@ namespace PvzRules
 		return {theOriginalHelmType, theOriginalHelmHealth};
 	}
 
+	ZombieFlagArmor ResolveZombieFlagArmor(HelmType theOriginalHelmType, int theOriginalHelmHealth)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return {true, HelmType::HELMTYPE_PAIL, 1100, 1100};
+
+		return {false, theOriginalHelmType, theOriginalHelmHealth, 0};
+	}
+
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95)
@@ -503,6 +511,22 @@ namespace PvzRules
 		return theOriginalValue;
 	}
 
+	ZombieShieldDamagePolicy ResolveZombieShieldDamagePolicy(
+		int theDamageRemaining, ShieldType theShieldType, unsigned int theDamageFlags)
+	{
+		if (theDamageRemaining <= 0 || theShieldType == ShieldType::SHIELDTYPE_NONE)
+			return {false, false};
+
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return {true, false};
+
+		const bool aBypassesShield = (theDamageFlags &
+			(1U << static_cast<unsigned int>(DamageFlags::DAMAGE_BYPASSES_SHIELD))) != 0U;
+		const bool aHitsShieldAndBody = (theDamageFlags &
+			(1U << static_cast<unsigned int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY))) != 0U;
+		return {!aBypassesShield, !aBypassesShield && aHitsShieldAndBody};
+	}
+
 	bool ShouldTakeBurnDamage(ZombieType theZombieType, ZombiePhase theZombiePhase,
 		int theBodyHealth, int theHelmHealth, int theShieldHealth)
 	{
@@ -515,6 +539,11 @@ namespace PvzRules
 		const int64_t aTotalHealth = static_cast<int64_t>(theBodyHealth) + theHelmHealth + theShieldHealth;
 		return aTotalHealth >= 1800 || theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_READING ||
 			theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MADDENING;
+	}
+
+	int ResolveApplyBurnDamage(bool theFromPlantBurnRow, int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 && theFromPlantBurnRow ? 0 : theOriginalValue;
 	}
 
 	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped)

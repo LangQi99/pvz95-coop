@@ -274,7 +274,7 @@ public:
 	void                            UpdateClimbingLadder();
 	void                            UpdateZombieGargantuar();
 	int                             GetBodyDamageIndex();
-	void                            ApplyBurn();
+	void                            ApplyBurn(bool theFromPlantBurnRow = false);
 	void                            UpdateBurn();
 	bool                            ZombieNotWalking();
 	Zombie*                         FindZombieTarget();

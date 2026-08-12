@@ -4242,7 +4242,7 @@ void Plant::BurnRow(int theRow)
 			{
 				aZombie->mIceTrapCounter = aBurnEffects.mIceTrapCounter;
 				aZombie->mChilledCounter = aBurnEffects.mChilled;
-				aZombie->ApplyBurn();
+				aZombie->ApplyBurn(true);
 				aZombie->UpdateAnimSpeed();
 				aZombie->TakeDamage(aBurnEffects.mExtraDamage,
 					PvzRules::ResolveBurnRowDamageFlags(aZombie->mZombiePhase, 0U));
@@ -4250,7 +4250,7 @@ void Plant::BurnRow(int theRow)
 			else
 			{
 				aZombie->RemoveColdEffects();
-				aZombie->ApplyBurn();
+				aZombie->ApplyBurn(true);
 			}
 		}
 	}

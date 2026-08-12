@@ -84,6 +84,11 @@ int main()
 		ZombieType::ZOMBIE_DOOR, HelmType::HELMTYPE_NONE, 0);
 	ExpectEqual("original door pre-switch helmet", anOriginalDoorArmor.mHelmType, HelmType::HELMTYPE_NONE);
 	ExpectEqual("original door pre-switch helmet health", anOriginalDoorArmor.mHelmHealth, 0);
+	const ZombieFlagArmor anOriginalFlagArmor = ResolveZombieFlagArmor(HelmType::HELMTYPE_NONE, 0);
+	ExpectEqual("original flag does not show bucket", anOriginalFlagArmor.mShowBucket, false);
+	ExpectEqual("original flag helmet", anOriginalFlagArmor.mHelmType, HelmType::HELMTYPE_NONE);
+	ExpectEqual("original flag helmet health", anOriginalFlagArmor.mHelmHealth, 0);
+	ExpectEqual("original flag does not override helmet max health", anOriginalFlagArmor.mHelmMaxHealth, 0);
 	ExpectEqual("original flag health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 270);
 	ExpectEqual("original layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), false);
 	ExpectEqual("original torchwood pea becomes fireball", static_cast<int>(ResolveTorchwoodConversion(
@@ -145,6 +150,21 @@ int main()
 	const BurnRowEffects anOriginalBurnRow = ResolveBurnRowEffects();
 	ExpectEqual("original burn row sequence", anOriginalBurnRow.mUseSpecialSequence, false);
 	ExpectEqual("original burn row damage flags", ResolveBurnRowDamageFlags(PHASE_ZOMBIE_NORMAL, 7U), 7);
+	const unsigned int aBypassShieldFlag = 1U << static_cast<unsigned int>(DamageFlags::DAMAGE_BYPASSES_SHIELD);
+	const unsigned int aHitShieldAndBodyFlag = 1U << static_cast<unsigned int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY);
+	const ZombieShieldDamagePolicy anOriginalShieldHit = ResolveZombieShieldDamagePolicy(100, SHIELDTYPE_DOOR, 0U);
+	ExpectEqual("original ordinary damage hits shield", anOriginalShieldHit.mTakeShieldDamage, true);
+	ExpectEqual("original ordinary damage does not restore body damage", anOriginalShieldHit.mRestoreOriginalDamage, false);
+	const ZombieShieldDamagePolicy anOriginalShieldBypass = ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_DOOR, aBypassShieldFlag);
+	ExpectEqual("original bypass flag skips shield", anOriginalShieldBypass.mTakeShieldDamage, false);
+	ExpectEqual("original bypass flag does not restore body damage", anOriginalShieldBypass.mRestoreOriginalDamage, false);
+	const ZombieShieldDamagePolicy anOriginalShieldAndBody = ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_DOOR, aHitShieldAndBodyFlag);
+	ExpectEqual("original dual-hit flag damages shield", anOriginalShieldAndBody.mTakeShieldDamage, true);
+	ExpectEqual("original dual-hit flag restores body damage", anOriginalShieldAndBody.mRestoreOriginalDamage, true);
+	ExpectEqual("original Plant BurnRow ApplyBurn damage", ResolveApplyBurnDamage(true, 1800), 1800);
+	ExpectEqual("original generic ApplyBurn damage", ResolveApplyBurnDamage(false, 1800), 1800);
 	ExpectEqual("original Blover normal phase", ShouldBloverBlowZombie(PHASE_ZOMBIE_NORMAL, false), false);
 	ExpectEqual("original Blover flying phase", ShouldBloverBlowZombie(PHASE_BALLOON_FLYING, true), true);
 	ExpectEqual("original Blover damage", ResolveBloverDamage(false, false, 0), 0);
@@ -237,6 +257,11 @@ int main()
 		ZombieType::ZOMBIE_PAIL, HelmType::HELMTYPE_NONE, 0);
 	ExpectEqual("screen door receives bucket helmet", aPvZ95DoorArmor.mHelmType, HelmType::HELMTYPE_PAIL);
 	ExpectEqual("screen door receives bucket helmet health", aPvZ95DoorArmor.mHelmHealth, 1100);
+	const ZombieFlagArmor aPvZ95FlagArmor = ResolveZombieFlagArmor(HelmType::HELMTYPE_NONE, 0);
+	ExpectEqual("flag zombie shows bucket", aPvZ95FlagArmor.mShowBucket, true);
+	ExpectEqual("flag zombie receives bucket helmet", aPvZ95FlagArmor.mHelmType, HelmType::HELMTYPE_PAIL);
+	ExpectEqual("flag zombie receives bucket helmet health", aPvZ95FlagArmor.mHelmHealth, 1100);
+	ExpectEqual("flag zombie receives bucket helmet max health", aPvZ95FlagArmor.mHelmMaxHealth, 1100);
 	ExpectEqual("flag zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 820);
 	ExpectEqual("dancer zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_DANCER, 500), 1350);
 	ExpectEqual("football helmet health", ResolveZombieInitialHelmHealth(ZombieType::ZOMBIE_FOOTBALL, 1400), 2800);
@@ -286,6 +311,24 @@ int main()
 		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_MAD, 270, 0, 0), false);
 	ExpectEqual("gatling-head is not a phase alias", ShouldTakeBurnDamage(
 		ZombieType::ZOMBIE_GATLING_HEAD, ZombiePhase::PHASE_ZOMBIE_NORMAL, 270, 0, 0), false);
+	const ZombieShieldDamagePolicy aPvZ95ShieldBypass = ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_DOOR, aBypassShieldFlag);
+	ExpectEqual("PvZ 95 bypass flag still damages shield", aPvZ95ShieldBypass.mTakeShieldDamage, true);
+	ExpectEqual("PvZ 95 bypass flag does not restore body damage", aPvZ95ShieldBypass.mRestoreOriginalDamage, false);
+	const ZombieShieldDamagePolicy aPvZ95ShieldAndBody = ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_DOOR, aHitShieldAndBodyFlag);
+	ExpectEqual("PvZ 95 dual-hit flag damages shield", aPvZ95ShieldAndBody.mTakeShieldDamage, true);
+	ExpectEqual("PvZ 95 dual-hit flag does not restore body damage", aPvZ95ShieldAndBody.mRestoreOriginalDamage, false);
+	const ZombieShieldDamagePolicy aPvZ95BothShieldFlags = ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_DOOR, aBypassShieldFlag | aHitShieldAndBodyFlag);
+	ExpectEqual("PvZ 95 combined flags still damage shield", aPvZ95BothShieldFlags.mTakeShieldDamage, true);
+	ExpectEqual("PvZ 95 combined flags do not restore body damage", aPvZ95BothShieldFlags.mRestoreOriginalDamage, false);
+	ExpectEqual("PvZ 95 zero damage skips shield", ResolveZombieShieldDamagePolicy(
+		0, SHIELDTYPE_DOOR, 0U).mTakeShieldDamage, false);
+	ExpectEqual("PvZ 95 missing shield skips shield", ResolveZombieShieldDamagePolicy(
+		100, SHIELDTYPE_NONE, 0U).mTakeShieldDamage, false);
+	ExpectEqual("PvZ 95 Plant BurnRow suppresses ApplyBurn damage", ResolveApplyBurnDamage(true, 1800), 0);
+	ExpectEqual("PvZ 95 generic ApplyBurn keeps damage", ResolveApplyBurnDamage(false, 1800), 1800);
 	const ZombieStatusCounters aButterStatus = ResolveButterStatus(25, 0, 0);
 	ExpectEqual("butter applies chill", aButterStatus.mChilled, 1000);
 	ExpectEqual("butter does not immobilize as butter", aButterStatus.mButtered, 0);

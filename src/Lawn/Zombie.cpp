@@ -598,6 +598,17 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 		SetupZombatarFlagReanim(aZombatarRecordIndex);
 
 		mPosX = WIDE_BOARD_WIDTH;
+		const PvzRules::ZombieFlagArmor aFlagArmor = PvzRules::ResolveZombieFlagArmor(mHelmType, mHelmHealth);
+		if (aFlagArmor.mShowBucket)
+		{
+			ReanimShowPrefix("anim_bucket", RENDER_GROUP_NORMAL);
+		}
+		mHelmType = aFlagArmor.mHelmType;
+		mHelmHealth = aFlagArmor.mHelmHealth;
+		if (aFlagArmor.mShowBucket)
+		{
+			mHelmMaxHealth = aFlagArmor.mHelmMaxHealth;
+		}
 		break;
 	}
 
@@ -8017,10 +8028,12 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
 	{
 		aDamageRemaining = TakeFlyingDamage(aDamageRemaining, theDamageFlags);
 	}
-	if (aDamageRemaining > 0 && mShieldType != ShieldType::SHIELDTYPE_NONE && !TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD)))
+	const PvzRules::ZombieShieldDamagePolicy aShieldPolicy = PvzRules::ResolveZombieShieldDamagePolicy(
+		aDamageRemaining, mShieldType, theDamageFlags);
+	if (aShieldPolicy.mTakeShieldDamage)
 	{
 		aDamageRemaining = TakeShieldDamage(aDamageRemaining, theDamageFlags);
-		if (TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY)))
+		if (aShieldPolicy.mRestoreOriginalDamage)
 		{
 			aDamageRemaining = theDamage;
 		}
@@ -8701,7 +8714,7 @@ void Zombie::RemoveColdEffects()
 	}
 }
 
-void Zombie::ApplyBurn()
+void Zombie::ApplyBurn(bool theFromPlantBurnRow)
 {
 	if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED)
 		return;
@@ -8709,7 +8722,7 @@ void Zombie::ApplyBurn()
 	if (PvzRules::ShouldTakeBurnDamage(
 		mZombieType, mZombiePhase, mBodyHealth, mHelmHealth, mShieldHealth))
 	{
-		TakeDamage(1800, 18U);
+		TakeDamage(PvzRules::ResolveApplyBurnDamage(theFromPlantBurnRow, 1800), 18U);
 		return;
 	}
 
