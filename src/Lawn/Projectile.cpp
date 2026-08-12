@@ -276,7 +276,7 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
-	if (mMotionType == ProjectileMotion::MOTION_HOMING)
+	if (PvzRules::UsesHomingTargetOnlyCollision(mMotionType))
 	{
 		Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
 		if (aZombie && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
@@ -937,6 +937,8 @@ void Projectile::DoImpact(Zombie* theZombie)
 
 void Projectile::Update()
 {
+	mMotionType = PvzRules::ResolveProjectileMotionBeforeUpdate(
+		mMotionType, mBoard->mBackground, mProjectileAge);
 	mProjectileAge++;
 	if (mApp->mGameScene != GameScenes::SCENE_PLAYING && !mBoard->mCutScene->ShouldRunUpsellBoard())
 		return;
@@ -1149,7 +1151,9 @@ void Projectile::DrawShadow(Graphics* g)
 
 void Projectile::Die()
 {
-	mDead = true;
+	const PvzRules::ProjectileDeathState aDeathState = PvzRules::ResolveProjectileDeath(mProjectileType, mX);
+	mDead = aDeathState.mDead;
+	mX = aDeathState.mX;
 
 	if (mProjectileType == ProjectileType::PROJECTILE_PUFF || mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
 	{
@@ -1222,7 +1226,7 @@ void Projectile::ConvertToPea(int theGridX)
 		return;
 
 	AttachmentDie(mAttachmentID);
-	mProjectileType = ProjectileType::PROJECTILE_PEA;
+	mProjectileType = PvzRules::ResolveTorchwoodSnowPeaType(ProjectileType::PROJECTILE_PEA);
 	mHitTorchwoodGridX = theGridX;
 	mApp->PlayFoley(FoleyType::FOLEY_THROW);
 }

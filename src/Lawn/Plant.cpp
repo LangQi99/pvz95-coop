@@ -4234,8 +4234,20 @@ void Plant::BurnRow(int theRow)
 			continue;
 		if ((aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mRow == theRow) && aZombie->EffectedByDamage(aDamageRangeFlags))
 		{
-			aZombie->RemoveColdEffects();
-			aZombie->ApplyBurn();
+			const PvzRules::BurnRowEffects aBurnEffects = PvzRules::ResolveBurnRowEffects();
+			if (aBurnEffects.mUseSpecialSequence)
+			{
+				aZombie->mIceTrapCounter = aBurnEffects.mIceTrapCounter;
+				aZombie->mChilledCounter = aBurnEffects.mChilled;
+				aZombie->ApplyBurn();
+				aZombie->UpdateAnimSpeed();
+				aZombie->TakeDamage(aBurnEffects.mExtraDamage, aBurnEffects.mExtraDamageFlags);
+			}
+			else
+			{
+				aZombie->RemoveColdEffects();
+				aZombie->ApplyBurn();
+			}
 		}
 	}
 
@@ -4266,15 +4278,25 @@ void Plant::BlowAwayFliers()
 		{
 			// Verified as a pure function, safe to remove
 			// Rect aZombieRect = aZombie->GetZombieRect();
-			if (aZombie->IsFlying())
+			const bool aBlowingAway = PvzRules::ShouldBloverBlowZombie(
+				aZombie->mZombiePhase, aZombie->IsFlying());
+			if (aBlowingAway)
 			{
 				aZombie->mBlowingAway = true;
+			}
+
+			const int aBloverDamage = PvzRules::ResolveBloverDamage(
+				aZombie->mMindControlled, aBlowingAway, 0);
+			if (aBloverDamage > 0)
+			{
+				aZombie->mHelmHealth = PvzRules::ResolveBloverConeHelmHealth(aZombie->mHelmType, aZombie->mHelmHealth);
+				aZombie->TakeDamage(aBloverDamage, 0U);
 			}
 		}
 	}
 
 	mApp->PlaySample(SOUND_BLOVER);
-	mBoard->mFogBlownCountDown = 4000;
+	mBoard->mFogBlownCountDown = PvzRules::ResolveFogBlownCountdown(4000);
 }
 
 void Plant::KillAllPlantsNearDoom()

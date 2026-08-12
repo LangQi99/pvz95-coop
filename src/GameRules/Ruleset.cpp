@@ -252,6 +252,84 @@ namespace PvzRules
 		}
 	}
 
+	BurnRowEffects ResolveBurnRowEffects()
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return {true, 2500, 750, 1000, 1U};
+
+		return {false, 0, 0, 0, 0U};
+	}
+
+	bool ShouldBloverBlowZombie(ZombiePhase theZombiePhase, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theZombiePhase)
+		{
+		case ZombiePhase::PHASE_POLEVAULTER_IN_VAULT:
+		case ZombiePhase::PHASE_BOBSLED_BOARDING:
+		case ZombiePhase::PHASE_POGO_BOUNCING:
+		case ZombiePhase::PHASE_POGO_HIGH_BOUNCE_1:
+		case ZombiePhase::PHASE_POGO_FORWARD_BOUNCE_2:
+		case ZombiePhase::PHASE_DOLPHIN_INTO_POOL:
+		case ZombiePhase::PHASE_DOLPHIN_IN_JUMP:
+		case ZombiePhase::PHASE_SNORKEL_INTO_POOL:
+		case ZombiePhase::PHASE_IMP_GETTING_THROWN:
+		case ZombiePhase::PHASE_BALLOON_FLYING:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	int ResolveBloverDamage(bool theMindControlled, bool theBlowingAway, int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 && !theMindControlled && !theBlowingAway ? 50 : theOriginalValue;
+	}
+
+	int ResolveBloverConeHelmHealth(HelmType theHelmType, int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 && theHelmType == HelmType::HELMTYPE_TRAFFIC_CONE ? 50 : theOriginalValue;
+	}
+
+	int ResolveFogBlownCountdown(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 10000 : theOriginalValue;
+	}
+
+	bool UsesHomingTargetOnlyCollision(ProjectileMotion theMotionType)
+	{
+		return gActiveRuleset != RulesetId::PVZ95 && theMotionType == ProjectileMotion::MOTION_HOMING;
+	}
+
+	ProjectileMotion ResolveProjectileMotionBeforeUpdate(ProjectileMotion theMotionType,
+		BackgroundType theBackground, int theProjectileAge)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95 || theMotionType != ProjectileMotion::MOTION_STAR)
+			return theMotionType;
+
+		const int aStarMotionLifetime = theBackground == BackgroundType::BACKGROUND_3_POOL ||
+			theBackground == BackgroundType::BACKGROUND_4_FOG ? 56 : 64;
+		return theProjectileAge >= aStarMotionLifetime ? ProjectileMotion::MOTION_STRAIGHT : theMotionType;
+	}
+
+	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 &&
+			theProjectileType == ProjectileType::PROJECTILE_SPIKE && theProjectileX < 64)
+		{
+			return {false, theProjectileX + 1};
+		}
+
+		return {true, theProjectileX};
+	}
+
+	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? ProjectileType::PROJECTILE_SNOWPEA : theOriginalValue;
+	}
+
 	ZombieType ResolveZombieType(ZombieType theZombieType)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_DOOR)

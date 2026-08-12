@@ -92,6 +92,21 @@ int main()
 	ExpectEqual("original portal conveyor seed", ResolveConveyorSeed(GAMEMODE_CHALLENGE_PORTAL_COMBAT, 0, SEED_PEASHOOTER), SEED_PEASHOOTER);
 	ExpectEqual("original whack group size", ResolveWhackZombieGroupSize(1), 1);
 	ExpectEqual("original whack speed curve", ResolveWhackZombieSpeedCurveStart(1), 1);
+	const BurnRowEffects anOriginalBurnRow = ResolveBurnRowEffects();
+	ExpectEqual("original burn row sequence", anOriginalBurnRow.mUseSpecialSequence, false);
+	ExpectEqual("original Blover normal phase", ShouldBloverBlowZombie(PHASE_ZOMBIE_NORMAL, false), false);
+	ExpectEqual("original Blover flying phase", ShouldBloverBlowZombie(PHASE_BALLOON_FLYING, true), true);
+	ExpectEqual("original Blover damage", ResolveBloverDamage(false, false, 0), 0);
+	ExpectEqual("original Blover cone health", ResolveBloverConeHelmHealth(HELMTYPE_TRAFFIC_CONE, 370), 370);
+	ExpectEqual("original fog countdown", ResolveFogBlownCountdown(4000), 4000);
+	ExpectEqual("original homing collision", UsesHomingTargetOnlyCollision(MOTION_HOMING), true);
+	ExpectEqual("original non-homing collision", UsesHomingTargetOnlyCollision(MOTION_FLOAT_OVER), false);
+	ExpectEqual("original star motion", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_3_POOL, 56), MOTION_STAR);
+	const ProjectileDeathState anOriginalSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 63);
+	ExpectEqual("original spike dies", anOriginalSpikeDeath.mDead, true);
+	ExpectEqual("original spike death x", anOriginalSpikeDeath.mX, 63);
+	ExpectEqual("original torchwood snow pea", ResolveTorchwoodSnowPeaType(PROJECTILE_PEA), PROJECTILE_PEA);
 	for (const SeedRuleCase& aCase : aScarySeedCases)
 		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
@@ -199,6 +214,51 @@ int main()
 		ExpectEqual("PvZ 95 Scary Potter zombie", ResolveScaryPotterZombie(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mPvZ95);
 	ExpectEqual("unmodified Scary Potter seed", ResolveScaryPotterSeed(GAMEMODE_SCARY_POTTER_3, 0, SEED_LEFTPEATER), SEED_LEFTPEATER);
 	ExpectEqual("unmodified Scary Potter zombie", ResolveScaryPotterZombie(GAMEMODE_SCARY_POTTER_1, 3, ZOMBIE_NORMAL), ZOMBIE_NORMAL);
+	const BurnRowEffects aPvZ95BurnRow = ResolveBurnRowEffects();
+	ExpectEqual("PvZ 95 burn row sequence", aPvZ95BurnRow.mUseSpecialSequence, true);
+	ExpectEqual("PvZ 95 burn row chill", aPvZ95BurnRow.mChilled, 2500);
+	ExpectEqual("PvZ 95 burn row ice trap", aPvZ95BurnRow.mIceTrapCounter, 750);
+	ExpectEqual("PvZ 95 burn row extra damage", aPvZ95BurnRow.mExtraDamage, 1000);
+	ExpectEqual("PvZ 95 burn row damage flags", aPvZ95BurnRow.mExtraDamageFlags, 1);
+	const std::array<ZombiePhase, 10> aBloverTargets = {{
+		PHASE_POLEVAULTER_IN_VAULT, PHASE_BOBSLED_BOARDING, PHASE_POGO_BOUNCING,
+		PHASE_POGO_HIGH_BOUNCE_1, PHASE_POGO_FORWARD_BOUNCE_2, PHASE_DOLPHIN_INTO_POOL,
+		PHASE_DOLPHIN_IN_JUMP, PHASE_SNORKEL_INTO_POOL, PHASE_IMP_GETTING_THROWN,
+		PHASE_BALLOON_FLYING
+	}};
+	for (ZombiePhase aZombiePhase : aBloverTargets)
+		ExpectEqual("PvZ 95 Blover target phase", ShouldBloverBlowZombie(aZombiePhase, false), true);
+	ExpectEqual("PvZ 95 Blover excludes normal phase", ShouldBloverBlowZombie(PHASE_ZOMBIE_NORMAL, true), false);
+	ExpectEqual("PvZ 95 Blover damages non-blown enemy", ResolveBloverDamage(false, false, 0), 50);
+	ExpectEqual("PvZ 95 Blover does not damage blown enemy", ResolveBloverDamage(false, true, 0), 0);
+	ExpectEqual("PvZ 95 Blover spares mind-controlled", ResolveBloverDamage(true, false, 0), 0);
+	ExpectEqual("PvZ 95 Blover normalizes cone health", ResolveBloverConeHelmHealth(HELMTYPE_TRAFFIC_CONE, 370), 50);
+	ExpectEqual("PvZ 95 Blover preserves bucket health", ResolveBloverConeHelmHealth(HELMTYPE_PAIL, 1100), 1100);
+	ExpectEqual("PvZ 95 fog countdown", ResolveFogBlownCountdown(4000), 10000);
+	ExpectEqual("PvZ 95 homing uses generic collision", UsesHomingTargetOnlyCollision(MOTION_HOMING), false);
+	ExpectEqual("typed motion/type value overlap", static_cast<int>(PROJECTILE_BASKETBALL), static_cast<int>(MOTION_HOMING));
+	ExpectEqual("typed spike/float value overlap", static_cast<int>(PROJECTILE_SPIKE), static_cast<int>(MOTION_FLOAT_OVER));
+	ExpectEqual("typed snow/lobbed value overlap", static_cast<int>(PROJECTILE_SNOWPEA), static_cast<int>(MOTION_LOBBED));
+	ExpectEqual("PvZ 95 pool star remains before threshold", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_3_POOL, 55), MOTION_STAR);
+	ExpectEqual("PvZ 95 pool star becomes straight", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_3_POOL, 56), MOTION_STRAIGHT);
+	ExpectEqual("PvZ 95 fog star becomes straight", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_4_FOG, 56), MOTION_STRAIGHT);
+	ExpectEqual("PvZ 95 day star remains before threshold", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_1_DAY, 63), MOTION_STAR);
+	ExpectEqual("PvZ 95 day star becomes straight", ResolveProjectileMotionBeforeUpdate(
+		MOTION_STAR, BACKGROUND_1_DAY, 64), MOTION_STRAIGHT);
+	ExpectEqual("PvZ 95 non-star motion unchanged", ResolveProjectileMotionBeforeUpdate(
+		MOTION_HOMING, BACKGROUND_3_POOL, 99), MOTION_HOMING);
+	const ProjectileDeathState aPvZ95YoungSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 63);
+	ExpectEqual("PvZ 95 young spike survives", aPvZ95YoungSpikeDeath.mDead, false);
+	ExpectEqual("PvZ 95 young spike x increment", aPvZ95YoungSpikeDeath.mX, 64);
+	const ProjectileDeathState aPvZ95OldSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 64);
+	ExpectEqual("PvZ 95 spike at boundary dies", aPvZ95OldSpikeDeath.mDead, true);
+	const ProjectileDeathState aPvZ95PeaDeath = ResolveProjectileDeath(PROJECTILE_PEA, 10);
+	ExpectEqual("PvZ 95 pea still dies", aPvZ95PeaDeath.mDead, true);
+	ExpectEqual("PvZ 95 torchwood snow pea remains snow", ResolveTorchwoodSnowPeaType(PROJECTILE_PEA), PROJECTILE_SNOWPEA);
 
 	if (SetActiveRuleset("not-a-ruleset"))
 		return 1;

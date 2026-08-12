@@ -42,6 +42,21 @@ namespace PvzRules
 		float mScale;
 	};
 
+	struct BurnRowEffects
+	{
+		bool mUseSpecialSequence;
+		int mChilled;
+		int mIceTrapCounter;
+		int mExtraDamage;
+		unsigned int mExtraDamageFlags;
+	};
+
+	struct ProjectileDeathState
+	{
+		bool mDead;
+		int mX;
+	};
+
 	RulesetId GetActiveRuleset();
 	void SetActiveRuleset(RulesetId theRuleset);
 	bool SetActiveRuleset(std::string_view theName);
@@ -66,6 +81,16 @@ namespace PvzRules
 	bool UsesCherryBombSpecial(SeedType theSeedType);
 	bool TakesLayeredCrushDamage(SeedType theSeedType);
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue);
+	BurnRowEffects ResolveBurnRowEffects();
+	bool ShouldBloverBlowZombie(ZombiePhase theZombiePhase, bool theOriginalValue);
+	int ResolveBloverDamage(bool theMindControlled, bool theBlowingAway, int theOriginalValue);
+	int ResolveBloverConeHelmHealth(HelmType theHelmType, int theOriginalValue);
+	int ResolveFogBlownCountdown(int theOriginalValue);
+	bool UsesHomingTargetOnlyCollision(ProjectileMotion theMotionType);
+	ProjectileMotion ResolveProjectileMotionBeforeUpdate(ProjectileMotion theMotionType,
+		BackgroundType theBackground, int theProjectileAge);
+	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX);
+	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue);
 
 	ZombieType ResolveZombieType(ZombieType theZombieType);
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue);
