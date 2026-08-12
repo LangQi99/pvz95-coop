@@ -10,15 +10,17 @@ PvZ 95 Co-op aims to let two to four people control one shared Plants vs. Zombie
 
 - [x] Windows x64 and macOS Apple Silicon CMake baseline
 - [x] Runtime-selectable PvZ 95 ruleset and verified direct data changes
-- [x] Versioned discovery, handshake, cursor, input, and state-hash packet codec
+- [x] Versioned discovery, handshake, session-start, cursor, input, tick, and state-hash packet codec
 - [x] Non-blocking WinSock/BSD Socket UDP LAN discovery with loopback integration tests
 - [x] Bounded reliable channel plus validated host/client lobby sessions over TCP
 - [x] Host/join main-menu controls connected to the LAN session coordinator
 - [x] Original retail/PvZ 95 compiled-resource compatibility and Chinese text conversion
 - [ ] Restore the remaining injected PvZ 95 behavior hooks with regression tests
 - [x] Render colored remote pointers and dispatch validated, host-authoritative pointer input
-- [ ] Synchronize session start, level parameters, and deterministic random state
-- [ ] Add deterministic state hashing, resynchronization, reconnect, and soak tests
+- [x] Synchronize session start, host gameplay profile, level parameters, and deterministic random state
+- [x] Schedule accepted input on a host tick and pace clients from the authoritative tick stream
+- [x] Detect deterministic-state divergence with a canonical periodic board hash
+- [ ] Add snapshot resynchronization, reconnect, and two-machine soak tests
 - [ ] Produce signed/notarized macOS and packaged Windows releases
 
 See [architecture](docs/ARCHITECTURE.md) and [PvZ 95 research notes](docs/research/PVZ95_RULESET.md).
@@ -100,7 +102,9 @@ The current native test suite covers:
 - real UDP discovery between a host and client over loopback;
 - non-blocking TCP connection, framed two-way handshake traffic, and peer-close detection;
 - coordinate normalization, colored cursor state, stale/wrapped sequence handling, and player removal;
-- end-to-end host/client join, ruleset rejection, player-ID binding, accepted-input rebroadcast, cursor sequencing, and host broadcast.
+- end-to-end host/client join, ruleset rejection, player-ID binding, accepted-input rebroadcast, cursor sequencing, and host broadcast;
+- synchronized session start/ready/begin barriers and host gameplay-profile packet validation;
+- stable future-tick input ordering, duplicate/late/capacity handling, and canonical hash primitives.
 
 The protocol never sends native C++ struct layouts. It uses explicit fixed-width little-endian fields and validates packet length and enum/player ranges before use.
 

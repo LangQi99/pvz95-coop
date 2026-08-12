@@ -186,6 +186,17 @@ namespace PvzMultiplayer
 			return;
 		}
 
+		if (const auto* aReady = std::get_if<SessionReady>(&theMessage))
+		{
+			if (aReady->mPlayerId != *thePeer.mPlayerId)
+			{
+				RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Invalid session-ready response");
+				return;
+			}
+			mEvents.emplace_back(*aReady);
+			return;
+		}
+
 		RejectPeer(thePeer, RejectReason::INVALID_REQUEST, "Message is not valid for a connected client");
 	}
 

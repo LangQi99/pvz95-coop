@@ -232,11 +232,15 @@ static bool GB18030ToUTF8(const char* theData, int theLen, std::string& theResul
 	std::wstring aWideText(static_cast<size_t>(aWideLength), L'\0');
 	if (MultiByteToWideChar(54936, MB_ERR_INVALID_CHARS, theData, theLen, aWideText.data(), aWideLength) != aWideLength)
 		return false;
-	int aUtf8Length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, aWideText.data(), aWideLength, nullptr, 0, nullptr, nullptr);
+	// The wide text was produced by the strict GB18030 decoder above, so it
+	// cannot contain unpaired surrogates.  Use the universally available flag
+	// value here: WC_ERR_INVALID_CHARS is hidden by older Windows SDK target
+	// macros even when building for currently supported Windows versions.
+	int aUtf8Length = WideCharToMultiByte(CP_UTF8, 0, aWideText.data(), aWideLength, nullptr, 0, nullptr, nullptr);
 	if (aUtf8Length <= 0)
 		return false;
 	theResult.resize(static_cast<size_t>(aUtf8Length));
-	return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, aWideText.data(), aWideLength,
+	return WideCharToMultiByte(CP_UTF8, 0, aWideText.data(), aWideLength,
 		theResult.data(), aUtf8Length, nullptr, nullptr) == aUtf8Length;
 #elif defined(PVZ_USE_SYSTEM_ICONV)
 	iconv_t aConverter = iconv_open("UTF-8", "GB18030");

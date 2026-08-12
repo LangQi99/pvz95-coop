@@ -110,6 +110,11 @@ void Sexy::SRand(ulong theSeed)
 	gMTRand.SRand(theSeed);
 }
 
+std::string Sexy::GetRandState()
+{
+	return gMTRand.Serialize();
+}
+
 std::string Sexy::GetAppDataFolder()
 {
 	return PathToU8(Sexy::gAppDataFolder);

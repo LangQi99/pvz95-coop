@@ -364,6 +364,7 @@ void Board::TryToSaveGame()
 bool Board::NeedSaveGame()
 {
 	return
+		!mApp->IsLanGameplayActive() &&
 		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ICE &&
 		mApp->mGameMode != GameMode::GAMEMODE_UPSELL &&
 		mApp->mGameMode != GameMode::GAMEMODE_INTRO &&
@@ -5727,6 +5728,8 @@ void Board::Update()
 
 	Widget::Update();
 	MarkDirty();
+	if (!mApp->ShouldAdvanceLanBoard())
+		return;
 
 	mBoardUpdateCounter++;
 	mCutScene->Update();

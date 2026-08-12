@@ -45,6 +45,14 @@ namespace
 int main()
 {
 	using namespace PvzMultiplayer;
+	GameplayProfile aProfile;
+	aProfile.mProfileId = 17;
+	aProfile.mAdventureLevel = 34;
+	aProfile.mCoins = 12340;
+	aProfile.mFinishedAdventure = 1;
+	aProfile.mFlags = PROFILE_HAS_UNLOCKED_MINIGAMES | PROFILE_HAS_SEEN_UPSELL;
+	aProfile.mChallengeRecords[7] = 3;
+	aProfile.mPurchases[4] = 1002;
 
 	ExpectRoundTrip(DiscoveryQuery{0x1020304050607080ULL});
 	ExpectRoundTrip(DiscoveryOffer{0x8877665544332211ULL, 43096, 2, 4, 0x50563935, "Sunflower Room"});
@@ -53,7 +61,11 @@ int main()
 	ExpectRoundTrip(Reject{RejectReason::RULESET_MISMATCH, "PvZ95 rules required"});
 	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, 1, true});
 	ExpectRoundTrip(InputCommand{4570, 100, 1, 40000, 25000, 0, 2, InputKind::POINTER_DOWN});
-	ExpectRoundTrip(StateHash{4600, 0xDEADBEEFCAFEBABEULL});
+	ExpectRoundTrip(SessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile});
+	ExpectRoundTrip(SessionReady{0x1020304050607080ULL, 2});
+	ExpectRoundTrip(SessionBegin{4590, 0x1020304050607080ULL});
+	ExpectRoundTrip(TickSync{4595, 0x1020304050607080ULL});
+	ExpectRoundTrip(StateHash{4600, 0x1020304050607080ULL, 0xDEADBEEFCAFEBABEULL});
 
 	ExpectDecodeError({}, CodecError::PACKET_TOO_SHORT);
 
@@ -87,6 +99,11 @@ int main()
 		Fail("invalid cursor button mask encoded successfully");
 	if (Encode(Message(InputCommand{1, 1, 0, 0, 0, 0, 1, InputKind::POINTER_DOWN})))
 		Fail("invalid pointer click code encoded successfully");
+	aProfile.mFlags = 0x80000000U;
+	if (Encode(Message(SessionStart{1, 1, 1, 0, aProfile})))
+		Fail("invalid session profile flags encoded successfully");
+	if (Encode(Message(SessionReady{0, 1})))
+		Fail("zero session start ID encoded successfully");
 
 	std::cout << "PvZ 95 multiplayer protocol tests passed\n";
 	return 0;

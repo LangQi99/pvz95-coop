@@ -30,7 +30,7 @@ namespace PvzMultiplayer
 		bool operator==(const PlayerLeft&) const = default;
 	};
 
-	using HostSessionEvent = std::variant<PlayerJoined, PlayerLeft, CursorUpdate, InputCommand>;
+	using HostSessionEvent = std::variant<PlayerJoined, PlayerLeft, CursorUpdate, InputCommand, SessionReady>;
 
 	class HostSession
 	{

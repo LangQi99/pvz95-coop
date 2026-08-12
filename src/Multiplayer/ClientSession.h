@@ -45,6 +45,7 @@ namespace PvzMultiplayer
 
 		bool SendCursor(CursorUpdate theCursor);
 		bool SendInput(InputCommand theInput);
+		bool SendReady(SessionReady theReady);
 		std::vector<Message> TakeMessages();
 
 		ClientSessionState GetState() const;

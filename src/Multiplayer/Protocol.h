@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <cstddef>
 #include <optional>
@@ -17,7 +18,7 @@
 
 namespace PvzMultiplayer
 {
-	constexpr uint16_t PROTOCOL_VERSION = 1;
+	constexpr uint16_t PROTOCOL_VERSION = 2;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint8_t MAX_PLAYERS = 4;
 	constexpr size_t MAX_PACKET_SIZE = 1024;
@@ -25,6 +26,10 @@ namespace PvzMultiplayer
 	constexpr size_t MAX_PLAYER_NAME_LENGTH = 24;
 	constexpr size_t MAX_SESSION_NAME_LENGTH = 48;
 	constexpr size_t MAX_REJECT_MESSAGE_LENGTH = 96;
+	constexpr uint16_t MAX_GAME_MODE_VALUE = 72;
+	constexpr uint16_t MAX_ADVENTURE_LEVEL = 50;
+	constexpr size_t GAMEPLAY_CHALLENGE_RECORD_COUNT = 100;
+	constexpr size_t GAMEPLAY_PURCHASE_COUNT = 80;
 
 	using PlayerId = uint8_t;
 
@@ -37,6 +42,10 @@ namespace PvzMultiplayer
 		REJECT,
 		CURSOR_UPDATE,
 		INPUT_COMMAND,
+		SESSION_START,
+		SESSION_READY,
+		SESSION_BEGIN,
+		TICK_SYNC,
 		STATE_HASH
 	};
 
@@ -148,15 +157,83 @@ namespace PvzMultiplayer
 		bool operator==(const InputCommand&) const = default;
 	};
 
+	enum SessionProfileFlags : uint32_t
+	{
+		PROFILE_DIDNT_PURCHASE_PACKET_UPGRADE = 1U << 0,
+		PROFILE_HAS_WOKEN_STINKY = 1U << 1,
+		PROFILE_HAS_UNLOCKED_MINIGAMES = 1U << 2,
+		PROFILE_HAS_UNLOCKED_PUZZLE = 1U << 3,
+		PROFILE_HAS_NEW_MINIGAME = 1U << 4,
+		PROFILE_HAS_NEW_SCARY_POTTER = 1U << 5,
+		PROFILE_HAS_NEW_I_ZOMBIE = 1U << 6,
+		PROFILE_HAS_NEW_SURVIVAL = 1U << 7,
+		PROFILE_HAS_UNLOCKED_SURVIVAL = 1U << 8,
+		PROFILE_NEEDS_MAGIC_TACO_REWARD = 1U << 9,
+		PROFILE_HAS_SEEN_STINKY = 1U << 10,
+		PROFILE_HAS_SEEN_UPSELL = 1U << 11
+	};
+
+	constexpr uint32_t SESSION_PROFILE_KNOWN_FLAGS = (1U << 12) - 1;
+
+	struct GameplayProfile
+	{
+		uint32_t mProfileId{};
+		uint32_t mAdventureLevel{1};
+		uint32_t mCoins{};
+		uint32_t mFinishedAdventure{};
+		uint32_t mFlags{};
+		std::array<uint32_t, GAMEPLAY_CHALLENGE_RECORD_COUNT> mChallengeRecords{};
+		std::array<uint32_t, GAMEPLAY_PURCHASE_COUNT> mPurchases{};
+
+		bool operator==(const GameplayProfile&) const = default;
+	};
+
+	struct SessionStart
+	{
+		uint64_t mHostTick{};
+		uint64_t mStartId{};
+		uint32_t mSimulationSeed{};
+		uint16_t mGameMode{};
+		GameplayProfile mProfile;
+
+		bool operator==(const SessionStart&) const = default;
+	};
+
+	struct SessionReady
+	{
+		uint64_t mStartId{};
+		PlayerId mPlayerId{};
+
+		bool operator==(const SessionReady&) const = default;
+	};
+
+	struct SessionBegin
+	{
+		uint64_t mHostTick{};
+		uint64_t mStartId{};
+
+		bool operator==(const SessionBegin&) const = default;
+	};
+
+	struct TickSync
+	{
+		uint64_t mHostTick{};
+		uint64_t mStartId{};
+
+		bool operator==(const TickSync&) const = default;
+	};
+
 	struct StateHash
 	{
 		uint64_t mHostTick{};
+		uint64_t mStartId{};
 		uint64_t mHash{};
 
 		bool operator==(const StateHash&) const = default;
 	};
 
-	using Message = std::variant<DiscoveryQuery, DiscoveryOffer, Hello, Welcome, Reject, CursorUpdate, InputCommand, StateHash>;
+	using Message = std::variant<DiscoveryQuery, DiscoveryOffer, Hello, Welcome, Reject, CursorUpdate,
+		InputCommand, SessionStart, SessionReady, SessionBegin, TickSync, StateHash>;
 
 	struct DecodeResult
 	{

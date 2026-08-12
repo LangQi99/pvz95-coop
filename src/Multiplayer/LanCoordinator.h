@@ -35,6 +35,7 @@ namespace PvzMultiplayer
 		void Poll();
 		bool SendCursor(CursorUpdate theCursor);
 		bool SendInput(InputCommand theInput);
+		bool SendReady(SessionReady theReady);
 		bool BroadcastFromHost(const Message& theMessage);
 		void SetSessionStarted(bool theStarted);
 

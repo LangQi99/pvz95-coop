@@ -47,7 +47,9 @@ The resource loader supports both native compiled definitions and the original r
 
 ## Session model
 
-The host is authoritative. Board pointer presses and releases become an `InputCommand`; the host validates and orders remote commands at a simulation tick, then broadcasts the accepted order. A connected client waits for that accepted command before mutating its local board. This is the input-ordering foundation; session-start and deterministic-state synchronization are separate required layers and are not complete yet.
+The host is authoritative. It sends a versioned `SessionStart` containing the game mode, simulation seed, and a gameplay-only copy of the host profile. Clients initialize an in-memory profile shadow, construct the same board, and answer with `SessionReady`; no machine advances the simulation until every current lobby member is ready and the host broadcasts `SessionBegin`. The shadow is never written over the guest's local profile.
+
+Board pointer presses and releases become an `InputCommand`. The host validates each command, assigns it a future simulation tick, preserves a single arrival order for commands sharing a tick, then broadcasts the accepted command. All peers apply it immediately before updating that tick. Clients are paced by the host's `TickSync` stream and can run a small bounded catch-up burst without allowing wall-clock timing to enter the simulation.
 
 Cursor movement is presentation state. It is rate-limited to 25 Hz, includes a periodic keepalive, and is discarded when its per-player sequence is stale. It currently shares the bounded TCP channel with commands; a future transport may drop or replace queued movement without affecting reliable clicks. Each player receives a stable ID and cursor color for the lifetime of the session.
 
@@ -55,9 +57,9 @@ The initial implementation targets up to four players on a trusted LAN. Network 
 
 ## Consistency and recovery
 
-Clients run the same deterministic simulation after receiving the host's random seed and ordered command stream. The host periodically broadcasts a canonical state hash. A mismatch pauses command application and requests a host snapshot; reconnect follows the same snapshot path.
+Clients run the same deterministic simulation after receiving the host's random seed and ordered command stream. The host periodically broadcasts a canonical state hash. A missing or mismatched hash currently freezes the client to prevent silent divergence. Snapshot transfer, automatic resynchronization, and reconnect are still pending; they must reuse one bounded, validated snapshot format.
 
-The canonical hash must exclude pointers, wall-clock time, audio state, renderer state, and native padding. It should include the board tick, random-generator state, sun, selected seeds, plants, zombies, projectiles, coins, mowers, and mode-specific challenge state in stable ID order.
+The canonical hash explicitly serializes fixed-width fields and excludes pointers, wall-clock time, audio state, renderer state, cursor presentation, and native padding. Its first schema includes the board tick and counters, random-generator state, sun, seed packets, plants, zombies, projectiles, coins, mowers, grid items, and mode-specific challenge state in stable container order.
 
 ## Compatibility policy
 

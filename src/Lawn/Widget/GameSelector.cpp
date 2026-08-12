@@ -1231,6 +1231,9 @@ void GameSelector::ButtonDepress(int theId)
 {
 	if (mSlideCounter > 0)
 		return;
+	if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::CONNECTED &&
+		theId != GameSelector::GameSelector_JoinLan)
+		return;
 
 	if (theId == GameSelector::GameSelector_Minigame && mMinigamesLocked)
 	{

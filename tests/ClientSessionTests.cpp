@@ -77,7 +77,23 @@ int main()
 		std::get<CursorUpdate>(anEvents.front()).mPlayerId != 1)
 		Fail("host did not receive the client cursor with the assigned player ID");
 
-	StateHash aHash{500, 0xAABBCCDDEEFF0011ULL};
+	SessionReady aReady{77, 99};
+	if (!aClient.SendReady(aReady))
+		Fail("client failed to send session-ready response");
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	anEvents.clear();
+	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
+	{
+		aClient.Poll();
+		aHost.Poll();
+		anEvents = aHost.TakeEvents();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (anEvents.size() != 1 || !std::holds_alternative<SessionReady>(anEvents.front()) ||
+		std::get<SessionReady>(anEvents.front()).mPlayerId != 1)
+		Fail("host did not bind the ready response to the assigned player ID");
+
+	StateHash aHash{500, 77, 0xAABBCCDDEEFF0011ULL};
 	if (!aHost.Broadcast(aHash))
 		Fail("host broadcast failed");
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);

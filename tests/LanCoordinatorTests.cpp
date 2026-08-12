@@ -47,10 +47,56 @@ int main()
 		Fail("coordinator handshake timed out");
 	aHost.TakeHostEvents();
 
+	GameplayProfile aProfile;
+	aProfile.mProfileId = 1;
+	aProfile.mAdventureLevel = 8;
+	SessionStart aStart{0, 77, 1234, 0, aProfile};
+	if (!aHost.BroadcastFromHost(aStart))
+		Fail("coordinator failed to broadcast session start");
+	std::vector<Message> aMessages;
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{aStart})
+		Fail("coordinator client did not receive session start");
+	if (!aClient.SendReady({aStart.mStartId, 99}))
+		Fail("coordinator client failed to send ready response");
+	std::vector<HostSessionEvent> anEvents;
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
+	{
+		aClient.Poll();
+		aHost.Poll();
+		anEvents = aHost.TakeHostEvents();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (anEvents.size() != 1 || !std::holds_alternative<SessionReady>(anEvents.front()) ||
+		std::get<SessionReady>(anEvents.front()).mPlayerId != 1)
+		Fail("coordinator did not bind ready response to the assigned player");
+	SessionBegin aBegin{0, aStart.mStartId};
+	if (!aHost.BroadcastFromHost(aBegin))
+		Fail("coordinator failed to broadcast session begin");
+	aMessages.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{aBegin})
+		Fail("coordinator client did not receive session begin");
+
 	CursorUpdate aCursor{10, 1, 12345, 54321, 99, 1, true};
 	if (!aClient.SendCursor(aCursor))
 		Fail("coordinator failed to send cursor");
-	std::vector<HostSessionEvent> anEvents;
+	anEvents.clear();
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
 	{
@@ -82,7 +128,7 @@ int main()
 	anAcceptedInput.mHostTick = 20;
 	if (!aHost.BroadcastFromHost(anAcceptedInput))
 		Fail("coordinator failed to broadcast accepted input");
-	std::vector<Message> aMessages;
+	aMessages.clear();
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
 	{
@@ -94,7 +140,7 @@ int main()
 	if (aMessages.size() != 1 || aMessages.front() != Message{anAcceptedInput})
 		Fail("coordinator client did not receive accepted input");
 
-	StateHash aHash{20, 0x0102030405060708ULL};
+	StateHash aHash{20, 77, 0x0102030405060708ULL};
 	if (!aHost.BroadcastFromHost(aHash))
 		Fail("coordinator host broadcast failed");
 	aMessages.clear();

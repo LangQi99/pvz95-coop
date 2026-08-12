@@ -79,7 +79,7 @@ int main()
 		std::get<CursorUpdate>(anEvents.front()) != aCursor)
 		Fail("host did not validate and deliver the cursor");
 
-	StateHash aHash{100, 0x123456789ABCDEF0ULL};
+	StateHash aHash{100, 77, 0x123456789ABCDEF0ULL};
 	if (!aHost.Broadcast(aHash))
 		Fail("host failed to broadcast state hash");
 	bool aReceivedHash = false;

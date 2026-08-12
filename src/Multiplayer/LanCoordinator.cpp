@@ -179,6 +179,11 @@ namespace PvzMultiplayer
 		return mMode == LanMode::CONNECTED && mClientSession.SendInput(theInput);
 	}
 
+	bool LanCoordinator::SendReady(SessionReady theReady)
+	{
+		return mMode == LanMode::CONNECTED && mClientSession.SendReady(theReady);
+	}
+
 	bool LanCoordinator::BroadcastFromHost(const Message& theMessage)
 	{
 		return mMode == LanMode::HOSTING && mHostSession.Broadcast(theMessage);

@@ -25,8 +25,12 @@
 #include "ConstEnums.h"
 #include "SexyAppFramework/SexyApp.h"
 #include "PvzpLib/PvzpFoley.h"
+#include "Multiplayer/InputTimeline.h"
+#include "Multiplayer/SessionBarrier.h"
 #include "Multiplayer/SharedInputState.h"
 
+#include <optional>
+#include <map>
 #include <memory>
 
 class Board;
@@ -150,6 +154,15 @@ public:
 	bool							mMuteSoundsForCutscene;
 	std::unique_ptr<PvzMultiplayer::LanCoordinator> mLanCoordinator;
 	PvzMultiplayer::SharedInputState mSharedInputState;
+	PvzMultiplayer::SessionBarrier mLanSessionBarrier;
+	PvzMultiplayer::InputTimeline mLanInputTimeline;
+	std::optional<PvzMultiplayer::SessionStart> mLanSessionStart;
+	std::map<uint64_t, uint64_t> mExpectedLanStateHashes;
+	std::unique_ptr<PlayerInfo>     mLanGameplayProfile;
+	PlayerInfo*                     mLocalPlayerInfo{};
+	uint64_t                        mLanSimulationTick{};
+	uint64_t                        mLanTargetTick{};
+	uint64_t                        mLanStartSerial{};
 	uint32_t                        mLanCursorSequence{};
 	uint32_t                        mLanInputSequence{};
 	uint64_t                        mLastLanCursorSendTick{};
@@ -163,6 +176,10 @@ public:
 	bool                            mLocalLanCursorVisible{};
 	bool                            mLastLanCursorVisible{};
 	bool                            mHasSentLanCursor{};
+	bool                            mApplyingLanSessionStart{};
+	bool                            mLanWaitingForBegin{};
+	bool                            mLanSessionBegun{};
+	bool                            mLanDesynchronized{};
 
 public:
 	LawnApp();
@@ -250,9 +267,19 @@ public:
 	void                            DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int theOriginY) const;
 	void                            UpdateLanSession();
 	void                            PublishLocalLanCursor();
-	void                            ApplyLanCursorMotion(const PvzMultiplayer::CursorUpdate& theCursor);
 	bool                            ApplyLanInput(const PvzMultiplayer::InputCommand& theInput);
 	bool                            IsBoardInputAt(int theX, int theY);
+	bool                            BeginLanGame(GameMode theGameMode);
+	bool                            ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart, bool theHost);
+	void                            MaybeBeginLanSession();
+	void                            ProcessLanInputsForCurrentTick();
+	void                            PublishOrVerifyLanStateHash();
+	void                            ResetLanGameState();
+	void                            InstallLanGameplayProfile(const PvzMultiplayer::GameplayProfile& theProfile);
+	void                            RestoreLocalPlayerProfile();
+	PvzMultiplayer::GameplayProfile CaptureGameplayProfile() const;
+	bool                            ShouldAdvanceLanBoard() const;
+	bool                            IsLanGameplayActive() const;
 	bool							UpdateAppStep(bool* updated) override;
 	bool							UpdateApp() override;
 	bool					IsAdventureMode();

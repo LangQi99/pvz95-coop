@@ -167,6 +167,46 @@ namespace PvzMultiplayer
 			return false;
 		}
 
+		bool IsValidGameplayProfile(const GameplayProfile& theProfile)
+		{
+			return theProfile.mProfileId != 0 && theProfile.mAdventureLevel >= 1 &&
+				theProfile.mAdventureLevel <= MAX_ADVENTURE_LEVEL &&
+				theProfile.mCoins <= static_cast<uint32_t>(INT32_MAX) &&
+				(theProfile.mFlags & ~SESSION_PROFILE_KNOWN_FLAGS) == 0;
+		}
+
+		void WriteGameplayProfile(PacketWriter& theWriter, const GameplayProfile& theProfile)
+		{
+			theWriter.WriteU32(theProfile.mProfileId);
+			theWriter.WriteU32(theProfile.mAdventureLevel);
+			theWriter.WriteU32(theProfile.mCoins);
+			theWriter.WriteU32(theProfile.mFinishedAdventure);
+			theWriter.WriteU32(theProfile.mFlags);
+			for (uint32_t aRecord : theProfile.mChallengeRecords)
+				theWriter.WriteU32(aRecord);
+			for (uint32_t aPurchase : theProfile.mPurchases)
+				theWriter.WriteU32(aPurchase);
+		}
+
+		bool ReadGameplayProfile(PacketReader& theReader, GameplayProfile& theProfile)
+		{
+			if (!theReader.ReadU32(theProfile.mProfileId) || !theReader.ReadU32(theProfile.mAdventureLevel) ||
+				!theReader.ReadU32(theProfile.mCoins) || !theReader.ReadU32(theProfile.mFinishedAdventure) ||
+				!theReader.ReadU32(theProfile.mFlags))
+				return false;
+			for (uint32_t& aRecord : theProfile.mChallengeRecords)
+			{
+				if (!theReader.ReadU32(aRecord))
+					return false;
+			}
+			for (uint32_t& aPurchase : theProfile.mPurchases)
+			{
+				if (!theReader.ReadU32(aPurchase))
+					return false;
+			}
+			return IsValidGameplayProfile(theProfile);
+		}
+
 		bool WritePayload(PacketWriter& theWriter, const Message& theMessage)
 		{
 			return std::visit([&](const auto& thePayload)
@@ -242,9 +282,44 @@ namespace PvzMultiplayer
 					theWriter.WriteU8(thePayload.mPlayerId);
 					theWriter.WriteU8(static_cast<uint8_t>(thePayload.mKind));
 				}
+				else if constexpr (std::is_same_v<Payload, SessionStart>)
+				{
+					if (thePayload.mStartId == 0 || thePayload.mSimulationSeed == 0 ||
+						thePayload.mGameMode > MAX_GAME_MODE_VALUE || !IsValidGameplayProfile(thePayload.mProfile))
+						return false;
+					theWriter.WriteU64(thePayload.mHostTick);
+					theWriter.WriteU64(thePayload.mStartId);
+					theWriter.WriteU32(thePayload.mSimulationSeed);
+					theWriter.WriteU16(thePayload.mGameMode);
+					WriteGameplayProfile(theWriter, thePayload.mProfile);
+				}
+				else if constexpr (std::is_same_v<Payload, SessionReady>)
+				{
+					if (thePayload.mStartId == 0 || !IsValidPlayer(thePayload.mPlayerId))
+						return false;
+					theWriter.WriteU64(thePayload.mStartId);
+					theWriter.WriteU8(thePayload.mPlayerId);
+				}
+				else if constexpr (std::is_same_v<Payload, SessionBegin>)
+				{
+					if (thePayload.mStartId == 0)
+						return false;
+					theWriter.WriteU64(thePayload.mHostTick);
+					theWriter.WriteU64(thePayload.mStartId);
+				}
+				else if constexpr (std::is_same_v<Payload, TickSync>)
+				{
+					if (thePayload.mStartId == 0)
+						return false;
+					theWriter.WriteU64(thePayload.mHostTick);
+					theWriter.WriteU64(thePayload.mStartId);
+				}
 				else if constexpr (std::is_same_v<Payload, StateHash>)
 				{
+					if (thePayload.mStartId == 0)
+						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
+					theWriter.WriteU64(thePayload.mStartId);
 					theWriter.WriteU64(thePayload.mHash);
 				}
 				return true;
@@ -272,6 +347,10 @@ namespace PvzMultiplayer
 			if constexpr (std::is_same_v<Payload, Reject>) return MessageKind::REJECT;
 			if constexpr (std::is_same_v<Payload, CursorUpdate>) return MessageKind::CURSOR_UPDATE;
 			if constexpr (std::is_same_v<Payload, InputCommand>) return MessageKind::INPUT_COMMAND;
+			if constexpr (std::is_same_v<Payload, SessionStart>) return MessageKind::SESSION_START;
+			if constexpr (std::is_same_v<Payload, SessionReady>) return MessageKind::SESSION_READY;
+			if constexpr (std::is_same_v<Payload, SessionBegin>) return MessageKind::SESSION_BEGIN;
+			if constexpr (std::is_same_v<Payload, TickSync>) return MessageKind::TICK_SYNC;
 			return MessageKind::STATE_HASH;
 		}, theMessage);
 	}
@@ -399,10 +478,45 @@ namespace PvzMultiplayer
 				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}
+		case MessageKind::SESSION_START:
+		{
+			SessionStart aMessage;
+			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mStartId) ||
+				!aReader.ReadU32(aMessage.mSimulationSeed) || !aReader.ReadU16(aMessage.mGameMode) ||
+				aMessage.mStartId == 0 || aMessage.mSimulationSeed == 0 ||
+				aMessage.mGameMode > MAX_GAME_MODE_VALUE || !ReadGameplayProfile(aReader, aMessage.mProfile))
+				break;
+			return FinishDecode(aReader, std::move(aMessage));
+		}
+		case MessageKind::SESSION_READY:
+		{
+			SessionReady aMessage;
+			if (!aReader.ReadU64(aMessage.mStartId) || !aReader.ReadU8(aMessage.mPlayerId) ||
+				aMessage.mStartId == 0 || !IsValidPlayer(aMessage.mPlayerId))
+				break;
+			return FinishDecode(aReader, std::move(aMessage));
+		}
+		case MessageKind::SESSION_BEGIN:
+		{
+			SessionBegin aMessage;
+			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mStartId) ||
+				aMessage.mStartId == 0)
+				break;
+			return FinishDecode(aReader, std::move(aMessage));
+		}
+		case MessageKind::TICK_SYNC:
+		{
+			TickSync aMessage;
+			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mStartId) ||
+				aMessage.mStartId == 0)
+				break;
+			return FinishDecode(aReader, std::move(aMessage));
+		}
 		case MessageKind::STATE_HASH:
 		{
 			StateHash aMessage;
-			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mHash))
+			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mStartId) ||
+				!aReader.ReadU64(aMessage.mHash) || aMessage.mStartId == 0)
 				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}

@@ -116,7 +116,8 @@ namespace PvzMultiplayer
 				mMessages.push_back(std::move(aMessage));
 				continue;
 			}
-			if (std::holds_alternative<StateHash>(aMessage))
+			if (std::holds_alternative<SessionStart>(aMessage) || std::holds_alternative<SessionBegin>(aMessage) ||
+				std::holds_alternative<TickSync>(aMessage) || std::holds_alternative<StateHash>(aMessage))
 			{
 				mMessages.push_back(std::move(aMessage));
 				continue;
@@ -163,6 +164,14 @@ namespace PvzMultiplayer
 		mLastInputSequence = theInput.mSequence;
 		mHasInputSequence = true;
 		return true;
+	}
+
+	bool ClientSession::SendReady(SessionReady theReady)
+	{
+		if (mState != ClientSessionState::CONNECTED || !mChannel || !mWelcome || theReady.mStartId == 0)
+			return false;
+		theReady.mPlayerId = mWelcome->mPlayerId;
+		return mChannel->Queue(theReady);
 	}
 
 	std::vector<Message> ClientSession::TakeMessages()
