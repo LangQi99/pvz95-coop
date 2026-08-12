@@ -85,7 +85,8 @@ int main()
 	ExpectEqual("original cattail counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), true);
 	ExpectEqual("original gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), false);
 	ExpectEqual("original chomper boss bite", ChomperOnlyDamagesZombie(ZombieType::ZOMBIE_BOSS), true);
-	ExpectEqual("original chilled eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 8);
+	ExpectEqual("original chilled eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 8);
 	ExpectEqual("original cold removal", ResolveChillAfterRemovingCold(500), 0);
 	ExpectEqual("original maximum sun", ResolveMaximumSunMoney(9990), 9990);
 	ExpectEqual("original raining seeds countdown", ResolveRainingSeedsCountdown(123), 623);
@@ -94,9 +95,11 @@ int main()
 	ExpectEqual("original whack speed curve", ResolveWhackZombieSpeedCurveStart(1), 1);
 	const BurnRowEffects anOriginalBurnRow = ResolveBurnRowEffects();
 	ExpectEqual("original burn row sequence", anOriginalBurnRow.mUseSpecialSequence, false);
+	ExpectEqual("original burn row damage flags", ResolveBurnRowDamageFlags(PHASE_ZOMBIE_NORMAL, 7U), 7);
 	ExpectEqual("original Blover normal phase", ShouldBloverBlowZombie(PHASE_ZOMBIE_NORMAL, false), false);
 	ExpectEqual("original Blover flying phase", ShouldBloverBlowZombie(PHASE_BALLOON_FLYING, true), true);
 	ExpectEqual("original Blover damage", ResolveBloverDamage(false, false, 0), 0);
+	ExpectEqual("original Blover damage flags", ResolveBloverDamageFlags(PHASE_NEWSPAPER_MAD, 0U), 0);
 	ExpectEqual("original Blover cone health", ResolveBloverConeHelmHealth(HELMTYPE_TRAFFIC_CONE, 370), 370);
 	ExpectEqual("original fog countdown", ResolveFogBlownCountdown(4000), 4000);
 	ExpectEqual("original homing collision", UsesHomingTargetOnlyCollision(MOTION_HOMING), true);
@@ -165,10 +168,18 @@ int main()
 	ExpectEqual("bungee steal delay", ResolveBungeeStealDelay(300), 0);
 	ExpectEqual("flag uses yeti update", UsesYetiUpdate(ZombieType::ZOMBIE_FLAG), true);
 	ExpectEqual("yeti update replaced", UsesYetiUpdate(ZombieType::ZOMBIE_YETI), false);
-	ExpectEqual("normal eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_ZOMBIE_NORMAL, false, 4), 8);
-	ExpectEqual("chilled eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_ZOMBIE_NORMAL, true, 4), 16);
-	ExpectEqual("newspaper reading eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, false, 4), 16);
-	ExpectEqual("chilled newspaper reading eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 32);
+	ExpectEqual("normal eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NORMAL, ZombiePhase::PHASE_ZOMBIE_NORMAL, false, 4), 8);
+	ExpectEqual("chilled eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NORMAL, ZombiePhase::PHASE_ZOMBIE_NORMAL, true, 4), 16);
+	ExpectEqual("newspaper non-reading eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_MAD, false, 4), 1);
+	ExpectEqual("chilled newspaper non-reading eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_MAD, true, 4), 2);
+	ExpectEqual("newspaper reading eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, false, 4), 2);
+	ExpectEqual("chilled newspaper reading eat interval", ResolveZombieEatInterval(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 4);
 	ExpectEqual("zombie eat damage", ResolveZombieEatDamage(4), 8);
 	ExpectEqual("I, Zombie sunflower reward", ResolveIZombieSunflowerReward(CoinType::COIN_SUN), CoinType::COIN_SMALLSUN);
 	ExpectEqual("eaten tall-nut transforms", ResolveEatenPlantSeedType(SeedType::SEED_TALLNUT, 299), SeedType::SEED_SQUASH);
@@ -185,9 +196,20 @@ int main()
 	const ZombieMindControlStats aNewspaperMindControlStats = ResolveMindControlStats(ZombieType::ZOMBIE_NEWSPAPER,
 		270, 270, 0, 0, 100, 1200, 0, 1.0f);
 	ExpectEqual("mind controlled newspaper body", aNewspaperMindControlStats.mBodyHealth, 920);
-	ExpectEqual("squash-head post-damage health", ResolveZombieBodyHealthAfterDamage(ZombieType::ZOMBIE_SQUASH_HEAD, 13), 720);
-	ExpectEqual("burn uses combined health", ShouldTakeBurnDamage(ZombieType::ZOMBIE_PAIL, 700, 1100, 0), true);
-	ExpectEqual("gatling-head takes burn damage", ShouldTakeBurnDamage(ZombieType::ZOMBIE_GATLING_HEAD, 270, 0, 0), true);
+	ExpectEqual("newspaper maddening post-damage health", ResolveZombieBodyHealthAfterDamage(
+		ZombiePhase::PHASE_NEWSPAPER_MADDENING, 13), 720);
+	ExpectEqual("newspaper mad post-damage health unchanged", ResolveZombieBodyHealthAfterDamage(
+		ZombiePhase::PHASE_NEWSPAPER_MAD, 13), 13);
+	ExpectEqual("burn uses combined health", ShouldTakeBurnDamage(
+		ZombieType::ZOMBIE_PAIL, ZombiePhase::PHASE_ZOMBIE_NORMAL, 700, 1100, 0), true);
+	ExpectEqual("newspaper reading takes burn damage", ShouldTakeBurnDamage(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, 270, 0, 0), true);
+	ExpectEqual("newspaper maddening takes burn damage", ShouldTakeBurnDamage(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_MADDENING, 270, 0, 0), true);
+	ExpectEqual("newspaper mad is not an injected burn phase", ShouldTakeBurnDamage(
+		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_MAD, 270, 0, 0), false);
+	ExpectEqual("gatling-head is not a phase alias", ShouldTakeBurnDamage(
+		ZombieType::ZOMBIE_GATLING_HEAD, ZombiePhase::PHASE_ZOMBIE_NORMAL, 270, 0, 0), false);
 	const ZombieStatusCounters aButterStatus = ResolveButterStatus(25, 0, 0);
 	ExpectEqual("butter applies chill", aButterStatus.mChilled, 1000);
 	ExpectEqual("butter does not immobilize as butter", aButterStatus.mButtered, 0);
@@ -219,7 +241,10 @@ int main()
 	ExpectEqual("PvZ 95 burn row chill", aPvZ95BurnRow.mChilled, 2500);
 	ExpectEqual("PvZ 95 burn row ice trap", aPvZ95BurnRow.mIceTrapCounter, 750);
 	ExpectEqual("PvZ 95 burn row extra damage", aPvZ95BurnRow.mExtraDamage, 1000);
-	ExpectEqual("PvZ 95 burn row damage flags", aPvZ95BurnRow.mExtraDamageFlags, 1);
+	ExpectEqual("PvZ 95 burn row normal-phase damage flags", ResolveBurnRowDamageFlags(
+		PHASE_ZOMBIE_NORMAL, 0U), 0xFF);
+	ExpectEqual("PvZ 95 burn row newspaper-mad damage flags", ResolveBurnRowDamageFlags(
+		PHASE_NEWSPAPER_MAD, 0U), 3);
 	const std::array<ZombiePhase, 10> aBloverTargets = {{
 		PHASE_POLEVAULTER_IN_VAULT, PHASE_BOBSLED_BOARDING, PHASE_POGO_BOUNCING,
 		PHASE_POGO_HIGH_BOUNCE_1, PHASE_POGO_FORWARD_BOUNCE_2, PHASE_DOLPHIN_INTO_POOL,
@@ -230,6 +255,8 @@ int main()
 		ExpectEqual("PvZ 95 Blover target phase", ShouldBloverBlowZombie(aZombiePhase, false), true);
 	ExpectEqual("PvZ 95 Blover excludes normal phase", ShouldBloverBlowZombie(PHASE_ZOMBIE_NORMAL, true), false);
 	ExpectEqual("PvZ 95 Blover damages non-blown enemy", ResolveBloverDamage(false, false, 0), 50);
+	ExpectEqual("PvZ 95 Blover preserves phase as damage flags", ResolveBloverDamageFlags(
+		PHASE_NEWSPAPER_MAD, 0U), static_cast<unsigned int>(PHASE_NEWSPAPER_MAD));
 	ExpectEqual("PvZ 95 Blover does not damage blown enemy", ResolveBloverDamage(false, true, 0), 0);
 	ExpectEqual("PvZ 95 Blover spares mind-controlled", ResolveBloverDamage(true, false, 0), 0);
 	ExpectEqual("PvZ 95 Blover normalizes cone health", ResolveBloverConeHelmHealth(HELMTYPE_TRAFFIC_CONE, 370), 50);

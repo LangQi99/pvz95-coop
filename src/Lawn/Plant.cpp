@@ -4241,7 +4241,8 @@ void Plant::BurnRow(int theRow)
 				aZombie->mChilledCounter = aBurnEffects.mChilled;
 				aZombie->ApplyBurn();
 				aZombie->UpdateAnimSpeed();
-				aZombie->TakeDamage(aBurnEffects.mExtraDamage, aBurnEffects.mExtraDamageFlags);
+				aZombie->TakeDamage(aBurnEffects.mExtraDamage,
+					PvzRules::ResolveBurnRowDamageFlags(aZombie->mZombiePhase, 0U));
 			}
 			else
 			{
@@ -4290,7 +4291,8 @@ void Plant::BlowAwayFliers()
 			if (aBloverDamage > 0)
 			{
 				aZombie->mHelmHealth = PvzRules::ResolveBloverConeHelmHealth(aZombie->mHelmType, aZombie->mHelmHealth);
-				aZombie->TakeDamage(aBloverDamage, 0U);
+				aZombie->TakeDamage(aBloverDamage,
+					PvzRules::ResolveBloverDamageFlags(aZombie->mZombiePhase, 0U));
 			}
 		}
 	}

@@ -48,7 +48,6 @@ namespace PvzRules
 		int mChilled;
 		int mIceTrapCounter;
 		int mExtraDamage;
-		unsigned int mExtraDamageFlags;
 	};
 
 	struct ProjectileDeathState
@@ -82,8 +81,10 @@ namespace PvzRules
 	bool TakesLayeredCrushDamage(SeedType theSeedType);
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue);
 	BurnRowEffects ResolveBurnRowEffects();
+	unsigned int ResolveBurnRowDamageFlags(ZombiePhase theZombiePhase, unsigned int theOriginalValue);
 	bool ShouldBloverBlowZombie(ZombiePhase theZombiePhase, bool theOriginalValue);
 	int ResolveBloverDamage(bool theMindControlled, bool theBlowingAway, int theOriginalValue);
+	unsigned int ResolveBloverDamageFlags(ZombiePhase theZombiePhase, unsigned int theOriginalValue);
 	int ResolveBloverConeHelmHealth(HelmType theHelmType, int theOriginalValue);
 	int ResolveFogBlownCountdown(int theOriginalValue);
 	bool UsesHomingTargetOnlyCollision(ProjectileMotion theMotionType);
@@ -98,7 +99,8 @@ namespace PvzRules
 	int ResolveZombieInitialShieldHealth(ZombieType theZombieType, int theOriginalValue);
 	int ResolveBungeeStealDelay(int theOriginalValue);
 	bool UsesYetiUpdate(ZombieType theZombieType);
-	int ResolveZombieEatInterval(ZombiePhase theZombiePhase, bool theIsChilled, int theOriginalBaseValue);
+	int ResolveZombieEatInterval(ZombieType theZombieType, ZombiePhase theZombiePhase,
+		bool theIsChilled, int theOriginalBaseValue);
 	int ResolveZombieEatDamage(int theOriginalValue);
 	CoinType ResolveIZombieSunflowerReward(CoinType theOriginalValue);
 	SeedType ResolveEatenPlantSeedType(SeedType theSeedType, int thePlantHealth);
@@ -106,8 +108,9 @@ namespace PvzRules
 	ZombieMindControlStats ResolveMindControlStats(ZombieType theZombieType, int theBodyHealth,
 		int theBodyMaxHealth, int theHelmHealth, int theHelmMaxHealth, int theShieldHealth,
 		int theShieldMaxHealth, int theChilled, float theScale);
-	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue);
-	bool ShouldTakeBurnDamage(ZombieType theZombieType, int theBodyHealth, int theHelmHealth, int theShieldHealth);
+	int ResolveZombieBodyHealthAfterDamage(ZombiePhase theZombiePhase, int theOriginalValue);
+	bool ShouldTakeBurnDamage(ZombieType theZombieType, ZombiePhase theZombiePhase,
+		int theBodyHealth, int theHelmHealth, int theShieldHealth);
 	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped);
 	int ResolveChillAfterRemovingCold(int theOriginalValue);
 	bool IsForcedChilledMovement(ZombiePhase theZombiePhase);

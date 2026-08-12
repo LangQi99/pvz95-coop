@@ -255,9 +255,17 @@ namespace PvzRules
 	BurnRowEffects ResolveBurnRowEffects()
 	{
 		if (gActiveRuleset == RulesetId::PVZ95)
-			return {true, 2500, 750, 1000, 1U};
+			return {true, 2500, 750, 1000};
 
-		return {false, 0, 0, 0, 0U};
+		return {false, 0, 0, 0};
+	}
+
+	unsigned int ResolveBurnRowDamageFlags(ZombiePhase theZombiePhase, unsigned int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		return theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD ? 3U : 0xFFU;
 	}
 
 	bool ShouldBloverBlowZombie(ZombiePhase theZombiePhase, bool theOriginalValue)
@@ -286,6 +294,11 @@ namespace PvzRules
 	int ResolveBloverDamage(bool theMindControlled, bool theBlowingAway, int theOriginalValue)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 && !theMindControlled && !theBlowingAway ? 50 : theOriginalValue;
+	}
+
+	unsigned int ResolveBloverDamageFlags(ZombiePhase theZombiePhase, unsigned int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? static_cast<unsigned int>(theZombiePhase) : theOriginalValue;
 	}
 
 	int ResolveBloverConeHelmHealth(HelmType theHelmType, int theOriginalValue)
@@ -380,19 +393,21 @@ namespace PvzRules
 		return theZombieType == ZombieType::ZOMBIE_YETI;
 	}
 
-	int ResolveZombieEatInterval(ZombiePhase theZombiePhase, bool theIsChilled, int theOriginalBaseValue)
+	int ResolveZombieEatInterval(ZombieType theZombieType, ZombiePhase theZombiePhase,
+		bool theIsChilled, int theOriginalBaseValue)
 	{
-		int anInterval = theOriginalBaseValue;
 		if (gActiveRuleset == RulesetId::PVZ95)
 		{
-			anInterval *= 2;
-			if (theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_READING)
-				anInterval *= 2;
-		}
-		if (theIsChilled)
-			anInterval *= 2;
+			if (theZombieType == ZombieType::ZOMBIE_NEWSPAPER)
+			{
+				int anInterval = theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_READING ? 2 : 1;
+				return theIsChilled ? anInterval * 2 : anInterval;
+			}
 
-		return anInterval;
+			return theIsChilled ? theOriginalBaseValue * 4 : theOriginalBaseValue * 2;
+		}
+
+		return theIsChilled ? theOriginalBaseValue * 2 : theOriginalBaseValue;
 	}
 
 	int ResolveZombieEatDamage(int theOriginalValue)
@@ -437,15 +452,16 @@ namespace PvzRules
 		};
 	}
 
-	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue)
+	int ResolveZombieBodyHealthAfterDamage(ZombiePhase theZombiePhase, int theOriginalValue)
 	{
-		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_SQUASH_HEAD)
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MADDENING)
 			return 720;
 
 		return theOriginalValue;
 	}
 
-	bool ShouldTakeBurnDamage(ZombieType theZombieType, int theBodyHealth, int theHelmHealth, int theShieldHealth)
+	bool ShouldTakeBurnDamage(ZombieType theZombieType, ZombiePhase theZombiePhase,
+		int theBodyHealth, int theHelmHealth, int theShieldHealth)
 	{
 		if (theZombieType == ZombieType::ZOMBIE_BOSS)
 			return true;
@@ -454,8 +470,8 @@ namespace PvzRules
 			return theBodyHealth >= 1800;
 
 		const int64_t aTotalHealth = static_cast<int64_t>(theBodyHealth) + theHelmHealth + theShieldHealth;
-		return aTotalHealth >= 1800 || theZombieType == ZombieType::ZOMBIE_GATLING_HEAD ||
-			theZombieType == ZombieType::ZOMBIE_SQUASH_HEAD;
+		return aTotalHealth >= 1800 || theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_READING ||
+			theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MADDENING;
 	}
 
 	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped)

@@ -6862,7 +6862,8 @@ void Zombie::CheckIfPreyCaught()
 		IsFlying())
 		return;
 
-	int aTicksBetweenEats = PvzRules::ResolveZombieEatInterval(mZombiePhase, mChilledCounter > 0, TICKS_BETWEEN_EATS);
+	int aTicksBetweenEats = PvzRules::ResolveZombieEatInterval(
+		mZombieType, mZombiePhase, mChilledCounter > 0, TICKS_BETWEEN_EATS);
 	if (mZombieAge % aTicksBetweenEats != 0)
 	{
 		return;
@@ -7852,7 +7853,7 @@ void Zombie::TakeBodyDamage(int theDamage, unsigned int theDamageFlags)
 	int aBodyHealthOrigin = mBodyHealth;
 	int aDamageIndexBeforeDamage = GetBodyDamageIndex();
 	mBodyHealth -= theDamage;
-	mBodyHealth = PvzRules::ResolveZombieBodyHealthAfterDamage(mZombieType, mBodyHealth);
+	mBodyHealth = PvzRules::ResolveZombieBodyHealthAfterDamage(mZombiePhase, mBodyHealth);
 	int aDamageIndexAfterDamage = GetBodyDamageIndex();
 	if (mZombieType == ZombieType::ZOMBIE_ZAMBONI)
 	{
@@ -8687,7 +8688,8 @@ void Zombie::ApplyBurn()
 	if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED)
 		return;
 
-	if (PvzRules::ShouldTakeBurnDamage(mZombieType, mBodyHealth, mHelmHealth, mShieldHealth))
+	if (PvzRules::ShouldTakeBurnDamage(
+		mZombieType, mZombiePhase, mBodyHealth, mHelmHealth, mShieldHealth))
 	{
 		TakeDamage(1800, 18U);
 		return;
