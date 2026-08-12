@@ -1358,6 +1358,10 @@ void SexyAppBase::ReadFromRegistry()
 #if !defined(__IPHONEOS__) && (!defined(__ANDROID__) || defined(__TERMUX__)) && !defined(__SWITCH__) && !defined(__EMSCRIPTEN__)
 	if (RegistryReadInteger("ScreenMode", &anInt))
 		mIsWindowed = anInt == 0;
+	if (mForceWindowed)
+		mIsWindowed = true;
+	else if (mForceFullscreen)
+		mIsWindowed = false;
 #endif
 
 	RegistryReadInteger("PreferredX", &mPreferredX);
@@ -2422,7 +2426,9 @@ void SexyAppBase::SwitchScreenMode(bool wantWindowed, bool is3d, bool force)
 	return;
 #endif
 
-	if (mForceFullscreen)
+	if (mForceWindowed)
+		wantWindowed = true;
+	else if (mForceFullscreen)
 		wantWindowed = false;
 
 	if (mIsWindowed == wantWindowed && !force)
@@ -3380,6 +3386,16 @@ void SexyAppBase::HandleCmdLineParam(std::string_view theParamName, std::string_
 	else if (theParamName == "-savedir")
 	{
 		mCustomSaveDir = std::string(theParamValue);
+	}
+	else if (theParamName == "-windowed")
+	{
+		mForceWindowed = true;
+		mForceFullscreen = false;
+	}
+	else if (theParamName == "-fullscreen")
+	{
+		mForceFullscreen = true;
+		mForceWindowed = false;
 	}
 	else
 	{

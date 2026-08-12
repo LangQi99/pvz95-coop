@@ -95,11 +95,12 @@ The ruleset protocol ID is part of the multiplayer handshake. Peers with incompa
 For repeatable two-instance testing, the same Host LAN and Join Room actions can be requested at startup. Use a different save directory for each local instance:
 
 ```bash
-./pvz95-coop -savedir /tmp/pvz-host -lan-host
-./pvz95-coop -savedir /tmp/pvz-client -lan-join -lan-address 127.0.0.1
+./pvz95-coop -windowed -savedir /tmp/pvz-host -lan-host
+./pvz95-coop -windowed -savedir /tmp/pvz-client -lan-join -lan-address 127.0.0.1
 ```
 
 Omit `-lan-address` to use normal LAN broadcast discovery. The explicit IPv4 address is intended for same-machine tests or networks that block broadcast.
+`-windowed` overrides the saved display preference, so two local test instances always open as independent windows.
 
 ## Tests
 
