@@ -53,7 +53,14 @@ namespace PvzMultiplayer
 			theSide.emplace(theTick, theHash);
 		}
 
-		return CompareAndErase(theTick);
+		StateHashResult aComparison = CompareAndErase(theTick);
+		if (aComparison.mKind != StateHashResultKind::WAITING)
+			return aComparison;
+
+		// AdvanceTo above expires observations that were already pending.  Run it
+		// again after insertion so that the first observation of an already stale
+		// tick cannot occupy capacity until some unrelated hash arrives.
+		return AdvanceTo(theCurrentTick);
 	}
 
 	StateHashResult StateHashTimeline::CompareAndErase(uint64_t theTick)
