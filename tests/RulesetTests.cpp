@@ -164,6 +164,20 @@ int main()
 		{GAMEMODE_UPSELL, false},
 		{GAMEMODE_INTRO, false}
 	}};
+	const std::array<HelmType, 12> aMagnetHelmetCases = {{
+		static_cast<HelmType>(-1),
+		HELMTYPE_NONE,
+		HELMTYPE_TRAFFIC_CONE,
+		HELMTYPE_PAIL,
+		HELMTYPE_FOOTBALL,
+		HELMTYPE_DIGGER,
+		HELMTYPE_REDEYES,
+		HELMTYPE_HEADBAND,
+		HELMTYPE_BOBSLED,
+		HELMTYPE_WALLNUT,
+		HELMTYPE_TALLNUT,
+		static_cast<HelmType>(10)
+	}};
 
 	ExpectEqual("Adventure mode immediate", static_cast<int>(GAMEMODE_ADVENTURE), 0);
 	ExpectEqual("Tree of Wisdom mode immediate", static_cast<int>(GAMEMODE_TREE_OF_WISDOM), 50);
@@ -173,6 +187,8 @@ int main()
 	ExpectEqual("I, Zombie Endless mode immediate", static_cast<int>(GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS), 70);
 	ExpectEqual("Upsell mode immediate", static_cast<int>(GAMEMODE_UPSELL), 71);
 	ExpectEqual("Intro mode immediate", static_cast<int>(GAMEMODE_INTRO), 72);
+	ExpectEqual("Football helmet immediate", static_cast<int>(HELMTYPE_FOOTBALL), 3);
+	ExpectEqual("PvZ 95 magnet sentinel immediate", static_cast<int>(static_cast<HelmType>(-1)), -1);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
@@ -355,6 +371,34 @@ int main()
 		GAMEMODE_ADVENTURE, true), true);
 	ExpectEqual("original Adventure level 35 update gate", ShouldRunScaryPotterUpdate(
 		GAMEMODE_ADVENTURE, true), true);
+	for (GameMode aGameMode : {GAMEMODE_ADVENTURE, GAMEMODE_CHALLENGE_POGO_PARTY, GAMEMODE_INTRO})
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("original StageHasGraveStones Pogo gate passthrough",
+				ShouldRejectStageHasGraveStonesAtPogoGate(aGameMode, anOriginalValue), anOriginalValue);
+		}
+	}
+	for (bool aStageHasGraveStones : {false, true})
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("original Grave Buster warning passthrough",
+				ShouldWarnGraveBusterForLevel(aStageHasGraveStones, anOriginalValue), anOriginalValue);
+		}
+	}
+	ExpectEqual("original radius non-burn damage", ResolveKillAllZombiesInRadiusNonBurnDamage(1800), 1800);
+	ExpectEqual("original radius arbitrary damage passthrough", ResolveKillAllZombiesInRadiusNonBurnDamage(17), 17);
+	for (HelmType aHelmType : aMagnetHelmetCases)
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("original magnet Football slot passthrough",
+				IsMagnetShroomFootballHelmetEligible(aHelmType, anOriginalValue), anOriginalValue);
+		}
+	}
+	ExpectEqual("original bowling shield damage", ResolveBowlingShieldDamage(400), 400);
+	ExpectEqual("original bowling arbitrary shield damage passthrough", ResolveBowlingShieldDamage(17), 17);
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
@@ -743,6 +787,35 @@ int main()
 				aCase.mGameMode, anOriginalValue), aCase.mExpandedRange);
 		}
 	}
+	for (GameMode aGameMode : {GAMEMODE_ADVENTURE, GAMEMODE_CHALLENGE_POGO_PARTY, GAMEMODE_INTRO})
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("PvZ 95 StageHasGraveStones forced rejection",
+				ShouldRejectStageHasGraveStonesAtPogoGate(aGameMode, anOriginalValue), true);
+		}
+	}
+	for (bool aStageHasGraveStones : {false, true})
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("PvZ 95 Grave Buster warning follows grave presence",
+				ShouldWarnGraveBusterForLevel(aStageHasGraveStones, anOriginalValue), aStageHasGraveStones);
+		}
+	}
+	ExpectEqual("PvZ 95 radius non-burn damage", ResolveKillAllZombiesInRadiusNonBurnDamage(1800), 2400);
+	ExpectEqual("PvZ 95 radius non-burn fixed override", ResolveKillAllZombiesInRadiusNonBurnDamage(17), 2400);
+	for (HelmType aHelmType : aMagnetHelmetCases)
+	{
+		const bool anExpected = static_cast<int>(aHelmType) == -1;
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("PvZ 95 magnet Football slot compares against -1",
+				IsMagnetShroomFootballHelmetEligible(aHelmType, anOriginalValue), anExpected);
+		}
+	}
+	ExpectEqual("PvZ 95 bowling shield damage", ResolveBowlingShieldDamage(400), 800);
+	ExpectEqual("PvZ 95 bowling shield fixed override", ResolveBowlingShieldDamage(17), 800);
 	ExpectEqual("unmodified Scary Potter seed", ResolveScaryPotterSeed(GAMEMODE_SCARY_POTTER_3, 0, SEED_LEFTPEATER), SEED_LEFTPEATER);
 	ExpectEqual("unmodified Scary Potter zombie", ResolveScaryPotterZombie(GAMEMODE_SCARY_POTTER_1, 3, ZOMBIE_NORMAL), ZOMBIE_NORMAL);
 	const BurnRowEffects aPvZ95BurnRow = ResolveBurnRowEffects();

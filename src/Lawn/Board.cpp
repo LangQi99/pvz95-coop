@@ -8773,9 +8773,14 @@ bool Board::StageIsNight()
 
 bool Board::StageHasGraveStones()
 {
-	if (mApp->IsWallnutBowlingLevel() ||
-		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY ||
-		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||
+	if (mApp->IsWallnutBowlingLevel())
+		return false;
+
+	if (PvzRules::ShouldRejectStageHasGraveStonesAtPogoGate(mApp->mGameMode,
+		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY))
+		return false;
+
+	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND ||
@@ -9116,9 +9121,14 @@ unsigned int Board::SeedNotRecommendedForLevel(SeedType theSeedType)
 	{
 		SetBit(aNotRec, NotRecommend::NOT_RECOMMENDED_AT_NIGHT, true);
 	}
-	if (theSeedType == SeedType::SEED_GRAVEBUSTER && !StageHasGraveStones())
+	if (theSeedType == SeedType::SEED_GRAVEBUSTER)
 	{
-		SetBit(aNotRec, NotRecommend::NOT_RECOMMENDED_NEEDS_GRAVES, true);
+		const bool aStageHasGraveStones = StageHasGraveStones();
+		if (PvzRules::ShouldWarnGraveBusterForLevel(
+			aStageHasGraveStones, !aStageHasGraveStones))
+		{
+			SetBit(aNotRec, NotRecommend::NOT_RECOMMENDED_NEEDS_GRAVES, true);
+		}
 	}
 	if (theSeedType == SeedType::SEED_PLANTERN && !StageHasFog())
 	{
@@ -9453,7 +9463,8 @@ int Board::KillAllZombiesInRadius(int theRow, int theX, int theY, int theRadius,
 				}
 				else
 				{
-					aZombie->TakeDamage(1800, 18U);
+					aZombie->TakeDamage(
+						PvzRules::ResolveKillAllZombiesInRadiusNonBurnDamage(1800), 18U);
 				}
 
 				aKilledZombies++;

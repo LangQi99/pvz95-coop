@@ -260,4 +260,9 @@ namespace PvzRules
 	bool ShouldEvaluateScaryPotterMouseHitBlock(GameMode theGameMode, bool theOriginalValue);
 	bool ShouldHandleScaryPotterMouseDown(GameMode theGameMode, bool theOriginalValue);
 	bool ShouldRunScaryPotterUpdate(GameMode theGameMode, bool theOriginalValue);
+	bool ShouldRejectStageHasGraveStonesAtPogoGate(GameMode theGameMode, bool theOriginalValue);
+	bool ShouldWarnGraveBusterForLevel(bool theStageHasGraveStones, bool theOriginalValue);
+	int ResolveKillAllZombiesInRadiusNonBurnDamage(int theOriginalValue);
+	bool IsMagnetShroomFootballHelmetEligible(HelmType theHelmType, bool theOriginalValue);
+	int ResolveBowlingShieldDamage(int theOriginalValue);
 }

@@ -1139,4 +1139,31 @@ namespace PvzRules
 		return gActiveRuleset == RulesetId::PVZ95 ?
 			IsPvZ95ScaryPotterExpandedMode(theGameMode) : theOriginalValue;
 	}
+
+	bool ShouldRejectStageHasGraveStonesAtPogoGate(GameMode theGameMode, bool theOriginalValue)
+	{
+		(void)theGameMode;
+		return gActiveRuleset == RulesetId::PVZ95 ? true : theOriginalValue;
+	}
+
+	bool ShouldWarnGraveBusterForLevel(bool theStageHasGraveStones, bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? theStageHasGraveStones : theOriginalValue;
+	}
+
+	int ResolveKillAllZombiesInRadiusNonBurnDamage(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 2400 : theOriginalValue;
+	}
+
+	bool IsMagnetShroomFootballHelmetEligible(HelmType theHelmType, bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ?
+			theHelmType == static_cast<HelmType>(-1) : theOriginalValue;
+	}
+
+	int ResolveBowlingShieldDamage(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 800 : theOriginalValue;
+	}
 }

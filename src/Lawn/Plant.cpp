@@ -2093,7 +2093,8 @@ void Plant::UpdateMagnetShroom()
 					continue;
 			}
 			else if (!(aZombie->mHelmType == HelmType::HELMTYPE_PAIL ||
-				aZombie->mHelmType == HelmType::HELMTYPE_FOOTBALL ||
+				PvzRules::IsMagnetShroomFootballHelmetEligible(aZombie->mHelmType,
+					aZombie->mHelmType == HelmType::HELMTYPE_FOOTBALL) ||
 				aZombie->mShieldType == ShieldType::SHIELDTYPE_DOOR ||
 				aZombie->mShieldType == ShieldType::SHIELDTYPE_LADDER ||
 				aZombie->mZombiePhase == ZombiePhase::PHASE_JACK_IN_THE_BOX_RUNNING))
@@ -2435,7 +2436,7 @@ void Plant::UpdateBowling()
 		}
 		else if (aZombie->mShieldType != ShieldType::SHIELDTYPE_NONE)
 		{
-			aZombie->TakeShieldDamage(400, 0U);
+			aZombie->TakeShieldDamage(PvzRules::ResolveBowlingShieldDamage(400), 0U);
 		}
 		else if (aZombie->mHelmType != HelmType::HELMTYPE_NONE)
 		{
