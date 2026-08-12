@@ -33,6 +33,15 @@ namespace PvzRules
 		int mIceTrapped;
 	};
 
+	struct ZombieMindControlStats
+	{
+		int mBodyHealth;
+		int mHelmHealth;
+		int mShieldHealth;
+		int mChilled;
+		float mScale;
+	};
+
 	RulesetId GetActiveRuleset();
 	void SetActiveRuleset(RulesetId theRuleset);
 	bool SetActiveRuleset(std::string_view theName);
@@ -45,6 +54,13 @@ namespace PvzRules
 	int ResolvePlantLaunchRate(SeedType theSeedType, int theOriginalValue);
 	int ResolvePlantInitialHealth(SeedType theSeedType, int theOriginalValue);
 	int ResolvePlantInitialStateCountdown(SeedType theSeedType, int theOriginalValue);
+	bool ShootsAtCounterFifty(SeedType theSeedType);
+	CoinType ResolveMarigoldCoinType(int theRandomPercent, CoinType theOriginalValue);
+	CoinType ResolveBigTimeMarigoldCoinType(CoinType theOriginalValue);
+	bool ChomperOnlyDamagesZombie(ZombieType theZombieType);
+	int ResolveChomperDigestTime(int theOriginalValue);
+	int ResolvePlantAttackRectX(SeedType theSeedType, int thePlantX, int theOriginalValue);
+	int ResolvePlantAttackRectWidth(SeedType theSeedType, int theOriginalValue);
 	int ResolveSpikeRockCrushDamage(int theOriginalValue);
 	int ResolveSpikeRockDamageThreshold(int theDamageState, int theOriginalValue);
 	bool UsesCherryBombSpecial(SeedType theSeedType);
@@ -53,10 +69,28 @@ namespace PvzRules
 
 	ZombieType ResolveZombieType(ZombieType theZombieType);
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue);
+	int ResolveZombieInitialHelmHealth(ZombieType theZombieType, int theOriginalValue);
+	int ResolveZombieInitialShieldHealth(ZombieType theZombieType, int theOriginalValue);
+	int ResolveBungeeStealDelay(int theOriginalValue);
+	bool UsesYetiUpdate(ZombieType theZombieType);
+	int ResolveZombieEatInterval(ZombiePhase theZombiePhase, bool theIsChilled, int theOriginalBaseValue);
+	int ResolveZombieEatDamage(int theOriginalValue);
+	CoinType ResolveIZombieSunflowerReward(CoinType theOriginalValue);
+	SeedType ResolveEatenPlantSeedType(SeedType theSeedType, int thePlantHealth);
+	bool EatenPlantTransformTriggersSpecial(SeedType theSeedType, int thePlantHealth);
+	ZombieMindControlStats ResolveMindControlStats(ZombieType theZombieType, int theBodyHealth,
+		int theBodyMaxHealth, int theHelmHealth, int theHelmMaxHealth, int theShieldHealth,
+		int theShieldMaxHealth, int theChilled, float theScale);
 	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue);
 	bool ShouldTakeBurnDamage(ZombieType theZombieType, int theBodyHealth, int theHelmHealth, int theShieldHealth);
 	ZombieStatusCounters ResolveButterStatus(int theChilled, int theButtered, int theIceTrapped);
+	int ResolveChillAfterRemovingCold(int theOriginalValue);
 	bool IsForcedChilledMovement(ZombiePhase theZombiePhase);
 	float ResolveZombieAnimationRate(ZombiePhase theZombiePhase, int theChilledCounter,
 		bool theIsMovingAtChilledSpeed, float theOriginalRate);
+
+	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
+	int ResolveMaximumSunMoney(int theOriginalValue);
+	int ResolveBeghouledWinningScore(int theOriginalValue);
+	int ResolveRainingSeedsCountdown(int theRandomValue);
 }

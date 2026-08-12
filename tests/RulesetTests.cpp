@@ -41,6 +41,13 @@ int main()
 	ExpectEqual("original door type", ResolveZombieType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_DOOR);
 	ExpectEqual("original flag health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 270);
 	ExpectEqual("original layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), false);
+	ExpectEqual("original cattail counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), true);
+	ExpectEqual("original gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), false);
+	ExpectEqual("original chomper boss bite", ChomperOnlyDamagesZombie(ZombieType::ZOMBIE_BOSS), true);
+	ExpectEqual("original chilled eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 8);
+	ExpectEqual("original cold removal", ResolveChillAfterRemovingCold(500), 0);
+	ExpectEqual("original maximum sun", ResolveMaximumSunMoney(9990), 9990);
+	ExpectEqual("original raining seeds countdown", ResolveRainingSeedsCountdown(123), 623);
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
@@ -65,6 +72,18 @@ int main()
 	ExpectEqual("cattail cost", ResolvePlantSeedCost(SeedType::SEED_CATTAIL, 225), 275);
 	ExpectEqual("cattail launch rate", ResolvePlantLaunchRate(SeedType::SEED_CATTAIL, 150), 75);
 	ExpectEqual("explodo-nut cost", ResolvePlantSeedCost(SeedType::SEED_EXPLODE_O_NUT, 0), 150);
+	ExpectEqual("gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), true);
+	ExpectEqual("cattail counter-fifty shot removed", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), false);
+	ExpectEqual("marigold large sun", ResolveMarigoldCoinType(49, CoinType::COIN_GOLD), CoinType::COIN_LARGESUN);
+	ExpectEqual("marigold normal sun", ResolveMarigoldCoinType(50, CoinType::COIN_SILVER), CoinType::COIN_SUN);
+	ExpectEqual("big time marigold sun", ResolveBigTimeMarigoldCoinType(CoinType::COIN_SILVER), CoinType::COIN_SUN);
+	ExpectEqual("chomper football bite", ChomperOnlyDamagesZombie(ZombieType::ZOMBIE_FOOTBALL), true);
+	ExpectEqual("chomper boss swallow", ChomperOnlyDamagesZombie(ZombieType::ZOMBIE_BOSS), false);
+	ExpectEqual("chomper digest time", ResolveChomperDigestTime(4000), 2500);
+	ExpectEqual("squash attack x", ResolvePlantAttackRectX(SeedType::SEED_SQUASH, 100, 120), 84);
+	ExpectEqual("squash attack width", ResolvePlantAttackRectWidth(SeedType::SEED_SQUASH, 45), 128);
+	ExpectEqual("chomper attack width", ResolvePlantAttackRectWidth(SeedType::SEED_CHOMPER, 40), 150);
+	ExpectEqual("fume-shroom board-wide attack", ResolvePlantAttackRectWidth(SeedType::SEED_FUMESHROOM, 340), 800);
 	ExpectEqual("star damage", ResolveProjectileDamage(ProjectileType::PROJECTILE_STAR, 20), 40);
 	ExpectEqual("spike damage", ResolveProjectileDamage(ProjectileType::PROJECTILE_SPIKE, 20), 1);
 	ExpectEqual("potato mine arming time", ResolvePlantInitialStateCountdown(SeedType::SEED_POTATOMINE, 1500), 1000);
@@ -77,6 +96,32 @@ int main()
 	ExpectEqual("layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), true);
 	ExpectEqual("screen door becomes bucket", ResolveZombieType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_PAIL);
 	ExpectEqual("flag zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 820);
+	ExpectEqual("dancer zombie health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_DANCER, 500), 1350);
+	ExpectEqual("football helmet health", ResolveZombieInitialHelmHealth(ZombieType::ZOMBIE_FOOTBALL, 1400), 2800);
+	ExpectEqual("newspaper shield health", ResolveZombieInitialShieldHealth(ZombieType::ZOMBIE_NEWSPAPER, 150), 1200);
+	ExpectEqual("bungee steal delay", ResolveBungeeStealDelay(300), 0);
+	ExpectEqual("flag uses yeti update", UsesYetiUpdate(ZombieType::ZOMBIE_FLAG), true);
+	ExpectEqual("yeti update replaced", UsesYetiUpdate(ZombieType::ZOMBIE_YETI), false);
+	ExpectEqual("normal eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_ZOMBIE_NORMAL, false, 4), 8);
+	ExpectEqual("chilled eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_ZOMBIE_NORMAL, true, 4), 16);
+	ExpectEqual("newspaper reading eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, false, 4), 16);
+	ExpectEqual("chilled newspaper reading eat interval", ResolveZombieEatInterval(ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 32);
+	ExpectEqual("zombie eat damage", ResolveZombieEatDamage(4), 8);
+	ExpectEqual("I, Zombie sunflower reward", ResolveIZombieSunflowerReward(CoinType::COIN_SUN), CoinType::COIN_SMALLSUN);
+	ExpectEqual("eaten tall-nut transforms", ResolveEatenPlantSeedType(SeedType::SEED_TALLNUT, 299), SeedType::SEED_SQUASH);
+	ExpectEqual("healthy tall-nut stays", ResolveEatenPlantSeedType(SeedType::SEED_TALLNUT, 300), SeedType::SEED_TALLNUT);
+	ExpectEqual("low explodo-nut triggers", EatenPlantTransformTriggersSpecial(SeedType::SEED_EXPLODE_O_NUT, 39), true);
+	ExpectEqual("40-health explodo-nut waits", EatenPlantTransformTriggersSpecial(SeedType::SEED_EXPLODE_O_NUT, 40), false);
+	const ZombieMindControlStats aMindControlStats = ResolveMindControlStats(ZombieType::ZOMBIE_PAIL,
+		50, 270, 20, 1100, 0, 0, 500, 1.0f);
+	ExpectEqual("mind control body health", aMindControlStats.mBodyHealth, 470);
+	ExpectEqual("mind control helmet health", aMindControlStats.mHelmHealth, 1300);
+	ExpectEqual("mind control shield health", aMindControlStats.mShieldHealth, 200);
+	ExpectEqual("mind control removes chill", aMindControlStats.mChilled, 0);
+	ExpectNear("mind control scale", aMindControlStats.mScale, 1.25f);
+	const ZombieMindControlStats aNewspaperMindControlStats = ResolveMindControlStats(ZombieType::ZOMBIE_NEWSPAPER,
+		270, 270, 0, 0, 100, 1200, 0, 1.0f);
+	ExpectEqual("mind controlled newspaper body", aNewspaperMindControlStats.mBodyHealth, 920);
 	ExpectEqual("squash-head post-damage health", ResolveZombieBodyHealthAfterDamage(ZombieType::ZOMBIE_SQUASH_HEAD, 13), 720);
 	ExpectEqual("burn uses combined health", ShouldTakeBurnDamage(ZombieType::ZOMBIE_PAIL, 700, 1100, 0), true);
 	ExpectEqual("gatling-head takes burn damage", ShouldTakeBurnDamage(ZombieType::ZOMBIE_GATLING_HEAD, 270, 0, 0), true);
@@ -84,9 +129,14 @@ int main()
 	ExpectEqual("butter applies chill", aButterStatus.mChilled, 1000);
 	ExpectEqual("butter does not immobilize as butter", aButterStatus.mButtered, 0);
 	ExpectEqual("butter applies ice trap", aButterStatus.mIceTrapped, 300);
+	ExpectEqual("cold removal reapplies chill", ResolveChillAfterRemovingCold(500), 1000);
 	ExpectEqual("newspaper mad movement flag", IsForcedChilledMovement(ZombiePhase::PHASE_NEWSPAPER_MAD), true);
 	ExpectNear("newspaper mad animation", ResolveZombieAnimationRate(ZombiePhase::PHASE_NEWSPAPER_MAD, 0, true, 10.0f), 25.0f);
 	ExpectNear("chilled newspaper mad animation", ResolveZombieAnimationRate(ZombiePhase::PHASE_NEWSPAPER_MAD, 1, true, 10.0f), 12.5f);
+	ExpectEqual("last stand initial sun", ResolveInitialSunMoney(GameMode::GAMEMODE_CHALLENGE_LAST_STAND, 5000), 8000);
+	ExpectEqual("maximum sun", ResolveMaximumSunMoney(9990), 2000000000);
+	ExpectEqual("Beghouled winning score", ResolveBeghouledWinningScore(75), 100);
+	ExpectEqual("raining seeds countdown", ResolveRainingSeedsCountdown(123), 323);
 
 	if (SetActiveRuleset("not-a-ruleset"))
 		return 1;

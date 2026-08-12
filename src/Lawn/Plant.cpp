@@ -979,7 +979,7 @@ void Plant::UpdateShooter()
 		}
 	}
 
-	if (mLaunchCounter == 50 && mSeedType == SeedType::SEED_CATTAIL)
+	if (mLaunchCounter == 50 && PvzRules::ShootsAtCounterFifty(mSeedType))
 	{
 		FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
 	}
@@ -1056,7 +1056,9 @@ void Plant::UpdateProductionPlant()
 		}
 		else if (mSeedType == SeedType::SEED_MARIGOLD)
 		{
-			mBoard->AddCoin(mX, mY, (Sexy::Rand(100) < 10) ? CoinType::COIN_GOLD : CoinType::COIN_SILVER, CoinMotion::COIN_MOTION_COIN);
+			int aRandomPercent = Sexy::Rand(100);
+			CoinType aCoinType = aRandomPercent < 10 ? CoinType::COIN_GOLD : CoinType::COIN_SILVER;
+			mBoard->AddCoin(mX, mY, PvzRules::ResolveMarigoldCoinType(aRandomPercent, aCoinType), CoinMotion::COIN_MOTION_COIN);
 		}
 
 		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BIG_TIME)
@@ -1067,7 +1069,7 @@ void Plant::UpdateProductionPlant()
 			}
 			else if (mSeedType == SeedType::SEED_MARIGOLD)
 			{
-				mBoard->AddCoin(mX, mY, CoinType::COIN_SILVER, CoinMotion::COIN_MOTION_COIN);
+				mBoard->AddCoin(mX, mY, PvzRules::ResolveBigTimeMarigoldCoinType(CoinType::COIN_SILVER), CoinMotion::COIN_MOTION_COIN);
 			}
 		}
 	}
@@ -1771,8 +1773,7 @@ void Plant::UpdateChomper()
 			bool doBite = false;
 			if (aZombie)
 			{
-				if (aZombie->mZombieType == ZombieType::ZOMBIE_GARGANTUAR || aZombie->mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ||
-					aZombie->mZombieType == ZombieType::ZOMBIE_BOSS)
+				if (PvzRules::ChomperOnlyDamagesZombie(aZombie->mZombieType))
 				{
 					doBite = true;
 				}
@@ -1819,7 +1820,7 @@ void Plant::UpdateChomper()
 			}
 
 			mState = PlantState::STATE_CHOMPER_DIGESTING;
-			mStateCountdown = 4000;
+			mStateCountdown = PvzRules::ResolveChomperDigestTime(4000);
 		}
 	}
 	else if (mState == PlantState::STATE_CHOMPER_DIGESTING)
@@ -5176,15 +5177,15 @@ Rect Plant::GetPlantAttackRect(PlantWeapon thePlantWeapon)
 	else switch (mSeedType)
 	{
 	case SeedType::SEED_LEFTPEATER:     aRect = Rect(0,             mY,             mX,                 mHeight);               break;
-	case SeedType::SEED_SQUASH:         aRect = Rect(mX + 20,       mY,             mWidth - 35,        mHeight);               break;
-	case SeedType::SEED_CHOMPER:        aRect = Rect(mX + 80,       mY,             40,                 mHeight);               break;
+	case SeedType::SEED_SQUASH:         aRect = Rect(PvzRules::ResolvePlantAttackRectX(mSeedType, mX, mX + 20), mY, PvzRules::ResolvePlantAttackRectWidth(mSeedType, mWidth - 35), mHeight); break;
+	case SeedType::SEED_CHOMPER:        aRect = Rect(mX + 80,       mY,             PvzRules::ResolvePlantAttackRectWidth(mSeedType, 40), mHeight); break;
 	case SeedType::SEED_SPIKEWEED:
 	case SeedType::SEED_SPIKEROCK:      aRect = Rect(mX + 20,       mY,             mWidth - 50,        mHeight);               break;
 	case SeedType::SEED_POTATOMINE:     aRect = Rect(mX,            mY,             mWidth - 25,        mHeight);               break;
 	case SeedType::SEED_TORCHWOOD:      aRect = Rect(mX + 50,       mY,             30,                 mHeight);               break;
 	case SeedType::SEED_PUFFSHROOM:
 	case SeedType::SEED_SEASHROOM:      aRect = Rect(mX + 60,       mY,             230,                mHeight);               break;
-	case SeedType::SEED_FUMESHROOM:     aRect = Rect(mX + 60,       mY,             340,                mHeight);               break;
+	case SeedType::SEED_FUMESHROOM:     aRect = Rect(mX + 60,       mY,             PvzRules::ResolvePlantAttackRectWidth(mSeedType, 340), mHeight); break;
 	case SeedType::SEED_GLOOMSHROOM:    aRect = Rect(mX - 80,       mY - 80,        240,                240);                   break;
 	case SeedType::SEED_TANGLEKELP:     aRect = Rect(mX,            mY,             mWidth,             mHeight);               break;
 	case SeedType::SEED_CATTAIL:        aRect = Rect(-BOARD_WIDTH,  -BOARD_HEIGHT,  BOARD_WIDTH * 2,    BOARD_HEIGHT * 2);      break;

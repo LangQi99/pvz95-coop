@@ -54,6 +54,7 @@
 //#define SEXY_PERF_ENABLED
 #include "misc/PerfTimer.h"
 #include "Widget/AchievementsScreen.h"
+#include "GameRules/Ruleset.h"
 
 constexpr const int ZOMBIE_COUNTDOWN_FIRST_WAVE = 1800;
 constexpr const int ZOMBIE_COUNTDOWN = 2500;
@@ -1380,7 +1381,7 @@ void Board::InitLevel()
 	}
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
 	{
-		mSunMoney = 5000;
+		mSunMoney = PvzRules::ResolveInitialSunMoney(aGameMode, 5000);
 	}
 	else if (mApp->IsIZombieLevel())
 	{
@@ -6642,7 +6643,8 @@ void Board::DrawProgressMeter(Graphics* g)
 	Color aColor(224, 187, 98);
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST)
 	{
-		std::string aMatchStr = StrFormat("%d/%d %s", mChallenge->mChallengeScore, 75, PvzpStringTranslate("[MATCHES]").c_str());
+		std::string aMatchStr = StrFormat("%d/%d %s", mChallenge->mChallengeScore,
+			PvzRules::ResolveBeghouledWinningScore(75), PvzpStringTranslate("[MATCHES]").c_str());
 		PvzpDrawString(g, aMatchStr, aPosX, 589, Sexy::FONT_DWARVENTODCRAFT12, aColor, DrawStringJustification::DS_ALIGN_CENTER);
 	}
 	else if (mApp->IsSquirrelLevel())
@@ -8529,8 +8531,9 @@ void Board::KeyChar(char theChar)
 
 void Board::AddSunMoney(int theAmount)
 {
-	mSunMoney += theAmount;
-	mSunMoney = std::min(mSunMoney, 9990);
+	const int64_t aNewSunMoney = static_cast<int64_t>(mSunMoney) + theAmount;
+	mSunMoney = static_cast<int>(std::min<int64_t>(aNewSunMoney,
+		PvzRules::ResolveMaximumSunMoney(9990)));
 	if (mSunMoney >= 8000)
 		ReportAchievement::GiveAchievement(mApp, SunnyDays, true);
 }

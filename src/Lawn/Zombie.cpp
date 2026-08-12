@@ -343,7 +343,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 		mZombieRect = Rect(50, 0, 57, 115);
 		ReanimShowPrefix("anim_hair", RENDER_GROUP_HIDDEN);
 		mHelmType = HelmType::HELMTYPE_FOOTBALL;
-		mHelmHealth = 1400;
+		mHelmHealth = PvzRules::ResolveZombieInitialHelmHealth(mZombieType, 1400);
 		mAnimTicksPerFrame = 6;
 		mVariant = false;
 		break;
@@ -612,7 +612,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 		mZombieAttackRect = Rect(20, 0, 50, 115);
 		mZombiePhase = ZombiePhase::PHASE_NEWSPAPER_READING;
 		mShieldType = ShieldType::SHIELDTYPE_NEWSPAPER;
-		mShieldHealth = 150;
+		mShieldHealth = PvzRules::ResolveZombieInitialShieldHealth(mZombieType, 150);
 		mVariant = false;
 		AttachShield();
 		break;
@@ -659,7 +659,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 			mPhaseCounter = 300 + Rand(12);
 			PlayZombieReanim("anim_moonwalk", ReanimLoopType::REANIM_LOOP, 0, 24.0f);
 		}
-		mBodyHealth = 500;
+		mBodyHealth = PvzRules::ResolveZombieInitialBodyHealth(mZombieType, 500);
 		mVariant = false;
 		break;
 
@@ -1328,7 +1328,7 @@ void Zombie::BungeeLanding()
 	else  // otherwise start stealing the plant
 	{
 		mZombiePhase = ZombiePhase::PHASE_BUNGEE_AT_BOTTOM;
-		mPhaseCounter = 300;
+		mPhaseCounter = PvzRules::ResolveBungeeStealDelay(300);
 		PlayZombieReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 5, 24.0f);
 		mApp->ReanimationGet(mBodyReanimID)->mAnimTime = 0.5f;
 	}
@@ -4502,7 +4502,7 @@ void Zombie::UpdateActions()
 	{
 		UpdateLadder();
 	}
-	if (mZombieType == ZombieType::ZOMBIE_YETI)
+	if (PvzRules::UsesYetiUpdate(mZombieType))
 	{
 		UpdateYeti();
 	}
@@ -6862,11 +6862,7 @@ void Zombie::CheckIfPreyCaught()
 		IsFlying())
 		return;
 
-	int aTicksBetweenEats = TICKS_BETWEEN_EATS;
-	if (mChilledCounter > 0)
-	{
-		aTicksBetweenEats *= 2;
-	}
+	int aTicksBetweenEats = PvzRules::ResolveZombieEatInterval(mZombiePhase, mChilledCounter > 0, TICKS_BETWEEN_EATS);
 	if (mZombieAge % aTicksBetweenEats != 0)
 	{
 		return;
@@ -6992,6 +6988,14 @@ void Zombie::StartMindControlled()
 	mApp->PlaySample(SOUND_MINDCONTROLLED);
 	mMindControlled = true;
 	mLastPortalX = -1;
+	const PvzRules::ZombieMindControlStats aStats = PvzRules::ResolveMindControlStats(mZombieType,
+		mBodyHealth, mBodyMaxHealth, mHelmHealth, mHelmMaxHealth, mShieldHealth, mShieldMaxHealth,
+		mChilledCounter, mScaleZombie);
+	mBodyHealth = aStats.mBodyHealth;
+	mHelmHealth = aStats.mHelmHealth;
+	mShieldHealth = aStats.mShieldHealth;
+	mChilledCounter = aStats.mChilled;
+	mScaleZombie = aStats.mScale;
 
 	if (mZombieType == ZombieType::ZOMBIE_DANCER)
 	{
@@ -7094,16 +7098,25 @@ void Zombie::EatPlant(Plant* thePlant)
 
 	if (mApp->IsIZombieLevel() && thePlant->mSeedType == SeedType::SEED_SUNFLOWER)
 	{
+		int aDamage = PvzRules::ResolveZombieEatDamage(DAMAGE_PER_EAT);
 		int aStageBeforeChew = thePlant->mPlantHealth / 40;
-		int aStageAfterChew = (thePlant->mPlantHealth - DAMAGE_PER_EAT) / 40;
-		if (aStageAfterChew < aStageBeforeChew || thePlant->mPlantHealth - DAMAGE_PER_EAT <= 0)  // if this chew lowers the plant's health by at least one stage
+		int aStageAfterChew = (thePlant->mPlantHealth - aDamage) / 40;
+		if (aStageAfterChew < aStageBeforeChew || thePlant->mPlantHealth - aDamage <= 0)  // if this chew lowers the plant's health by at least one stage
 		{
-			mBoard->AddCoin(thePlant->mX, thePlant->mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+			mBoard->AddCoin(thePlant->mX, thePlant->mY, PvzRules::ResolveIZombieSunflowerReward(CoinType::COIN_SUN), CoinMotion::COIN_MOTION_FROM_PLANT);
 		}
 	}
 
-	thePlant->mPlantHealth -= DAMAGE_PER_EAT;
+	const SeedType aSeedTypeBeforeBite = thePlant->mSeedType;
+	if (PvzRules::EatenPlantTransformTriggersSpecial(aSeedTypeBeforeBite, thePlant->mPlantHealth))
+	{
+		thePlant->mSeedType = SeedType::SEED_CHERRYBOMB;
+		thePlant->mDoSpecialCountdown = 1;
+		thePlant->mStateCountdown = 1;
+	}
+	thePlant->mPlantHealth -= PvzRules::ResolveZombieEatDamage(DAMAGE_PER_EAT);
 	thePlant->mRecentlyEatenCountdown = 50;
+	thePlant->mSeedType = PvzRules::ResolveEatenPlantSeedType(thePlant->mSeedType, thePlant->mPlantHealth);
 	if (mApp->IsIZombieLevel() && mJustGotShotCounter < -500)
 	{
 		if (thePlant->mSeedType == SeedType::SEED_WALLNUT || thePlant->mSeedType == SeedType::SEED_TALLNUT || thePlant->mSeedType == SeedType::SEED_PUMPKINSHELL)
@@ -7132,7 +7145,7 @@ void Zombie::EatPlant(Plant* thePlant)
 
 void Zombie::EatZombie(Zombie* theZombie)
 {
-	theZombie->TakeDamage(DAMAGE_PER_EAT, 9U);
+	theZombie->TakeDamage(PvzRules::ResolveZombieEatDamage(DAMAGE_PER_EAT), 9U);
 	StartEating();
 	if (theZombie->mBodyHealth <= 0)
 	{
@@ -8661,9 +8674,10 @@ void Zombie::RemoveColdEffects()
 		RemoveIceTrap();
 	}
 
-	if (mChilledCounter > 0)
+	int aChilledAfterRemoval = PvzRules::ResolveChillAfterRemovingCold(mChilledCounter);
+	if (mChilledCounter > 0 || aChilledAfterRemoval > 0)
 	{
-		mChilledCounter = 0;
+		mChilledCounter = aChilledAfterRemoval;
 		UpdateAnimSpeed();
 	}
 }

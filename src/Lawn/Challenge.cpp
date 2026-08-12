@@ -53,6 +53,7 @@
 #include "../PvzpLib/PvzpStringFile.h"
 #include "widget/WidgetManager.h"
 #include "Widget/AchievementsScreen.h"
+#include "GameRules/Ruleset.h"
 #include <algorithm>
 
 constexpr const int BEGHOULED_WINNING_SCORE = 75;
@@ -63,6 +64,11 @@ constexpr const int MAX_PORTALS = 4;
 constexpr const int MAX_SQUIRRELS = 7;
 constexpr const int MAX_SCARY_POTS = 54;
 constexpr const int STORM_FLASH_TIME = 150;
+
+static int GetBeghouledWinningScore()
+{
+	return PvzRules::ResolveBeghouledWinningScore(BEGHOULED_WINNING_SCORE);
+}
 
 int gZombieWaves[NUM_LEVELS] = {
 	4,  6,  8,  10, 8,  10, 20, 10, 20, 20,
@@ -894,18 +900,18 @@ void Challenge::BeghouledScore(int theGridX, int theGridY, int theNumPlants, int
 	{
 		if (!mBoard->mAdvice->IsBeingDisplayed())
 		{
-			std::string aMsg = PvzpReplaceNumberString("[ADVICE_BEGHOULED_MATCH_3]", "{SCORE}", BEGHOULED_WINNING_SCORE);
+			std::string aMsg = PvzpReplaceNumberString("[ADVICE_BEGHOULED_MATCH_3]", "{SCORE}", GetBeghouledWinningScore());
 			mBoard->DisplayAdvice(aMsg, MESSAGE_STYLE_HINT_FAST, ADVICE_BEGHOULED_MATCH_3);
 		}
-		if (mChallengeScore >= BEGHOULED_WINNING_SCORE - 5)
+		if (mChallengeScore >= GetBeghouledWinningScore() - 5)
 		{
 			mBoard->DisplayAdvice("[ADVICE_BEGHOULED_ALMOST_THERE]", MESSAGE_STYLE_HINT_FAST, ADVICE_ALMOST_THERE);
 		}
 	}
 
-	if (mChallengeScore >= BEGHOULED_WINNING_SCORE)
+	if (mChallengeScore >= GetBeghouledWinningScore())
 	{
-		mChallengeScore = BEGHOULED_WINNING_SCORE;
+		mChallengeScore = GetBeghouledWinningScore();
 		SpawnLevelAward(theGridX, theGridY);
 		mBoard->ClearAdvice(ADVICE_NONE);
 	}
@@ -1547,7 +1553,7 @@ void Challenge::BeghouledFlashAMatch()
 
 void Challenge::UpdateBeghouled()
 {
-	mBoard->mProgressMeterWidth = PvzpAnimateCurve(0, BEGHOULED_WINNING_SCORE, mChallengeScore, 0, PROGRESS_METER_COUNTER, CURVE_LINEAR);
+	mBoard->mProgressMeterWidth = PvzpAnimateCurve(0, GetBeghouledWinningScore(), mChallengeScore, 0, PROGRESS_METER_COUNTER, CURVE_LINEAR);
 
 	int aMovingPlant = false;
 	for (Plant* aPlant : mBoard->mPlants)
@@ -1935,7 +1941,7 @@ void Challenge::UpdateRainingSeeds()
 	if (mBoard->HasLevelAwardDropped() || --mChallengeStateCounter != 0)
 		return;
 
-	mChallengeStateCounter = RandRangeInt(500, 999);
+	mChallengeStateCounter = PvzRules::ResolveRainingSeedsCountdown(Rand(500));
 
 	Coin* aCoin = mBoard->AddCoin(RandRangeInt(100, 649), 60, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_SKY_SLOW);
 

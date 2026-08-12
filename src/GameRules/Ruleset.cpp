@@ -5,6 +5,7 @@
  */
 
 #include "Ruleset.h"
+#include "GameConstants.h"
 
 #include <array>
 #include <cstddef>
@@ -140,6 +141,72 @@ namespace PvzRules
 		}
 	}
 
+	bool ShootsAtCounterFifty(SeedType theSeedType)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return theSeedType == SeedType::SEED_GATLINGPEA;
+
+		return theSeedType == SeedType::SEED_CATTAIL;
+	}
+
+	CoinType ResolveMarigoldCoinType(int theRandomPercent, CoinType theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return theRandomPercent < 50 ? CoinType::COIN_LARGESUN : CoinType::COIN_SUN;
+
+		return theOriginalValue;
+	}
+
+	CoinType ResolveBigTimeMarigoldCoinType(CoinType theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? CoinType::COIN_SUN : theOriginalValue;
+	}
+
+	bool ChomperOnlyDamagesZombie(ZombieType theZombieType)
+	{
+		if (theZombieType == ZombieType::ZOMBIE_GARGANTUAR || theZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+			return true;
+
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return theZombieType == ZombieType::ZOMBIE_FOOTBALL;
+
+		return theZombieType == ZombieType::ZOMBIE_BOSS;
+	}
+
+	int ResolveChomperDigestTime(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 2500 : theOriginalValue;
+	}
+
+	int ResolvePlantAttackRectX(SeedType theSeedType, int thePlantX, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_SQUASH)
+			return thePlantX - 16;
+
+		return theOriginalValue;
+	}
+
+	int ResolvePlantAttackRectWidth(SeedType theSeedType, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theSeedType)
+		{
+		case SeedType::SEED_SQUASH:
+			return theOriginalValue + 83;
+		case SeedType::SEED_CHOMPER:
+			return 150;
+		case SeedType::SEED_FUMESHROOM:
+			// The 95 executable writes INT_MAX here.  Its 32-bit rectangle addition then
+			// overflows; a board-wide width preserves the intended infinite-range attack
+			// without invoking signed-overflow undefined behavior on portable builds.
+			return BOARD_WIDTH;
+		default:
+			return theOriginalValue;
+		}
+	}
+
 	int ResolveSpikeRockCrushDamage(int theOriginalValue)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 ? 1800 : theOriginalValue;
@@ -195,10 +262,101 @@ namespace PvzRules
 
 	int ResolveZombieInitialBodyHealth(ZombieType theZombieType, int theOriginalValue)
 	{
-		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_FLAG)
-			return 820;
+		if (gActiveRuleset == RulesetId::PVZ95)
+		{
+			if (theZombieType == ZombieType::ZOMBIE_FLAG)
+				return 820;
+			if (theZombieType == ZombieType::ZOMBIE_DANCER)
+				return 1350;
+		}
 
 		return theOriginalValue;
+	}
+
+	int ResolveZombieInitialHelmHealth(ZombieType theZombieType, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_FOOTBALL)
+			return 2800;
+
+		return theOriginalValue;
+	}
+
+	int ResolveZombieInitialShieldHealth(ZombieType theZombieType, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theZombieType == ZombieType::ZOMBIE_NEWSPAPER)
+			return 1200;
+
+		return theOriginalValue;
+	}
+
+	int ResolveBungeeStealDelay(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 0 : theOriginalValue;
+	}
+
+	bool UsesYetiUpdate(ZombieType theZombieType)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return theZombieType == ZombieType::ZOMBIE_FLAG;
+
+		return theZombieType == ZombieType::ZOMBIE_YETI;
+	}
+
+	int ResolveZombieEatInterval(ZombiePhase theZombiePhase, bool theIsChilled, int theOriginalBaseValue)
+	{
+		int anInterval = theOriginalBaseValue;
+		if (gActiveRuleset == RulesetId::PVZ95)
+		{
+			anInterval *= 2;
+			if (theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_READING)
+				anInterval *= 2;
+		}
+		if (theIsChilled)
+			anInterval *= 2;
+
+		return anInterval;
+	}
+
+	int ResolveZombieEatDamage(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 8 : theOriginalValue;
+	}
+
+	CoinType ResolveIZombieSunflowerReward(CoinType theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? CoinType::COIN_SMALLSUN : theOriginalValue;
+	}
+
+	SeedType ResolveEatenPlantSeedType(SeedType theSeedType, int thePlantHealth)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theSeedType;
+
+		if (theSeedType == SeedType::SEED_TALLNUT && thePlantHealth < 300)
+			return SeedType::SEED_SQUASH;
+
+		return theSeedType;
+	}
+
+	bool EatenPlantTransformTriggersSpecial(SeedType theSeedType, int thePlantHealth)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_EXPLODE_O_NUT && thePlantHealth < 40;
+	}
+
+	ZombieMindControlStats ResolveMindControlStats(ZombieType theZombieType, int theBodyHealth,
+		int theBodyMaxHealth, int theHelmHealth, int theHelmMaxHealth, int theShieldHealth,
+		int theShieldMaxHealth, int theChilled, float theScale)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return {theBodyHealth, theHelmHealth, theShieldHealth, theChilled, theScale};
+
+		return {
+			theZombieType == ZombieType::ZOMBIE_NEWSPAPER ? 920 : theBodyMaxHealth + 200,
+			theHelmMaxHealth + 200,
+			theShieldMaxHealth + 200,
+			0,
+			1.25f
+		};
 	}
 
 	int ResolveZombieBodyHealthAfterDamage(ZombieType theZombieType, int theOriginalValue)
@@ -230,6 +388,11 @@ namespace PvzRules
 		return {theChilled, 400, theIceTrapped};
 	}
 
+	int ResolveChillAfterRemovingCold(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 1000 : 0;
+	}
+
 	bool IsForcedChilledMovement(ZombiePhase theZombiePhase)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 && theZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD;
@@ -242,5 +405,28 @@ namespace PvzRules
 			return theOriginalRate * (theChilledCounter > 0 ? 1.25f : 2.5f);
 
 		return theIsMovingAtChilledSpeed ? theOriginalRate * 0.5f : theOriginalRate;
+	}
+
+	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 && theGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+			return 8000;
+
+		return theOriginalValue;
+	}
+
+	int ResolveMaximumSunMoney(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 2000000000 : theOriginalValue;
+	}
+
+	int ResolveBeghouledWinningScore(int theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? 100 : theOriginalValue;
+	}
+
+	int ResolveRainingSeedsCountdown(int theRandomValue)
+	{
+		return theRandomValue + (gActiveRuleset == RulesetId::PVZ95 ? 200 : 500);
 	}
 }
