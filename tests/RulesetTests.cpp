@@ -86,6 +86,20 @@ int main()
 	ExpectEqual("original door pre-switch helmet health", anOriginalDoorArmor.mHelmHealth, 0);
 	ExpectEqual("original flag health", ResolveZombieInitialBodyHealth(ZombieType::ZOMBIE_FLAG, 270), 270);
 	ExpectEqual("original layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), false);
+	ExpectEqual("original torchwood pea becomes fireball", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_PEA)), static_cast<int>(TorchwoodConversion::FIREBALL));
+	ExpectEqual("original torchwood snow pea becomes pea", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_SNOWPEA)), static_cast<int>(TorchwoodConversion::PEA));
+	ExpectEqual("original torchwood ignores star", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_STAR)), static_cast<int>(TorchwoodConversion::NONE));
+	const PotatoMineExplosion anOriginalPotatoExplosion = ResolvePotatoMineExplosion(60, 0, false);
+	ExpectEqual("original potato mine radius", anOriginalPotatoExplosion.mRadius, 60);
+	ExpectEqual("original potato mine row range", anOriginalPotatoExplosion.mRowRange, 0);
+	ExpectEqual("original potato mine burn", anOriginalPotatoExplosion.mBurn, false);
+	ExpectEqual("original rising bungee plant stays untargetable", ResolveZombieTargetPlantNotOnGround(
+		false, false, false, false, true), true);
+	ExpectEqual("original scaredy-shroom target state unchanged", ResolveZombieTargetPlantNotOnGround(
+		false, true, false, false, false), false);
 	ExpectEqual("original cattail counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), true);
 	ExpectEqual("original gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), false);
 	ExpectEqual("original chomper boss bite", ChomperOnlyDamagesZombie(ZombieType::ZOMBIE_BOSS), true);
@@ -183,6 +197,28 @@ int main()
 	ExpectEqual("spikerock damage state two", ResolveSpikeRockDamageThreshold(2, 150), 5400);
 	ExpectEqual("explodo-nut cherry special", UsesCherryBombSpecial(SeedType::SEED_EXPLODE_O_NUT), true);
 	ExpectEqual("layered tall-nut crush", TakesLayeredCrushDamage(SeedType::SEED_TALLNUT), true);
+	ExpectEqual("PvZ 95 torchwood pea becomes snow pea", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_PEA)), static_cast<int>(TorchwoodConversion::PEA));
+	ExpectEqual("PvZ 95 torchwood snow pea becomes fireball", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_SNOWPEA)), static_cast<int>(TorchwoodConversion::FIREBALL));
+	ExpectEqual("PvZ 95 torchwood ignores star", static_cast<int>(ResolveTorchwoodConversion(
+		ProjectileType::PROJECTILE_STAR)), static_cast<int>(TorchwoodConversion::NONE));
+	const PotatoMineExplosion aPvZ95PotatoExplosion = ResolvePotatoMineExplosion(60, 0, false);
+	ExpectEqual("PvZ 95 potato mine radius", aPvZ95PotatoExplosion.mRadius, 115);
+	ExpectEqual("PvZ 95 potato mine row range", aPvZ95PotatoExplosion.mRowRange, 1);
+	ExpectEqual("PvZ 95 potato mine burn", aPvZ95PotatoExplosion.mBurn, true);
+	ExpectEqual("PvZ 95 rising bungee plant becomes targetable", ResolveZombieTargetPlantNotOnGround(
+		false, false, false, false, true), false);
+	ExpectEqual("PvZ 95 squished rising plant stays untargetable", ResolveZombieTargetPlantNotOnGround(
+		false, false, true, false, true), true);
+	ExpectEqual("PvZ 95 dead rising plant stays untargetable", ResolveZombieTargetPlantNotOnGround(
+		false, false, false, true, true), true);
+	ExpectEqual("PvZ 95 airborne squash stays untargetable", ResolveZombieTargetPlantNotOnGround(
+		true, false, false, false, true), true);
+	ExpectEqual("PvZ 95 scaredy-shroom scared state is untargetable", ResolveZombieTargetPlantNotOnGround(
+		false, true, false, false, false), true);
+	ExpectEqual("PvZ 95 ordinary grounded plant stays targetable", ResolveZombieTargetPlantNotOnGround(
+		false, false, false, false, false), false);
 	ExpectEqual("screen door stores bucket member type", ResolveZombieMemberType(
 		ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_PAIL);
 	const ZombiePreSwitchArmor aPvZ95DoorArmor = ResolveZombiePreSwitchArmor(

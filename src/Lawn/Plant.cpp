@@ -1390,13 +1390,16 @@ void Plant::UpdateTorchwood()
 			Rect aProjectileRect = aProjectile->GetProjectileRect();
 			if (GetRectOverlap(aAttackRect, aProjectileRect) >= 10)
 			{
-				if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA)
+				switch (PvzRules::ResolveTorchwoodConversion(aProjectile->mProjectileType))
 				{
+				case PvzRules::TorchwoodConversion::FIREBALL:
 					aProjectile->ConvertToFireball(mPlantCol);
-				}
-				else if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
-				{
+					break;
+				case PvzRules::TorchwoodConversion::PEA:
 					aProjectile->ConvertToPea(mPlantCol);
+					break;
+				case PvzRules::TorchwoodConversion::NONE:
+					break;
 				}
 			}
 		}
@@ -4404,7 +4407,9 @@ void Plant::DoSpecial()
 		aPosY = mY + mHeight / 2;
 
 		mApp->PlaySample(SOUND_POTATO_MINE);
-		if (mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 60, 0, false, aDamageRangeFlags) >= 1)
+		const PvzRules::PotatoMineExplosion anExplosion = PvzRules::ResolvePotatoMineExplosion(60, 0, false);
+		if (mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, anExplosion.mRadius,
+			anExplosion.mRowRange, anExplosion.mBurn, aDamageRangeFlags) >= 1)
 			ReportAchievement::GiveAchievement(mApp, Spudow, true);
 
 		int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);

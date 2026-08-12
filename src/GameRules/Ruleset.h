@@ -62,6 +62,20 @@ namespace PvzRules
 		int mX;
 	};
 
+	enum class TorchwoodConversion : uint8_t
+	{
+		NONE,
+		FIREBALL,
+		PEA
+	};
+
+	struct PotatoMineExplosion
+	{
+		int mRadius;
+		int mRowRange;
+		bool mBurn;
+	};
+
 	RulesetId GetActiveRuleset();
 	void SetActiveRuleset(RulesetId theRuleset);
 	bool SetActiveRuleset(std::string_view theName);
@@ -85,6 +99,9 @@ namespace PvzRules
 	int ResolveSpikeRockDamageThreshold(int theDamageState, int theOriginalValue);
 	bool UsesCherryBombSpecial(SeedType theSeedType);
 	bool TakesLayeredCrushDamage(SeedType theSeedType);
+	TorchwoodConversion ResolveTorchwoodConversion(ProjectileType theProjectileType);
+	PotatoMineExplosion ResolvePotatoMineExplosion(
+		int theOriginalRadius, int theOriginalRowRange, bool theOriginalBurn);
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue);
 	BurnRowEffects ResolveBurnRowEffects();
 	unsigned int ResolveBurnRowDamageFlags(ZombiePhase theZombiePhase, unsigned int theOriginalValue);
@@ -98,6 +115,8 @@ namespace PvzRules
 		BackgroundType theBackground, int theProjectileAge);
 	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX);
 	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue);
+	bool ResolveZombieTargetPlantNotOnGround(bool theAirborneSquash, bool theScaredyShroomScared,
+		bool theSquished, bool theDead, bool theOriginalValue);
 
 	ZombieType ResolveZombieMemberType(ZombieType theRequestedType);
 	ZombiePreSwitchArmor ResolveZombiePreSwitchArmor(

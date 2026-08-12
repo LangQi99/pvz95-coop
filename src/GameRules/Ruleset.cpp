@@ -236,6 +236,31 @@ namespace PvzRules
 			(gActiveRuleset == RulesetId::PVZ95 && theSeedType == SeedType::SEED_TALLNUT);
 	}
 
+	TorchwoodConversion ResolveTorchwoodConversion(ProjectileType theProjectileType)
+	{
+		if (theProjectileType == ProjectileType::PROJECTILE_PEA)
+		{
+			return gActiveRuleset == RulesetId::PVZ95 ?
+				TorchwoodConversion::PEA : TorchwoodConversion::FIREBALL;
+		}
+		if (theProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
+		{
+			return gActiveRuleset == RulesetId::PVZ95 ?
+				TorchwoodConversion::FIREBALL : TorchwoodConversion::PEA;
+		}
+
+		return TorchwoodConversion::NONE;
+	}
+
+	PotatoMineExplosion ResolvePotatoMineExplosion(
+		int theOriginalRadius, int theOriginalRowRange, bool theOriginalBurn)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+			return {115, 1, true};
+
+		return {theOriginalRadius, theOriginalRowRange, theOriginalBurn};
+	}
+
 	int ResolveProjectileDamage(ProjectileType theProjectileType, int theOriginalValue)
 	{
 		if (gActiveRuleset != RulesetId::PVZ95)
@@ -341,6 +366,15 @@ namespace PvzRules
 	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue)
 	{
 		return gActiveRuleset == RulesetId::PVZ95 ? ProjectileType::PROJECTILE_SNOWPEA : theOriginalValue;
+	}
+
+	bool ResolveZombieTargetPlantNotOnGround(bool theAirborneSquash, bool theScaredyShroomScared,
+		bool theSquished, bool theDead, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		return theAirborneSquash || theSquished || theScaredyShroomScared || theDead;
 	}
 
 	ZombieType ResolveZombieMemberType(ZombieType theRequestedType)

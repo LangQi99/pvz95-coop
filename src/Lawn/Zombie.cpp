@@ -6351,7 +6351,14 @@ bool Zombie::CanTargetPlant(Plant* thePlant, ZombieAttackType theAttackType)
 	if (mApp->IsWallnutBowlingLevel() && theAttackType != ZombieAttackType::ATTACKTYPE_VAULT)
 		return false;
 
-	if (thePlant->NotOnGround() || thePlant->mSeedType == SeedType::SEED_TANGLEKELP)
+	const bool anAirborneSquash = thePlant->mSeedType == SeedType::SEED_SQUASH &&
+		(thePlant->mState == PlantState::STATE_SQUASH_RISING ||
+		thePlant->mState == PlantState::STATE_SQUASH_FALLING ||
+		thePlant->mState == PlantState::STATE_SQUASH_DONE_FALLING);
+	const bool aPlantNotOnGround = PvzRules::ResolveZombieTargetPlantNotOnGround(anAirborneSquash,
+		thePlant->mState == PlantState::STATE_SCAREDYSHROOM_SCARED,
+		thePlant->mSquished, thePlant->mDead, thePlant->NotOnGround());
+	if (aPlantNotOnGround || thePlant->mSeedType == SeedType::SEED_TANGLEKELP)
 		return false;
 
 	if (!mInPool && mBoard->IsPoolSquare(thePlant->mPlantCol, thePlant->mRow))
