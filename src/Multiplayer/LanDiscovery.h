@@ -25,6 +25,7 @@ namespace PvzMultiplayer
 	{
 	public:
 		bool Start(DiscoveryOffer theOffer, uint16_t theDiscoveryPort = DEFAULT_DISCOVERY_PORT);
+		bool SetOffer(DiscoveryOffer theOffer);
 		void Stop();
 		size_t Poll(size_t theMaxDatagrams = 32);
 

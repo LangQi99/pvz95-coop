@@ -28,7 +28,9 @@
 #include <sys/stat.h>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
+#include <vector>
 #include "PvzpDebug.h"
 #include "Definition.h"
 #include "zlib.h"
@@ -482,6 +484,309 @@ bool DefMapReadFromCache(void*& theReadPtr, const DefMap* theDefMap, void* theDe
 	return true;
 }
 
+namespace
+{
+// The retail 1.0 game, which PvZ 95 patches, stores compiled definitions using
+// the original 32-bit MSVC object layouts.  Those layouts cannot be bulk-read
+// into the 64-bit objects used by modern Windows and macOS builds.  The deep
+// cache data is otherwise architecture neutral, so translate the small raw
+// object headers before using it.
+constexpr uint LEGACY_REANIM_SCHEMA_HASH = 0xB393B4C0U;
+constexpr uint LEGACY_PARTICLE_SCHEMA_HASH = 0x411F994DU;
+constexpr uint LEGACY_TRAIL_SCHEMA_HASH = 0xAB8B62B3U;
+
+class LegacyDefinitionReader
+{
+public:
+	LegacyDefinitionReader(const char* theData, size_t theSize) :
+		mData(reinterpret_cast<const unsigned char*>(theData)),
+		mSize(theSize)
+	{
+	}
+
+	bool Read(const DefMap* theDefMap, void* theDefinition)
+	{
+		if (!ReadRawDefinition(theDefMap, theDefinition))
+		{
+			PvzpTrace("Legacy definition has an invalid root object\n");
+			return false;
+		}
+		if (!ReadDeepDefinition(theDefMap, theDefinition))
+		{
+			PvzpTrace("Legacy definition has invalid deep data at %zu/%zu\n", mOffset, mSize);
+			return false;
+		}
+		if (mOffset != mSize)
+		{
+			PvzpTrace("Legacy definition has %zu trailing bytes\n", mSize - mOffset);
+			return false;
+		}
+		return true;
+	}
+
+private:
+	static size_t FieldSize(DefFieldType theType)
+	{
+		switch (theType)
+		{
+		case DefFieldType::DT_INT:
+		case DefFieldType::DT_FLOAT:
+		case DefFieldType::DT_ENUM:
+		case DefFieldType::DT_FLAGS:
+		case DefFieldType::DT_STRING:
+		case DefFieldType::DT_IMAGE:
+		case DefFieldType::DT_FONT:
+			return 4;
+		case DefFieldType::DT_VECTOR2:
+		case DefFieldType::DT_ARRAY:
+		case DefFieldType::DT_TRACK_FLOAT:
+			return 8;
+		default:
+			return 0;
+		}
+	}
+
+	static std::vector<const DefField*> OrderedFields(const DefMap* theDefMap)
+	{
+		std::vector<const DefField*> aFields;
+		for (const DefField* aField = theDefMap->mMapFields; *aField->mFieldName != '\0'; aField++)
+			aFields.push_back(aField);
+		std::sort(aFields.begin(), aFields.end(), [](const DefField* theLeft, const DefField* theRight)
+		{
+			return theLeft->mFieldOffset < theRight->mFieldOffset;
+		});
+		return aFields;
+	}
+
+	static size_t MapSize(const DefMap* theDefMap)
+	{
+		size_t aSize = 0;
+		for (const DefField* aField : OrderedFields(theDefMap))
+			aSize += FieldSize(aField->mFieldType);
+		// ReanimatorDefinition has a non-serialized ReanimAtlas pointer at the end.
+		if (theDefMap == &gReanimatorDefMap)
+			aSize += 4;
+		return aSize;
+	}
+
+	static size_t FieldOffset(const DefMap* theDefMap, const DefField* theWantedField)
+	{
+		size_t anOffset = 0;
+		for (const DefField* aField : OrderedFields(theDefMap))
+		{
+			if (aField == theWantedField)
+				return anOffset;
+			anOffset += FieldSize(aField->mFieldType);
+		}
+		return MapSize(theDefMap);
+	}
+
+	bool Take(size_t theSize, const unsigned char*& theResult)
+	{
+		if (mOffset > mSize || theSize > mSize - mOffset)
+			return false;
+		theResult = mData + mOffset;
+		mOffset += theSize;
+		return true;
+	}
+
+	bool ReadUInt32(uint32_t& theValue)
+	{
+		const unsigned char* aSource;
+		if (!Take(sizeof(theValue), aSource))
+			return false;
+		memcpy(&theValue, aSource, sizeof(theValue));
+		return true;
+	}
+
+	bool ReadRawDefinition(const DefMap* theDefMap, void* theDefinition)
+	{
+		const unsigned char* aRawDefinition;
+		if (!Take(MapSize(theDefMap), aRawDefinition))
+			return false;
+
+		if (theDefMap->mConstructorFunc)
+			theDefMap->mConstructorFunc(theDefinition);
+		else
+			DefinitionFillWithDefaults(theDefMap, theDefinition);
+
+		for (const DefField* aField = theDefMap->mMapFields; *aField->mFieldName != '\0'; aField++)
+		{
+			const unsigned char* aSource = aRawDefinition + FieldOffset(theDefMap, aField);
+			void* aDestination = static_cast<unsigned char*>(theDefinition) + aField->mFieldOffset;
+			switch (aField->mFieldType)
+			{
+			case DefFieldType::DT_INT:
+			case DefFieldType::DT_FLOAT:
+			case DefFieldType::DT_ENUM:
+			case DefFieldType::DT_FLAGS:
+				memcpy(aDestination, aSource, 4);
+				break;
+			case DefFieldType::DT_VECTOR2:
+				memcpy(aDestination, aSource, 8);
+				break;
+			case DefFieldType::DT_ARRAY:
+			{
+				auto* anArray = static_cast<DefinitionArrayDef*>(aDestination);
+				anArray->mArrayData = nullptr;
+				memcpy(&anArray->mArrayCount, aSource + 4, 4);
+				if (anArray->mArrayCount < 0 || anArray->mArrayCount > 1000000)
+					return false;
+				break;
+			}
+			case DefFieldType::DT_TRACK_FLOAT:
+			{
+				auto* aTrack = static_cast<FloatParameterTrack*>(aDestination);
+				aTrack->mNodes = nullptr;
+				memcpy(&aTrack->mCountNodes, aSource + 4, 4);
+				if (aTrack->mCountNodes < 0 || aTrack->mCountNodes > 1000000)
+					return false;
+				break;
+			}
+			case DefFieldType::DT_STRING:
+				*static_cast<const char**>(aDestination) = "";
+				break;
+			case DefFieldType::DT_IMAGE:
+				*static_cast<Image**>(aDestination) = nullptr;
+				break;
+			case DefFieldType::DT_FONT:
+				*static_cast<_Font**>(aDestination) = nullptr;
+				break;
+			default:
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool ReadString(std::string& theValue)
+	{
+		uint32_t aLength;
+		if (!ReadUInt32(aLength) || aLength > mSize - mOffset)
+			return false;
+		const unsigned char* aText;
+		if (!Take(aLength, aText))
+			return false;
+		theValue.assign(reinterpret_cast<const char*>(aText), aLength);
+		return true;
+	}
+
+	bool ReadDeepDefinition(const DefMap* theDefMap, void* theDefinition)
+	{
+		for (const DefField* aField = theDefMap->mMapFields; *aField->mFieldName != '\0'; aField++)
+		{
+			void* aDestination = static_cast<unsigned char*>(theDefinition) + aField->mFieldOffset;
+			switch (aField->mFieldType)
+			{
+			case DefFieldType::DT_STRING:
+			{
+				std::string aValue;
+				if (!ReadString(aValue))
+					return false;
+				if (aValue.empty())
+					*static_cast<const char**>(aDestination) = "";
+				else
+				{
+					if (aValue.size() >= static_cast<size_t>((std::numeric_limits<int>::max)()))
+						return false;
+					auto* aCopy = static_cast<char*>(DefinitionAlloc(static_cast<int>(aValue.size() + 1)));
+					memcpy(aCopy, aValue.data(), aValue.size());
+					aCopy[aValue.size()] = '\0';
+					*static_cast<const char**>(aDestination) = aCopy;
+				}
+				break;
+			}
+			case DefFieldType::DT_IMAGE:
+			case DefFieldType::DT_FONT:
+			{
+				std::string aName;
+				if (!ReadString(aName))
+					return false;
+				if (aName.empty())
+					break;
+				bool aLoaded = aField->mFieldType == DefFieldType::DT_IMAGE
+					? DefinitionLoadImage(static_cast<Image**>(aDestination), aName)
+					: DefinitionLoadFont(static_cast<_Font**>(aDestination), aName);
+				if (!aLoaded)
+				{
+					PvzpTrace("Legacy definition could not load resource '%s'\n", aName.c_str());
+					return false;
+				}
+				break;
+			}
+			case DefFieldType::DT_TRACK_FLOAT:
+			{
+				auto* aTrack = static_cast<FloatParameterTrack*>(aDestination);
+				uint32_t aCount;
+				if (!ReadUInt32(aCount) || aCount != static_cast<uint32_t>(aTrack->mCountNodes))
+					return false;
+				size_t aSize = static_cast<size_t>(aCount) * sizeof(FloatParameterTrackNode);
+				if (aSize > static_cast<size_t>((std::numeric_limits<int>::max)()))
+					return false;
+				const unsigned char* aNodes;
+				if (!Take(aSize, aNodes))
+					return false;
+				if (aSize != 0)
+				{
+					aTrack->mNodes = static_cast<FloatParameterTrackNode*>(DefinitionAlloc(static_cast<int>(aSize)));
+					memcpy(aTrack->mNodes, aNodes, aSize);
+				}
+				break;
+			}
+			case DefFieldType::DT_ARRAY:
+			{
+				auto* anArray = static_cast<DefinitionArrayDef*>(aDestination);
+				auto* anElementMap = static_cast<const DefMap*>(aField->mExtraData);
+				uint32_t anElementSize;
+				if (!ReadUInt32(anElementSize) || anElementSize != MapSize(anElementMap))
+					return false;
+				if (anArray->mArrayCount == 0)
+					break;
+				size_t anAllocationSize = static_cast<size_t>(anArray->mArrayCount) * anElementMap->mDefSize;
+				if (anAllocationSize > static_cast<size_t>((std::numeric_limits<int>::max)()))
+					return false;
+				anArray->mArrayData = DefinitionAlloc(static_cast<int>(anAllocationSize));
+				for (int i = 0; i < anArray->mArrayCount; i++)
+				{
+					void* anElement = static_cast<unsigned char*>(anArray->mArrayData) + i * anElementMap->mDefSize;
+					if (!ReadRawDefinition(anElementMap, anElement))
+						return false;
+				}
+				for (int i = 0; i < anArray->mArrayCount; i++)
+				{
+					void* anElement = static_cast<unsigned char*>(anArray->mArrayData) + i * anElementMap->mDefSize;
+					if (!ReadDeepDefinition(anElementMap, anElement))
+						return false;
+				}
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		return true;
+	}
+
+	const unsigned char* mData;
+	size_t mSize;
+	size_t mOffset{0};
+};
+
+bool DefinitionReadLegacy32BitCache(uint theSchemaHash, const DefMap* theDefMap,
+	void* theDefinition, const char* theData, size_t theSize)
+{
+	bool aSupportedSchema =
+		(theDefMap == &gReanimatorDefMap && theSchemaHash == LEGACY_REANIM_SCHEMA_HASH) ||
+		(theDefMap == &gParticleDefMap && theSchemaHash == LEGACY_PARTICLE_SCHEMA_HASH) ||
+		(theDefMap == &gTrailDefMap && theSchemaHash == LEGACY_TRAIL_SCHEMA_HASH);
+	if (!aSupportedSchema)
+		return false;
+
+	LegacyDefinitionReader aReader(theData, theSize);
+	return aReader.Read(theDefMap, theDefinition);
+}
+}
+
 uint DefinitionCalcHashSymbolMap(int aSchemaHash, const DefSymbol* theSymbolMap)
 {
 	while (theSymbolMap->mSymbolName != nullptr)
@@ -545,15 +850,26 @@ void* DefinitionUncompressCompiledBuffer(void* theCompressedBuffer, size_t theCo
 		PvzpTrace("Compiled fire cookie wrong: %s\n", theCompiledFilePath.c_str());
 		return nullptr;
 	}
+	if (aHeader->mUncompressedSize == 0 ||
+		aHeader->mUncompressedSize > static_cast<unsigned int>((std::numeric_limits<int>::max)()))
+	{
+		PvzpTrace("Compiled file has an invalid uncompressed size: %s\n", theCompiledFilePath.c_str());
+		return nullptr;
+	}
 
 	Bytef* aUncompressedBuffer = (Bytef*)DefinitionAlloc(aHeader->mUncompressedSize);
 	Bytef* aSrc = (Bytef*)((intptr_t)theCompressedBuffer + sizeof(CompressedDefinitionHeader));  // the compressed data starts right after the header
 	// BuGFIXX!!
 	ulong aUncompressedSizeResult = aHeader->mUncompressedSize;  // out-param receiving the actual uncompressed size
 	int aResult = uncompress(aUncompressedBuffer, &aUncompressedSizeResult, aSrc, theCompressedBufferSize - sizeof(CompressedDefinitionHeader));
-	(void)aResult; // Compiler can't work out that this is used in the Debug build
 	PVZP_ASSERT(aResult == Z_OK);
 	PVZP_ASSERT(aUncompressedSizeResult == aHeader->mUncompressedSize);
+	if (aResult != Z_OK || aUncompressedSizeResult != aHeader->mUncompressedSize)
+	{
+		delete[] aUncompressedBuffer;
+		PvzpTrace("Compiled file decompression failed: %s\n", theCompiledFilePath.c_str());
+		return nullptr;
+	}
 	theUncompressedSize = aHeader->mUncompressedSize;
 	return aUncompressedBuffer;
 }
@@ -583,44 +899,76 @@ bool DefinitionReadCompiledFile(const std::string& theCompiledFilePath, const De
 
 	std::string aFullCompiledPath = DefinitionGetCompiledCacheFullPath(theCompiledFilePath);
 	std::ifstream aFileStream(Sexy::PathFromU8(aFullCompiledPath), std::ios::binary);
+	std::vector<char> aCompressedBuffer;
 	if (!aFileStream)
 	{
-		aFileStream.open(Sexy::PathFromU8(theCompiledFilePath), std::ios::binary);
+		PFILE* aPakFile = p_fopen(theCompiledFilePath.c_str(), "rb");
+		if (aPakFile == nullptr)
+			return false;
+		p_fseek(aPakFile, 0, SEEK_END);
+		int aCompressedSize = p_ftell(aPakFile);
+		p_fseek(aPakFile, 0, SEEK_SET);
+		if (aCompressedSize <= 0)
+		{
+			p_fclose(aPakFile);
+			return false;
+		}
+		aCompressedBuffer.resize(static_cast<size_t>(aCompressedSize));
+		bool aReadFailed = p_fread(aCompressedBuffer.data(), 1, aCompressedSize, aPakFile) != static_cast<size_t>(aCompressedSize);
+		p_fclose(aPakFile);
+		if (aReadFailed)
+		{
+			PvzpTrace("Failed to read compiled file: %s\n", theCompiledFilePath.c_str());
+			return false;
+		}
 	}
-
-	if (!aFileStream) return false;
-
-	aFileStream.seekg(0, std::ios::end);
-	size_t aCompressedSize = (size_t)aFileStream.tellg();
-	aFileStream.seekg(0, std::ios::beg);
-	std::vector<char> aCompressedBuffer(aCompressedSize);
-	aFileStream.read(aCompressedBuffer.data(), (std::streamsize)aCompressedSize);
-	bool aReadCompressedFailed = !aFileStream || (size_t)aFileStream.gcount() != aCompressedSize;
-	if (aReadCompressedFailed) {
-		PvzpTrace("Failed to read compiled file: %s\n", theCompiledFilePath.c_str());
-		return false;
+	else
+	{
+		aFileStream.seekg(0, std::ios::end);
+		size_t aCompressedSize = static_cast<size_t>(aFileStream.tellg());
+		aFileStream.seekg(0, std::ios::beg);
+		aCompressedBuffer.resize(aCompressedSize);
+		aFileStream.read(aCompressedBuffer.data(), static_cast<std::streamsize>(aCompressedSize));
+		if (!aFileStream || static_cast<size_t>(aFileStream.gcount()) != aCompressedSize)
+		{
+			PvzpTrace("Failed to read compiled file: %s\n", theCompiledFilePath.c_str());
+			return false;
+		}
 	}
 
 	size_t aUncompressedSize;
 	std::unique_ptr<char[]> aUncompressedBuffer(
-		static_cast<char*>(DefinitionUncompressCompiledBuffer(aCompressedBuffer.data(), aCompressedSize, aUncompressedSize, theCompiledFilePath)));
+		static_cast<char*>(DefinitionUncompressCompiledBuffer(aCompressedBuffer.data(), aCompressedBuffer.size(), aUncompressedSize, theCompiledFilePath)));
 	if (!aUncompressedBuffer) return false;
 
 	uint aDefHash = DefinitionCalcHash(theDefMap);  // CRC checked against the stored hash below
-	if (aUncompressedSize < theDefMap->mDefSize + sizeof(uint)) {
+	if (aUncompressedSize < sizeof(uint))
+	{
 		PvzpTrace("Compiled file size too small: %s\n", theCompiledFilePath.c_str());
 		return false;
-	} // must hold the definition data plus the stored hash
-
+	}
 
 	// aBufferPtr advances while reading; the original pointer is kept to measure the read size
 	void* aBufferPtr = aUncompressedBuffer.get();
 	uint aCashHash;
 	SMemR(aBufferPtr, &aCashHash, sizeof(uint));  // read the stored CRC hash
-	if (aCashHash != aDefHash) {
+	if (aCashHash != aDefHash)
+	{
+		const char* aLegacyData = static_cast<const char*>(aBufferPtr);
+		size_t aLegacySize = aUncompressedSize - sizeof(uint);
+		if (DefinitionReadLegacy32BitCache(aCashHash, theDefMap, theDefinition, aLegacyData, aLegacySize))
+		{
+			PvzpTrace("Loaded legacy 32-bit compiled definition: %s\n", theCompiledFilePath.c_str());
+			return true;
+		}
 		PvzpTrace("Compiled file schema wrong: %s\n", theCompiledFilePath.c_str());
 		return false;
-	} // a hash mismatch means the cached data is stale
+	}
+	if (aUncompressedSize < theDefMap->mDefSize + sizeof(uint))
+	{
+		PvzpTrace("Compiled file size too small: %s\n", theCompiledFilePath.c_str());
+		return false;
+	}
 
 	// Bulk-read the raw definition data: non-pointer members are read correctly,
 	// while pointer members become wild pointers fixed up by DefMapReadFromCache() below

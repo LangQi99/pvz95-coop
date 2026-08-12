@@ -41,6 +41,10 @@ LAN discovery uses non-blocking IPv4 UDP on port `43095` by default. A client br
 
 The reliable path is a non-blocking TCP channel with bounded outgoing queues and incremental frame decoding. `HostSession` accepts and validates `Hello`, binds each connection to the assigned player ID, rejects stale cursor/input sequences, and exposes validated commands as events. `ClientSession` validates the selected room and ruleset against `Welcome`, stamps outbound commands with its assigned player ID, and accepts only gameplay messages after the handshake.
 
+`LanCoordinator` owns discovery and reliable-session lifetimes. The main-menu Host LAN and Join Room controls call it directly; the regular application update loop polls it without blocking rendering or input. A host continually refreshes its discovery offer as players join, while a client discovers a compatible non-full room and advances through search, handshake, and connected states.
+
+The resource loader supports both native compiled definitions and the original retail 1.0 32-bit cache layout used by the analyzed PvZ 95 data. Legacy cache records are decoded field-by-field into native objects instead of reinterpreting pointer-sized structures. Chinese GBK text is normalized to UTF-8 before it enters the platform-independent UI.
+
 ## Session model
 
 The host is authoritative. All local and remote input becomes an `InputCommand`; the host validates and orders commands at a simulation tick, then broadcasts the accepted order. This prevents two clients from independently spending the same sun or acting on different UI states.

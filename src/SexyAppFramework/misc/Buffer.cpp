@@ -26,6 +26,15 @@
 #include <SDL_stdinc.h>
 #include <array>
 #include <bit>
+#include <vector>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#elif defined(PVZ_USE_SYSTEM_ICONV)
+#include <iconv.h>
+#endif
 #define POLYNOMIAL 0x04c11db7L
 
 using namespace Sexy;
@@ -179,6 +188,82 @@ static bool IsValidUTF8(const char* theData, int theLen)
 	return true;
 }
 
+static bool IsLikelyGB18030(const char* theData, int theLen)
+{
+	auto aBytes = reinterpret_cast<const unsigned char*>(theData);
+	int aMultibyteCount = 0;
+	for (int i = 0; i < theLen;)
+	{
+		unsigned char aFirst = aBytes[i];
+		if (aFirst < 0x80)
+		{
+			i++;
+			continue;
+		}
+		if (aFirst < 0x81 || aFirst > 0xFE || i + 1 >= theLen)
+			return false;
+
+		unsigned char aSecond = aBytes[i + 1];
+		if (aSecond >= 0x40 && aSecond <= 0xFE && aSecond != 0x7F)
+		{
+			i += 2;
+			aMultibyteCount++;
+			continue;
+		}
+		if (aSecond >= '0' && aSecond <= '9' && i + 3 < theLen &&
+			aBytes[i + 2] >= 0x81 && aBytes[i + 2] <= 0xFE &&
+			aBytes[i + 3] >= '0' && aBytes[i + 3] <= '9')
+		{
+			i += 4;
+			aMultibyteCount++;
+			continue;
+		}
+		return false;
+	}
+	return aMultibyteCount >= 2;
+}
+
+static bool GB18030ToUTF8(const char* theData, int theLen, std::string& theResult)
+{
+#ifdef _WIN32
+	int aWideLength = MultiByteToWideChar(54936, MB_ERR_INVALID_CHARS, theData, theLen, nullptr, 0);
+	if (aWideLength <= 0)
+		return false;
+	std::wstring aWideText(static_cast<size_t>(aWideLength), L'\0');
+	if (MultiByteToWideChar(54936, MB_ERR_INVALID_CHARS, theData, theLen, aWideText.data(), aWideLength) != aWideLength)
+		return false;
+	int aUtf8Length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, aWideText.data(), aWideLength, nullptr, 0, nullptr, nullptr);
+	if (aUtf8Length <= 0)
+		return false;
+	theResult.resize(static_cast<size_t>(aUtf8Length));
+	return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, aWideText.data(), aWideLength,
+		theResult.data(), aUtf8Length, nullptr, nullptr) == aUtf8Length;
+#elif defined(PVZ_USE_SYSTEM_ICONV)
+	iconv_t aConverter = iconv_open("UTF-8", "GB18030");
+	if (aConverter == reinterpret_cast<iconv_t>(-1))
+		return false;
+
+	std::vector<char> anOutput(static_cast<size_t>(theLen) * 4 + 4);
+	char* anInput = const_cast<char*>(theData);
+	size_t anInputLeft = static_cast<size_t>(theLen);
+	char* anOutputPtr = anOutput.data();
+	size_t anOutputLeft = anOutput.size();
+	bool aSuccess = iconv(aConverter, &anInput, &anInputLeft, &anOutputPtr, &anOutputLeft) != static_cast<size_t>(-1) && anInputLeft == 0;
+	iconv_close(aConverter);
+	if (!aSuccess)
+		return false;
+	theResult.assign(anOutput.data(), static_cast<size_t>(anOutputPtr - anOutput.data()));
+	return true;
+#else
+	char* aConverted = SDL_iconv_string("UTF-8", "GB18030", theData, theLen);
+	if (!aConverted)
+		return false;
+	theResult = aConverted;
+	SDL_free(aConverted);
+	return true;
+#endif
+}
+
 bool Buffer::ToUTF8String(std::string* theString) const
 {
 	const char* aData = (const char*)GetDataPtr();
@@ -200,6 +285,8 @@ bool Buffer::ToUTF8String(std::string* theString) const
 	} else if (IsValidUTF8(aData, aLen)) {
 		*theString = std::string(aData, aLen);
 		return true;
+	} else if (IsLikelyGB18030(aData, aLen)) {
+		return GB18030ToUTF8(aData, aLen, *theString);
 	} else {
 		*theString = Win1252ToUTF8(aData, aLen);
 		return true;

@@ -33,6 +33,8 @@
 #include "../ToolTipWidget.h"
 #include "../System/SaveGame.h"
 #include "../../GameConstants.h"
+#include "../../GameRules/Ruleset.h"
+#include "../../Multiplayer/LanCoordinator.h"
 #include "../System/PlayerInfo.h"
 #include "../System/ProfileMgr.h"
 #include "../System/TypingCheck.h"
@@ -62,7 +64,9 @@ GameSelectorOverlay::GameSelectorOverlay(GameSelector* theGameSelector)
 GameSelector::GameSelector(LawnApp* theApp)
 {
 	PvzpHesitationTrace("pregameselector");
-	mLoadedResourceNames.push_back("DelayLoad_Zombatar");
+	const bool aHasGotyUi = Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL != nullptr;
+	if (aHasGotyUi)
+		mLoadedResourceNames.push_back("DelayLoad_Zombatar");
 	mLoadedResourceNames.push_back("DelayLoad_Almanac");
 
 	for (std::string& resource : mLoadedResourceNames)
@@ -160,24 +164,37 @@ GameSelector::GameSelector(LawnApp* theApp)
 		Sexy::IMAGE_BLANK,
 		Sexy::IMAGE_BLANK
 	);
-	mZombatarButton->Resize(0, 0, Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS->mWidth, Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS->mHeight);
+	int aZombatarWidth = Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS->mWidth : 1;
+	int aZombatarHeight = Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS->mHeight : 1;
+	mZombatarButton->Resize(0, 0, aZombatarWidth, aZombatarHeight);
 	mZombatarButton->mClip = false;
 	mZombatarButton->mBtnNoDraw = true;
 	mZombatarButton->mMouseVisible = false;
+	mZombatarButton->mVisible = aHasGotyUi;
 
 	mAchievementsButton = MakeNewButton(
 		GameSelector::GameSelector_Achievements,
 		this,
 		"",
 		nullptr,
-		Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL,
-		Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL_PRESS,
-		Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL_PRESS
+		aHasGotyUi ? Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL : Sexy::IMAGE_BLANK,
+		aHasGotyUi ? Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL_PRESS : Sexy::IMAGE_BLANK,
+		aHasGotyUi ? Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL_PRESS : Sexy::IMAGE_BLANK
 	);
-	mAchievementsButton->Resize(20, mApp->mHeight - Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL->mHeight - 35, Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL->mWidth, Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL->mHeight);
+	int anAchievementsWidth = Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL ? Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL->mWidth : 1;
+	int anAchievementsHeight = Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL ? Sexy::IMAGE_SELECTORSCREEN_ACHIEVEMENTS_PEDESTAL->mHeight : 1;
+	mAchievementsButton->Resize(20, mApp->mHeight - anAchievementsHeight - 35, anAchievementsWidth, anAchievementsHeight);
 	mAchievementsButton->mClip = false;
 	mAchievementsButton->mBtnNoDraw = mHasTrophy;
 	mAchievementsButton->mMouseVisible = false;
+	mAchievementsButton->mVisible = aHasGotyUi;
+
+	mHostLanButton = MakeButton(GameSelector::GameSelector_HostLan, this, "Host LAN");
+	mHostLanButton->Resize(228, 510, 135, 33);
+	mHostLanButton->mMouseVisible = false;
+	mJoinLanButton = MakeButton(GameSelector::GameSelector_JoinLan, this, "Join Room");
+	mJoinLanButton->Resize(373, 510, 135, 33);
+	mJoinLanButton->mMouseVisible = false;
 
 	mZenGardenButton = MakeNewButton(
 		GameSelector::GameSelector_ZenGarden,
@@ -344,12 +361,15 @@ GameSelector::GameSelector(LawnApp* theApp)
 	mStartY = 0;
 	mDestX = 0;
 	mDestY = 0;
-	mZombatarWidget = new ZombatarWidget(this);
-	mAchievementsWidget = new AchievementsWidget(this->mApp);
-	mAchievementsWidget->Move(0, mApp->mHeight);
+	mZombatarWidget = aHasGotyUi ? new ZombatarWidget(this) : nullptr;
+	mAchievementsWidget = aHasGotyUi ? new AchievementsWidget(this->mApp) : nullptr;
+	if (mAchievementsWidget)
+		mAchievementsWidget->Move(0, mApp->mHeight);
 
 	// Add as children in z-order (bottom to top).
 	AddWidget(mAchievementsButton);
+	AddWidget(mHostLanButton);
+	AddWidget(mJoinLanButton);
 	AddWidget(mZombatarButton);
 	AddWidget(mChangeUserButton);
 	AddWidget(mSurvivalButton);
@@ -389,8 +409,8 @@ void GameSelector::SyncButtons()
 	mAlmanacButton->mVisible = aAlmanacAvailable;
 	mStoreButton->mDisabled = !aStoreOpen;
 	mStoreButton->mVisible = aStoreOpen;
-	mZombatarButton->mDisabled = false;
-	mZombatarButton->mVisible = true;
+	mZombatarButton->mDisabled = mZombatarWidget == nullptr;
+	mZombatarButton->mVisible = mZombatarWidget != nullptr;
 
 	Reanimation* aSelectorReanim = mApp->ReanimationGet(mSelectorReanimID);
 	if (aAlmanacAvailable)
@@ -601,6 +621,13 @@ void GameSelector::Draw(Graphics* g)
 		PvzpDrawStringMatrix(g, Sexy::FONT_BRIANNETOD16, aOverlayMatrix * aOffsetMatrix, aWelcomeStr, Color(255, 245, 200));
 
 	}
+
+	if (mApp->mLanCoordinator->GetMode() != PvzMultiplayer::LanMode::OFFLINE)
+	{
+		g->SetFont(Sexy::FONT_BRIANNETOD16);
+		g->SetColor(Color(48, 30, 16));
+		g->DrawString(mApp->mLanCoordinator->GetStatusText(), 228, 503);
+	}
 }
 
 void GameSelector::DrawOverlay(Graphics* g)
@@ -753,8 +780,10 @@ void GameSelector::Update()
 		int aNewY = PvzpAnimateCurve(75, 0, mSlideCounter, mStartY, mDestY, PvzpCurves::CURVE_EASE_IN_OUT);
 		Move(aNewX, aNewY);
 
-		mZombatarWidget->Move(aNewX + BOARD_WIDTH, aNewY);
-		mAchievementsWidget->mY = aNewY + mApp->mHeight;
+		if (mZombatarWidget)
+			mZombatarWidget->Move(aNewX + BOARD_WIDTH, aNewY);
+		if (mAchievementsWidget)
+			mAchievementsWidget->mY = aNewY + mApp->mHeight;
 
 		mSlideCounter--;
 	}
@@ -841,6 +870,8 @@ void GameSelector::Update()
 			mChangeUserButton->mMouseVisible = true;
 			mZombatarButton->mMouseVisible = true;
 			mAchievementsButton->mMouseVisible = true;
+			mHostLanButton->mMouseVisible = true;
+			mJoinLanButton->mMouseVisible = true;
 
 			if (mApp->mPlayerInfo == nullptr)
 			{
@@ -938,6 +969,11 @@ void GameSelector::Update()
 	TrackButton(mChangeUserButton, "woodsign2", 24.0f, 10.0f);
 	TrackButton(mZombatarButton, "woodsign3", 0.f, 0.f);
 	TrackButton(mAchievementsButton, "SelectorScreen_BG_Left", 20.f, 480.f);
+	PvzMultiplayer::LanMode aLanMode = mApp->mLanCoordinator->GetMode();
+	mHostLanButton->SetLabel(aLanMode == PvzMultiplayer::LanMode::HOSTING ? "Stop Hosting" : "Host LAN");
+	mJoinLanButton->SetLabel(
+		aLanMode == PvzMultiplayer::LanMode::SEARCHING || aLanMode == PvzMultiplayer::LanMode::JOINING ||
+		aLanMode == PvzMultiplayer::LanMode::CONNECTED ? "Disconnect" : "Join Room");
 	aSelectorReanim->SetImageOverride("woodsign2", (mChangeUserButton->mIsOver || mChangeUserButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS : nullptr);
 	aSelectorReanim->SetImageOverride("woodsign3", (mZombatarButton->mIsOver || mZombatarButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS : nullptr);
 }
@@ -957,22 +993,28 @@ void GameSelector::AddedToManager(WidgetManager* theWidgetManager)
 {
 	Widget::AddedToManager(theWidgetManager);
 
-	theWidgetManager->AddWidget(mZombatarWidget);
-	theWidgetManager->AddWidget(mAchievementsWidget);
+	if (mZombatarWidget)
+		theWidgetManager->AddWidget(mZombatarWidget);
+	if (mAchievementsWidget)
+		theWidgetManager->AddWidget(mAchievementsWidget);
 }
 
 void GameSelector::RemovedFromManager(WidgetManager* theWidgetManager)
 {
 	Widget::RemovedFromManager(theWidgetManager);
 
-	theWidgetManager->RemoveWidget(mZombatarWidget);
-	theWidgetManager->RemoveWidget(mAchievementsWidget);
+	if (mZombatarWidget)
+		theWidgetManager->RemoveWidget(mZombatarWidget);
+	if (mAchievementsWidget)
+		theWidgetManager->RemoveWidget(mAchievementsWidget);
 }
 
 void GameSelector::OrderInManagerChanged()
 {
-	mWidgetManager->PutInfront(mAchievementsWidget, this);
-	mWidgetManager->BringToFront(mZombatarWidget);
+	if (mAchievementsWidget)
+		mWidgetManager->PutInfront(mAchievementsWidget, this);
+	if (mZombatarWidget)
+		mWidgetManager->BringToFront(mZombatarWidget);
 }
 
 void GameSelector::KeyDown(KeyCode theKey)
@@ -1168,6 +1210,8 @@ void GameSelector::ClickedAdventure()
 	mZenGardenButton->SetDisabled(true);
 	mZombatarButton->SetDisabled(true);
 	mAchievementsButton->SetDisabled(true);
+	mHostLanButton->SetDisabled(true);
+	mJoinLanButton->SetDisabled(true);
 
 	Reanimation* aHandReanim = mApp->AddReanimation(-70.0f, 10.0f, 0, ReanimationType::REANIM_ZOMBIE_HAND);
 	aHandReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
@@ -1263,6 +1307,36 @@ void GameSelector::ButtonDepress(int theId)
 		break;
 	case GameSelector::GameSelector_Achievements:
 		ShowAchievementsScreen();
+		break;
+	case GameSelector::GameSelector_HostLan:
+		if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING)
+		{
+			mApp->mLanCoordinator->Stop();
+		}
+		else
+		{
+			std::string aPlayerName = mApp->mPlayerInfo && !mApp->mPlayerInfo->mName.empty() ?
+				mApp->mPlayerInfo->mName : "Host";
+			if (!PvzMultiplayer::IsValidDisplayName(aPlayerName, PvzMultiplayer::MAX_PLAYER_NAME_LENGTH))
+				aPlayerName = "Host";
+			mApp->mLanCoordinator->StartHosting("PvZ 95 LAN", aPlayerName, PvzRules::GetActiveRulesetProtocolId());
+		}
+		break;
+	case GameSelector::GameSelector_JoinLan:
+		if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::SEARCHING ||
+			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::JOINING ||
+			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::CONNECTED)
+		{
+			mApp->mLanCoordinator->Stop();
+		}
+		else
+		{
+			std::string aPlayerName = mApp->mPlayerInfo && !mApp->mPlayerInfo->mName.empty() ?
+				mApp->mPlayerInfo->mName : "Guest";
+			if (!PvzMultiplayer::IsValidDisplayName(aPlayerName, PvzMultiplayer::MAX_PLAYER_NAME_LENGTH))
+				aPlayerName = "Guest";
+			mApp->mLanCoordinator->StartJoining(aPlayerName, PvzRules::GetActiveRulesetProtocolId());
+		}
 		break;
 	}
 }
@@ -1393,6 +1467,8 @@ void GameSelector::ShowZombatarScreen()
 
 void GameSelector::ShowAchievementsScreen()
 {
+	if (!mAchievementsWidget)
+		return;
 	SlideTo(0, -mApp->mHeight);
 	mWidgetManager->SetFocus(mAchievementsWidget);
 }

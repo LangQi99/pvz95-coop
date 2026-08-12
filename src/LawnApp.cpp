@@ -64,6 +64,7 @@
 #include "Lawn/Widget/ZombatarTOS.h"
 #include "Lawn/Widget/SeedChooserScreen.h"
 #include "GameRules/Ruleset.h"
+#include "Multiplayer/LanCoordinator.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
@@ -187,6 +188,7 @@ LawnApp::LawnApp()
 	mCrazyDaveBlinkCounter = 0;
 	mCrazyDaveBlinkReanimID = ReanimationID::REANIMATIONID_NULL;
 	mCrazyDaveMessageIndex = -1;
+	mLanCoordinator = std::make_unique<PvzMultiplayer::LanCoordinator>();
 }
 
 LawnApp::~LawnApp()
@@ -1652,6 +1654,7 @@ void LawnApp::UpdateFrames()
 	for (int i = 0; i < aUpdateCount; i++)
 	{
 		mAppCounter++;
+		mLanCoordinator->Poll();
 
 		if (mBoard)
 		{

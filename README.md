@@ -13,8 +13,9 @@ PvZ 95 Co-op aims to let two to four people control one shared Plants vs. Zombie
 - [x] Versioned discovery, handshake, cursor, input, and state-hash packet codec
 - [x] Non-blocking WinSock/BSD Socket UDP LAN discovery with loopback integration tests
 - [x] Bounded reliable channel plus validated host/client lobby sessions over TCP
+- [x] Host/join main-menu controls connected to the LAN session coordinator
+- [x] Original retail/PvZ 95 compiled-resource compatibility and Chinese text conversion
 - [ ] Restore the remaining injected PvZ 95 behavior hooks with regression tests
-- [ ] Connect the implemented lobby/transport core to the host/join game UI
 - [ ] Render colored remote pointers and dispatch host-authoritative input
 - [ ] Add deterministic state hashing, resynchronization, reconnect, and soak tests
 - [ ] Produce signed/notarized macOS and packaged Windows releases
@@ -32,7 +33,7 @@ Recovered behavior is implemented as maintainable C++ and tested against observe
 
 ## Required game data
 
-This repository does **not** contain PopCap/EA game assets or executables. You must supply compatible `main.pak` and `properties/` data from a copy of Plants vs. Zombies you are legally entitled to use.
+This repository does **not** contain PopCap/EA game assets or executables. You must supply compatible `main.pak` and `properties/` data from a copy of Plants vs. Zombies you are legally entitled to use. The loader accepts the original retail 1.0 compiled definitions used by the analyzed PvZ 95 package as well as the newer native layout, and converts legacy Chinese GBK text to UTF-8 at load time.
 
 Place the files next to the executable, or launch with an explicit resource directory:
 
@@ -58,7 +59,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The executable is `build/pvz95-coop`.
+The app bundle is `build/pvz95-coop.app`.
 
 ## Build on Windows
 
@@ -94,8 +95,9 @@ The current native test suite covers:
 - all directly verified plant and projectile table changes;
 - round-trip encoding of every multiplayer packet type;
 - malformed, oversized, mismatched-version, and invalid-field packets;
+- UTF-8 passthrough plus Windows-1252 and legacy Chinese GBK conversion;
 - real UDP discovery between a host and client over loopback;
-- non-blocking TCP connection, framed two-way handshake traffic, and peer-close detection.
+- non-blocking TCP connection, framed two-way handshake traffic, and peer-close detection;
 - end-to-end host/client join, ruleset rejection, player-ID binding, cursor sequencing, and host broadcast.
 
 The protocol never sends native C++ struct layouts. It uses explicit fixed-width little-endian fields and validates packet length and enum/player ranges before use.

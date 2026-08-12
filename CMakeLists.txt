@@ -128,6 +128,10 @@ else()
 	find_package(JPEG REQUIRED)
 	find_package(PNG REQUIRED)
 	find_package(SDL2 REQUIRED)
+	if(NOT WIN32 AND NOT NINTENDO_SWITCH)
+		find_package(Iconv REQUIRED)
+		set(PVZ_USE_SYSTEM_ICONV TRUE)
+	endif()
 endif()
 
 function(_pvz_patch_sdl2_iface_libs target)
@@ -175,6 +179,9 @@ if(ANDROID)
 	add_library(pvz-portable SHARED ${SOURCES})
 elseif(IOS)
 	add_executable(pvz-portable MACOSX_BUNDLE ${SOURCES})
+elseif(APPLE)
+	configure_file(macos/Info.plist.in "${CMAKE_CURRENT_BINARY_DIR}/macos/Info.plist" @ONLY)
+	add_executable(pvz-portable MACOSX_BUNDLE ${SOURCES})
 else()
 	add_executable(pvz-portable ${SOURCES})
 endif()
@@ -190,12 +197,22 @@ target_include_directories(pvz-portable PRIVATE
 target_compile_definitions(pvz-portable PRIVATE
 	$<$<BOOL:${PVZ_DEBUG}>:PVZ_DEBUG>
 	$<$<BOOL:${DO_FIX_BUGS}>:DO_FIX_BUGS>
+	$<$<BOOL:${PVZ_USE_SYSTEM_ICONV}>:PVZ_USE_SYSTEM_ICONV>
 )
 target_compile_features(pvz-portable PRIVATE cxx_std_20)
 set_target_properties(pvz-portable PROPERTIES
 	CXX_EXTENSIONS OFF
 	OUTPUT_NAME pvz95-coop
 )
+if(APPLE AND NOT IOS)
+	set_target_properties(pvz-portable PROPERTIES
+		MACOSX_BUNDLE_BUNDLE_NAME "PvZ 95 Co-op"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.langqi99.pvz95-coop"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/macos/Info.plist"
+		MACOSX_BUNDLE_SHORT_VERSION_STRING "${PVZP_VERSION_PLAIN}"
+		MACOSX_BUNDLE_BUNDLE_VERSION "${PVZP_BUILD_NUMBER}"
+	)
+endif()
 
 include(CTest)
 if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -207,6 +224,24 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	target_compile_features(pvz95-rules-tests PRIVATE cxx_std_20)
 	set_target_properties(pvz95-rules-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-rules COMMAND pvz95-rules-tests)
+
+	add_executable(pvz95-encoding-tests
+		tests/EncodingTests.cpp
+		src/SexyAppFramework/misc/Buffer.cpp
+	)
+	target_include_directories(pvz95-encoding-tests PRIVATE
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/src/SexyAppFramework
+		${SDL2_INCLUDE_DIRS}
+	)
+	target_compile_features(pvz95-encoding-tests PRIVATE cxx_std_20)
+	target_link_libraries(pvz95-encoding-tests PRIVATE ${SDL2_LINK_TARGET})
+	if(PVZ_USE_SYSTEM_ICONV)
+		target_compile_definitions(pvz95-encoding-tests PRIVATE PVZ_USE_SYSTEM_ICONV)
+		target_link_libraries(pvz95-encoding-tests PRIVATE Iconv::Iconv)
+	endif()
+	set_target_properties(pvz95-encoding-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-encoding COMMAND pvz95-encoding-tests)
 
 	add_executable(pvz95-protocol-tests
 		tests/ProtocolTests.cpp
@@ -299,8 +334,26 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-client-session-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-client-session COMMAND pvz95-client-session-tests)
 
+	add_executable(pvz95-coordinator-tests
+		tests/LanCoordinatorTests.cpp
+		src/Multiplayer/LanCoordinator.cpp
+		src/Multiplayer/LanDiscovery.cpp
+		src/Multiplayer/ClientSession.cpp
+		src/Multiplayer/HostSession.cpp
+		src/Multiplayer/Lobby.cpp
+		src/Multiplayer/ReliableChannel.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/Socket.cpp
+	)
+	target_include_directories(pvz95-coordinator-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-coordinator-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-coordinator-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-coordinator COMMAND pvz95-coordinator-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-encoding-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-protocol-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-discovery-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-lobby-tests PRIVATE /utf-8)
@@ -309,10 +362,12 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-channel-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-host-session-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-client-session-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-coordinator-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-channel-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-host-session-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-client-session-tests PRIVATE ws2_32)
+		target_link_libraries(pvz95-coordinator-tests PRIVATE ws2_32)
 	endif()
 
 	if(WIN32)
@@ -322,6 +377,8 @@ endif()
 
 if(WIN32)
 	target_link_libraries(pvz-portable PRIVATE ws2_32)
+elseif(PVZ_USE_SYSTEM_ICONV)
+	target_link_libraries(pvz-portable PRIVATE Iconv::Iconv)
 endif()
 
 if (LOW_MEMORY)

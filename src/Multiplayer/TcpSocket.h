@@ -28,12 +28,12 @@ namespace PvzMultiplayer
 		COMPLETED,
 		WOULD_BLOCK,
 		CLOSED,
-		ERROR
+		FAILED
 	};
 
 	struct SocketIoResult
 	{
-		SocketIoStatus mStatus{SocketIoStatus::ERROR};
+		SocketIoStatus mStatus{SocketIoStatus::FAILED};
 		size_t mByteCount{};
 	};
 

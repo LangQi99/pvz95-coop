@@ -32,7 +32,7 @@ namespace PvzMultiplayer
 			mState = ReliableChannelState::CLOSED;
 			break;
 		case ConnectionState::FAILED:
-			mState = ReliableChannelState::ERROR;
+			mState = ReliableChannelState::FAILED;
 			mLastError = mSocket.GetLastError();
 			break;
 		}
@@ -40,7 +40,7 @@ namespace PvzMultiplayer
 
 	bool ReliableChannel::Queue(const Message& theMessage)
 	{
-		if (mState == ReliableChannelState::CLOSED || mState == ReliableChannelState::ERROR)
+		if (mState == ReliableChannelState::CLOSED || mState == ReliableChannelState::FAILED)
 			return false;
 
 		auto aPacket = Encode(theMessage);
@@ -62,7 +62,7 @@ namespace PvzMultiplayer
 
 	ReliableChannelState ReliableChannel::Poll()
 	{
-		if (mState == ReliableChannelState::CLOSED || mState == ReliableChannelState::ERROR)
+		if (mState == ReliableChannelState::CLOSED || mState == ReliableChannelState::FAILED)
 			return mState;
 
 		if (mSocket.GetState() == ConnectionState::CONNECTING)
@@ -89,7 +89,7 @@ namespace PvzMultiplayer
 				Close();
 				return mState;
 			}
-			if (aResult.mStatus == SocketIoStatus::ERROR || aResult.mByteCount == 0)
+			if (aResult.mStatus == SocketIoStatus::FAILED || aResult.mByteCount == 0)
 			{
 				Fail(mSocket.GetLastError().empty() ? "TCP send failed" : mSocket.GetLastError());
 				return mState;
@@ -115,7 +115,7 @@ namespace PvzMultiplayer
 				Close();
 				return mState;
 			}
-			if (aResult.mStatus == SocketIoStatus::ERROR || aResult.mByteCount == 0)
+			if (aResult.mStatus == SocketIoStatus::FAILED || aResult.mByteCount == 0)
 			{
 				Fail(mSocket.GetLastError().empty() ? "TCP receive failed" : mSocket.GetLastError());
 				return mState;
@@ -141,7 +141,7 @@ namespace PvzMultiplayer
 		mOutgoing.clear();
 		mOutgoingOffset = 0;
 		mQueuedBytes = 0;
-		if (mState != ReliableChannelState::ERROR)
+		if (mState != ReliableChannelState::FAILED)
 			mState = ReliableChannelState::CLOSED;
 	}
 
@@ -168,7 +168,7 @@ namespace PvzMultiplayer
 	void ReliableChannel::Fail(std::string theError)
 	{
 		mLastError = std::move(theError);
-		mState = ReliableChannelState::ERROR;
+		mState = ReliableChannelState::FAILED;
 		mSocket.Close();
 		mOutgoing.clear();
 		mOutgoingOffset = 0;

@@ -564,7 +564,7 @@ namespace PvzMultiplayer
 		if (theBytes.size() > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
 			mLastError = "TCP send is too large";
-			return {SocketIoStatus::ERROR, 0};
+			return {SocketIoStatus::FAILED, 0};
 		}
 
 #ifdef _WIN32
@@ -586,7 +586,7 @@ namespace PvzMultiplayer
 				return {SocketIoStatus::WOULD_BLOCK, 0};
 			mLastError = SocketErrorString("send", anError);
 			mState = ConnectionState::FAILED;
-			return {SocketIoStatus::ERROR, 0};
+			return {SocketIoStatus::FAILED, 0};
 		}
 
 		if (aSent == 0)
@@ -609,7 +609,7 @@ namespace PvzMultiplayer
 		if (theBuffer.size() > static_cast<size_t>((std::numeric_limits<int>::max)()))
 		{
 			mLastError = "TCP receive buffer is too large";
-			return {SocketIoStatus::ERROR, 0};
+			return {SocketIoStatus::FAILED, 0};
 		}
 
 #ifdef _WIN32
@@ -626,7 +626,7 @@ namespace PvzMultiplayer
 				return {SocketIoStatus::WOULD_BLOCK, 0};
 			mLastError = SocketErrorString("recv", anError);
 			mState = ConnectionState::FAILED;
-			return {SocketIoStatus::ERROR, 0};
+			return {SocketIoStatus::FAILED, 0};
 		}
 
 		if (aReceived == 0)

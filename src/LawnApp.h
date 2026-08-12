@@ -26,6 +26,8 @@
 #include "SexyAppFramework/SexyApp.h"
 #include "PvzpLib/PvzpFoley.h"
 
+#include <memory>
+
 class Board;
 class GameSelector;
 class ChallengeDefinition;
@@ -48,6 +50,11 @@ class ChallengeScreen;
 class StoreScreen;
 class AlmanacDialog;
 class TypingCheck;
+
+namespace PvzMultiplayer
+{
+	class LanCoordinator;
+}
 
 namespace Sexy
 {
@@ -140,6 +147,7 @@ public:
 	TrialType						mTrialType;
 	bool							mDebugTrialLocked;
 	bool							mMuteSoundsForCutscene;
+	std::unique_ptr<PvzMultiplayer::LanCoordinator> mLanCoordinator;
 
 public:
 	LawnApp();

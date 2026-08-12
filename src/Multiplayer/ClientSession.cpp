@@ -17,7 +17,7 @@ namespace PvzMultiplayer
 			theConfig.mRulesetId == 0 || !IsValidDisplayName(theConfig.mPlayerName, MAX_PLAYER_NAME_LENGTH))
 		{
 			mLastError = "invalid client session configuration";
-			mState = ClientSessionState::ERROR;
+			mState = ClientSessionState::FAILED;
 			return false;
 		}
 
@@ -25,7 +25,7 @@ namespace PvzMultiplayer
 		if (!aSocket.StartConnect(theConfig.mEndpoint))
 		{
 			mLastError = aSocket.GetLastError();
-			mState = ClientSessionState::ERROR;
+			mState = ClientSessionState::FAILED;
 			return false;
 		}
 
@@ -61,7 +61,7 @@ namespace PvzMultiplayer
 	void ClientSession::Poll()
 	{
 		if (!mChannel || mState == ClientSessionState::IDLE || mState == ClientSessionState::REJECTED ||
-			mState == ClientSessionState::CLOSED || mState == ClientSessionState::ERROR)
+			mState == ClientSessionState::CLOSED || mState == ClientSessionState::FAILED)
 			return;
 
 		ReliableChannelState aChannelState = mChannel->Poll();
@@ -125,9 +125,9 @@ namespace PvzMultiplayer
 			return;
 		}
 
-		if (mState == ClientSessionState::REJECTED || mState == ClientSessionState::ERROR)
+		if (mState == ClientSessionState::REJECTED || mState == ClientSessionState::FAILED)
 			return;
-		if (aChannelState == ReliableChannelState::ERROR)
+		if (aChannelState == ReliableChannelState::FAILED)
 		{
 			Fail(mChannel->GetLastError());
 			return;
@@ -194,7 +194,7 @@ namespace PvzMultiplayer
 	void ClientSession::Fail(std::string theError)
 	{
 		mLastError = std::move(theError);
-		mState = ClientSessionState::ERROR;
+		mState = ClientSessionState::FAILED;
 		if (mChannel)
 			mChannel->Close();
 	}

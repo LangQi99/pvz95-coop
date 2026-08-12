@@ -31,7 +31,7 @@ namespace
 			theHost.Poll();
 			if (theClient.GetState() == ClientSessionState::CONNECTED)
 				return;
-			if (theClient.GetState() == ClientSessionState::ERROR || theClient.GetState() == ClientSessionState::REJECTED)
+			if (theClient.GetState() == ClientSessionState::FAILED || theClient.GetState() == ClientSessionState::REJECTED)
 				Fail("client handshake failed: " + theClient.GetLastError());
 			std::this_thread::sleep_for(std::chrono::milliseconds(2));
 		}
@@ -111,7 +111,7 @@ int main()
 		Fail("mismatched client failed to start");
 	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
 	while (std::chrono::steady_clock::now() < aDeadline &&
-		aClient.GetState() != ClientSessionState::REJECTED && aClient.GetState() != ClientSessionState::ERROR)
+		aClient.GetState() != ClientSessionState::REJECTED && aClient.GetState() != ClientSessionState::FAILED)
 	{
 		aClient.Poll();
 		aHost.Poll();

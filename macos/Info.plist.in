@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_CN</string>
+	<key>CFBundleDisplayName</key>
+	<string>PvZ 95 Co-op</string>
+	<key>CFBundleExecutable</key>
+	<string>pvz95-coop</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.langqi99.pvz95-coop</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PvZ 95 Co-op</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@PVZP_VERSION_PLAIN@</string>
+	<key>CFBundleVersion</key>
+	<string>@PVZP_BUILD_NUMBER@</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>LGPL-3.0-or-later; game assets are not included</string>
+</dict>
+</plist>

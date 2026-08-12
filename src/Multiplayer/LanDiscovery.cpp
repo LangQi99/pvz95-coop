@@ -20,6 +20,14 @@ namespace PvzMultiplayer
 		return true;
 	}
 
+	bool LanDiscoveryHost::SetOffer(DiscoveryOffer theOffer)
+	{
+		if (!IsRunning() || !Encode(Message(theOffer)))
+			return false;
+		mOffer = std::move(theOffer);
+		return true;
+	}
+
 	void LanDiscoveryHost::Stop()
 	{
 		mSocket.Close();

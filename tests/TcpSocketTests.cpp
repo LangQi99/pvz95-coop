@@ -117,7 +117,7 @@ int main()
 			aSawClose = true;
 			break;
 		}
-		if (aResult.mStatus == SocketIoStatus::ERROR)
+		if (aResult.mStatus == SocketIoStatus::FAILED)
 			Fail("client errored while waiting for close");
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	}

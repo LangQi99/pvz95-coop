@@ -61,9 +61,9 @@ namespace PvzMultiplayer
 		{
 			Peer& aPeer = mPeers[anIndex];
 			ReliableChannelState aState = aPeer.mChannel.Poll();
-			if (aState == ReliableChannelState::ERROR && mLastError.empty())
+			if (aState == ReliableChannelState::FAILED && mLastError.empty())
 				mLastError = aPeer.mChannel.GetLastError();
-			if (aState == ReliableChannelState::CLOSED || aState == ReliableChannelState::ERROR)
+			if (aState == ReliableChannelState::CLOSED || aState == ReliableChannelState::FAILED)
 			{
 				RemovePeer(anIndex);
 				continue;
@@ -82,7 +82,7 @@ namespace PvzMultiplayer
 				aPeer.mChannel.Close();
 
 			if (aPeer.mChannel.GetState() == ReliableChannelState::CLOSED ||
-				aPeer.mChannel.GetState() == ReliableChannelState::ERROR)
+				aPeer.mChannel.GetState() == ReliableChannelState::FAILED)
 			{
 				RemovePeer(anIndex);
 				continue;

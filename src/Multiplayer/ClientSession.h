@@ -23,7 +23,7 @@ namespace PvzMultiplayer
 		CONNECTED,
 		REJECTED,
 		CLOSED,
-		ERROR
+		FAILED
 	};
 
 	struct ClientSessionConfig

@@ -19,7 +19,7 @@ namespace PvzMultiplayer
 		CONNECTING,
 		CONNECTED,
 		CLOSED,
-		ERROR
+		FAILED
 	};
 
 	class ReliableChannel
