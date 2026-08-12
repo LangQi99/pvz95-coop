@@ -39,6 +39,7 @@
 #include "widget/Dialog.h"
 #include "misc/MTRand.h"
 #include "../../PvzpLib/PvzpStringFile.h"
+#include "../../GameRules/Ruleset.h"
 #include "widget/WidgetManager.h"
 #include <algorithm>
 
@@ -333,8 +334,12 @@ unsigned int SeedChooserScreen::SeedNotRecommendedToPick(SeedType theSeedType)
 
 bool SeedChooserScreen::SeedNotAllowedToPick(SeedType theSeedType)
 {
-	return mApp->mGameMode == GAMEMODE_CHALLENGE_LAST_STAND && (theSeedType == SEED_SUNFLOWER || theSeedType == SEED_SUNSHROOM ||
-		theSeedType == SEED_TWINSUNFLOWER || theSeedType == SEED_SEASHROOM || theSeedType == SEED_PUFFSHROOM);
+	const bool anOriginalValue = mApp->mGameMode == GAMEMODE_CHALLENGE_LAST_STAND &&
+		(theSeedType == SEED_SUNFLOWER || theSeedType == SEED_SUNSHROOM ||
+			theSeedType == SEED_TWINSUNFLOWER || theSeedType == SEED_SEASHROOM ||
+			theSeedType == SEED_PUFFSHROOM);
+	return PvzRules::ResolveSeedNotAllowedToPick(
+		mApp->mGameMode, theSeedType, anOriginalValue);
 }
 
 bool SeedChooserScreen::SeedNotAllowedDuringTrial(SeedType theSeedType)

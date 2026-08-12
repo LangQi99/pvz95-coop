@@ -251,6 +251,10 @@ int main()
 	ExpectEqual("original bowling setup line", anOriginalStartSetup.mShowBowlingLine, true);
 	ExpectEqual("original bowling setup keeps AddSeed checks", anOriginalStartSetup.mAllowEmptyNonConveyorSeed, false);
 	ExpectEqual("original missing Board skips bowling setup", ResolveChallengeStartSetup(false, true).mApply, false);
+	ExpectEqual("original seed chooser preserves allowed result", ResolveSeedNotAllowedToPick(
+		GAMEMODE_CHALLENGE_AIR_RAID, SEED_SUNFLOWER, false), false);
+	ExpectEqual("original seed chooser preserves forbidden result", ResolveSeedNotAllowedToPick(
+		GAMEMODE_ADVENTURE, SEED_PEASHOOTER, true), true);
 	for (const SeedRuleCase& aCase : aScarySeedCases)
 		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
@@ -378,6 +382,26 @@ int main()
 	ExpectEqual("PvZ 95 Wall-nut Bowling still writes line", aPvZ95BowlingStartSetup.mSetShowBowlingLine, true);
 	ExpectEqual("PvZ 95 Wall-nut Bowling still shows line", aPvZ95BowlingStartSetup.mShowBowlingLine, true);
 	ExpectEqual("PvZ 95 missing Board skips universal setup", ResolveChallengeStartSetup(false, true).mApply, false);
+	ExpectEqual("verified Last Stand mode immediate", static_cast<int>(GAMEMODE_CHALLENGE_LAST_STAND), 0x1F);
+	ExpectEqual("verified Air Raid mode immediate", static_cast<int>(GAMEMODE_CHALLENGE_AIR_RAID), 0x29);
+	ExpectEqual("verified Marigold seed immediate", static_cast<int>(SEED_MARIGOLD), 0x26);
+	constexpr std::array<SeedType, 6> aForbiddenChooserSeeds{
+		SEED_SUNFLOWER, SEED_SUNSHROOM, SEED_TWINSUNFLOWER,
+		SEED_SEASHROOM, SEED_MARIGOLD, SEED_PUFFSHROOM};
+	for (GameMode aGameMode : {GAMEMODE_CHALLENGE_LAST_STAND, GAMEMODE_CHALLENGE_AIR_RAID})
+	{
+		for (SeedType aSeedType : aForbiddenChooserSeeds)
+		{
+			ExpectEqual("PvZ 95 seed chooser forbidden set", ResolveSeedNotAllowedToPick(
+				aGameMode, aSeedType, false), true);
+		}
+	}
+	ExpectEqual("PvZ 95 Last Stand allows adjacent seed", ResolveSeedNotAllowedToPick(
+		GAMEMODE_CHALLENGE_LAST_STAND, SEED_PEASHOOTER, true), false);
+	ExpectEqual("PvZ 95 Air Raid allows adjacent seed", ResolveSeedNotAllowedToPick(
+		GAMEMODE_CHALLENGE_AIR_RAID, SEED_FUMESHROOM, true), false);
+	ExpectEqual("PvZ 95 unrelated mode has no chooser restriction", ResolveSeedNotAllowedToPick(
+		GAMEMODE_ADVENTURE, SEED_MARIGOLD, true), false);
 	ExpectEqual("gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), true);
 	ExpectEqual("cattail counter-fifty shot removed", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), false);
 	ExpectEqual("marigold large sun", ResolveMarigoldCoinType(49, CoinType::COIN_GOLD), CoinType::COIN_LARGESUN);

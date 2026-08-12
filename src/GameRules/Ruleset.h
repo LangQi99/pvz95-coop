@@ -207,6 +207,8 @@ namespace PvzRules
 		bool theDaisyMode, int theCurrentWave, int theNumWaves, bool theIsFlagWave);
 	ChallengeStartSetup ResolveChallengeStartSetup(
 		bool theBoardExists, bool theOriginalWallnutBowlingCondition);
+	bool ResolveSeedNotAllowedToPick(
+		GameMode theGameMode, SeedType theSeedType, bool theOriginalValue);
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);

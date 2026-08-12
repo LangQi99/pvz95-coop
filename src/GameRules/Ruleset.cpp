@@ -737,6 +737,23 @@ namespace PvzRules
 		return {false, 0, SEED_NONE, 0, false, false, false};
 	}
 
+	bool ResolveSeedNotAllowedToPick(
+		GameMode theGameMode, SeedType theSeedType, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theGameMode != GAMEMODE_CHALLENGE_LAST_STAND &&
+			theGameMode != GAMEMODE_CHALLENGE_AIR_RAID)
+		{
+			return false;
+		}
+
+		return theSeedType == SEED_SUNFLOWER || theSeedType == SEED_SUNSHROOM ||
+			theSeedType == SEED_TWINSUNFLOWER || theSeedType == SEED_SEASHROOM ||
+			theSeedType == SEED_MARIGOLD || theSeedType == SEED_PUFFSHROOM;
+	}
+
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95 && theGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
