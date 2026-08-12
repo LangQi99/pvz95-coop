@@ -67,6 +67,7 @@ constexpr const int SUN_COUNTDOWN_RANGE = 275;
 constexpr const int SUN_COUNTDOWN_MAX = 950;
 constexpr const int FOG_BLOW_RETURN_TIME = 2000;
 constexpr const int FLAG_RAISE_TIME = 100;
+constexpr const unsigned int PVZ95_SUPER_MOWER_PATCH_SLOTS = 6U;
 
 bool gShownMoreSunTutorial = false;
 
@@ -7596,6 +7597,9 @@ void Board::SetMustacheMode(bool theEnableMustache)
 void Board::SetFutureMode(bool theEnableFuture)
 {
 	mApp->PlaySample(Sexy::SOUND_BOING);
+	const PvzRules::FutureModeMusic aMusic = PvzRules::ResolveFutureModeMusic(mApp->mMusic->mCurMusicTune);
+	if (aMusic.mShouldChangeTune)
+		mApp->mMusic->MakeSureMusicIsPlaying(aMusic.mTune);
 	mFutureMode = theEnableFuture;
 	mApp->mFutureMode = theEnableFuture;
 
@@ -7617,6 +7621,13 @@ void Board::SetPinataMode(bool theEnablePinata)
 void Board::SetDanceMode(bool theEnableDance)
 {
 	mApp->PlayFoley(FoleyType::FOLEY_DANCER);
+	for (SeedPacket& aSeedPacket : mSeedBank->mSeedPackets)
+	{
+		const PvzRules::DanceModeSeedPacket aResolved = PvzRules::ResolveDanceModeSeedPacket(
+			aSeedPacket.mPacketType, aSeedPacket.mImitaterType);
+		aSeedPacket.mPacketType = aResolved.mPacketType;
+		aSeedPacket.mImitaterType = aResolved.mImitaterType;
+	}
 	mDanceMode = theEnableDance;
 	mApp->mDanceMode = theEnableDance;
 
@@ -7631,6 +7642,15 @@ void Board::SetDanceMode(bool theEnableDance)
 void Board::SetSuperMowerMode(bool theEnableSuperMower)
 {
 	mApp->PlayFoley(FoleyType::FOLEY_ZAMBONI);
+	for (unsigned int aMowerSlot = 0;
+		aMowerSlot < mLawnMowers.mMaxUsedCount && aMowerSlot < PVZ95_SUPER_MOWER_PATCH_SLOTS;
+		aMowerSlot++)
+	{
+		if (!(mLawnMowers.DataArrayGetIDAt(aMowerSlot) & DATA_ARRAY_KEY_MASK))
+			continue;
+		LawnMower& aLawnMower = mLawnMowers.DataArrayGetItemAt(aMowerSlot);
+		aLawnMower.mMowerState = PvzRules::ResolveSuperMowerToggleState(aLawnMower.mMowerState);
+	}
 	mSuperMowerMode = theEnableSuperMower;
 	mApp->mSuperMowerMode = theEnableSuperMower;
 
@@ -7652,12 +7672,17 @@ void Board::SetDaisyMode(bool theEnableDaisy)
 void Board::SetSukhbirMode(bool theEnableSukhbir)
 {
 	mApp->PlaySample(Sexy::SOUND_SUKHBIR);
+	mApp->mEasyPlantingCheat = PvzRules::ResolveSukhbirEasyPlanting(
+		theEnableSukhbir, mApp->mEasyPlantingCheat);
 	mSukhbirMode = theEnableSukhbir;
 	mApp->mSukhbirMode = theEnableSukhbir;
 }
 
 void Board::DoTypingCheck(KeyCode theKey)
 {
+	if (!PvzRules::ShouldProcessTypingCheats(mApp->IsLanGameplayActive()))
+		return;
+
 	if (mApp->mKonamiCheck->Check(theKey))
 	{
 		mApp->PlayFoley(FoleyType::FOLEY_DROP);
@@ -7681,7 +7706,7 @@ void Board::DoTypingCheck(KeyCode theKey)
 	}
 	if (mApp->mPinataCheck->Check(theKey))
 	{
-		if (mApp->CanDoPinataMode())
+		if (PvzRules::CanUseRestrictedTypingCheat(mApp->CanDoPinataMode()))
 		{
 			SetPinataMode(!mPinataMode);
 			return;
@@ -7698,7 +7723,7 @@ void Board::DoTypingCheck(KeyCode theKey)
 	}
 	if (mApp->mDanceCheck->Check(theKey))
 	{
-		if (mApp->CanDoDanceMode())
+		if (PvzRules::CanUseRestrictedTypingCheat(mApp->CanDoDanceMode()))
 		{
 			SetDanceMode(!mDanceMode);
 			return;
@@ -7715,7 +7740,7 @@ void Board::DoTypingCheck(KeyCode theKey)
 	}
 	if (mApp->mDaisyCheck->Check(theKey))
 	{
-		if (mApp->CanDoDaisyMode())
+		if (PvzRules::CanUseRestrictedTypingCheat(mApp->CanDoDaisyMode()))
 		{
 			SetDaisyMode(!mDaisyMode);
 			return;

@@ -573,6 +573,65 @@ namespace PvzRules
 		return theIsMovingAtChilledSpeed ? theOriginalRate * 0.5f : theOriginalRate;
 	}
 
+	FutureModeMusic ResolveFutureModeMusic(MusicTune theCurrentTune)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return {false, theCurrentTune};
+
+		constexpr int FIRST_GAMEPLAY_TUNE = 1;
+		constexpr int LAST_GAMEPLAY_TUNE = 12;
+		const int aCurrentTune = static_cast<int>(theCurrentTune);
+		if (aCurrentTune == LAST_GAMEPLAY_TUNE)
+			return {true, static_cast<MusicTune>(FIRST_GAMEPLAY_TUNE)};
+
+		if (aCurrentTune >= FIRST_GAMEPLAY_TUNE && aCurrentTune < LAST_GAMEPLAY_TUNE)
+		{
+			return {true, static_cast<MusicTune>(aCurrentTune + 1)};
+		}
+
+		// The injected loop is reached with a gameplay tune in the inclusive 1..12
+		// domain. Keep invalid/non-gameplay values untouched in the portable build.
+		return {false, theCurrentTune};
+	}
+
+	DanceModeSeedPacket ResolveDanceModeSeedPacket(
+		SeedType thePacketType, SeedType theImitaterType)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95 &&
+			(thePacketType == SeedType::SEED_WALLNUT || theImitaterType == SeedType::SEED_WALLNUT))
+		{
+			return {SeedType::SEED_EXPLODE_O_NUT, theImitaterType};
+		}
+
+		return {thePacketType, theImitaterType};
+	}
+
+	LawnMowerState ResolveSuperMowerToggleState(LawnMowerState theOriginalState)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ?
+			LawnMowerState::MOWER_TRIGGERED : theOriginalState;
+	}
+
+	bool CanUseRestrictedTypingCheat(bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? true : theOriginalValue;
+	}
+
+	bool ShouldProcessTypingCheats(bool theLanGameplayActive)
+	{
+		return !theLanGameplayActive;
+	}
+
+	bool ResolveSukhbirEasyPlanting(bool theEnableSukhbir, bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? theEnableSukhbir : theOriginalValue;
+	}
+
+	bool ShouldDieNoLootAtBoardEdge(bool theIsIZombieLevel, bool thePinataMode)
+	{
+		return theIsIZombieLevel || (gActiveRuleset == RulesetId::PVZ95 && thePinataMode);
+	}
+
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95 && theGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)

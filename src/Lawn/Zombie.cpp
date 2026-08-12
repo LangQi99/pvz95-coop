@@ -4575,7 +4575,7 @@ void Zombie::CheckForBoardEdge()
 
 	if (mX <= aEdgeX && mHasHead)
 	{
-		if (mApp->IsIZombieLevel())
+		if (PvzRules::ShouldDieNoLootAtBoardEdge(mApp->IsIZombieLevel(), mBoard->mPinataMode))
 		{
 			DieNoLoot();
 		}

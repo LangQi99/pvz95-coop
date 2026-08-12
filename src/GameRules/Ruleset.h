@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <string_view>
 
+enum MusicTune : int32_t;
+
 namespace PvzRules
 {
 	enum class RulesetId : uint8_t
@@ -60,6 +62,18 @@ namespace PvzRules
 	{
 		bool mTakeShieldDamage;
 		bool mRestoreOriginalDamage;
+	};
+
+	struct FutureModeMusic
+	{
+		bool mShouldChangeTune;
+		MusicTune mTune;
+	};
+
+	struct DanceModeSeedPacket
+	{
+		SeedType mPacketType;
+		SeedType mImitaterType;
 	};
 
 	struct BurnRowEffects
@@ -161,6 +175,14 @@ namespace PvzRules
 	bool IsForcedChilledMovement(ZombiePhase theZombiePhase);
 	float ResolveZombieAnimationRate(ZombiePhase theZombiePhase, int theChilledCounter,
 		bool theIsMovingAtChilledSpeed, float theOriginalRate);
+	FutureModeMusic ResolveFutureModeMusic(MusicTune theCurrentTune);
+	DanceModeSeedPacket ResolveDanceModeSeedPacket(
+		SeedType thePacketType, SeedType theImitaterType);
+	LawnMowerState ResolveSuperMowerToggleState(LawnMowerState theOriginalState);
+	bool CanUseRestrictedTypingCheat(bool theOriginalValue);
+	bool ShouldProcessTypingCheats(bool theLanGameplayActive);
+	bool ResolveSukhbirEasyPlanting(bool theEnableSukhbir, bool theOriginalValue);
+	bool ShouldDieNoLootAtBoardEdge(bool theIsIZombieLevel, bool thePinataMode);
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);
