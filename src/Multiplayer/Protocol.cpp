@@ -14,8 +14,6 @@ namespace PvzMultiplayer
 	namespace
 	{
 		constexpr uint32_t PACKET_MAGIC = 0x43353950; // "P95C" on the wire.
-		constexpr size_t PACKET_HEADER_SIZE = 12;
-
 		class PacketWriter
 		{
 		public:

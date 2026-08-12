@@ -237,11 +237,22 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-lobby-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-lobby COMMAND pvz95-lobby-tests)
 
+	add_executable(pvz95-stream-tests
+		tests/PacketStreamTests.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+	)
+	target_include_directories(pvz95-stream-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-stream-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-stream-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-stream COMMAND pvz95-stream-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-protocol-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-discovery-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-lobby-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-stream-tests PRIVATE /utf-8)
 	endif()
 
 	if(WIN32)
