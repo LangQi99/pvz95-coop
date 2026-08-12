@@ -37,6 +37,8 @@ SDL/CMake cross-platform engine
 
 `Multiplayer` is split into a transport-independent protocol and the eventual socket/session code. Packet encoding uses explicit fixed-width little-endian fields and strict length checks; no native struct layout is sent over the network.
 
+LAN discovery uses non-blocking IPv4 UDP on port `43095` by default. A client broadcasts a versioned query; a host replies directly with its session ID, player count, ruleset ID, and reliable game port. Discovery is kept separate from the reliable gameplay connection so cursor/input traffic never depends on broadcast delivery.
+
 ## Session model
 
 The host is authoritative. All local and remote input becomes an `InputCommand`; the host validates and orders commands at a simulation tick, then broadcasts the accepted order. This prevents two clients from independently spending the same sun or acting on different UI states.

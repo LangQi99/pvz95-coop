@@ -16,8 +16,9 @@ The default runtime ruleset is `pvz95`; pass `-ruleset original` to use the orig
 - [x] Reproducible Windows/macOS/Linux CMake baseline
 - [x] Runtime-selectable PvZ 95 ruleset and verified direct data changes
 - [x] Versioned LAN discovery, handshake, cursor, input, and state-hash packet codec
+- [x] Non-blocking cross-platform UDP LAN discovery with a loopback integration test
 - [ ] Port the remaining injected PvZ 95 behavior hooks with regression tests
-- [ ] LAN discovery and host/join lobby
+- [ ] Host/join lobby and reliable gameplay transport
 - [ ] Colored multi-pointer rendering and host-authoritative input dispatch
 - [ ] Determinism checks, resynchronization, disconnect handling, and soak tests
 

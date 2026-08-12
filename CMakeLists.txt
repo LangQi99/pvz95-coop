@@ -213,6 +213,25 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	target_compile_features(pvz95-protocol-tests PRIVATE cxx_std_20)
 	set_target_properties(pvz95-protocol-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-protocol COMMAND pvz95-protocol-tests)
+
+	add_executable(pvz95-discovery-tests
+		tests/LanDiscoveryTests.cpp
+		src/Multiplayer/LanDiscovery.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/UdpSocket.cpp
+	)
+	target_include_directories(pvz95-discovery-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-discovery-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-discovery-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-discovery COMMAND pvz95-discovery-tests)
+
+	if(WIN32)
+		target_link_libraries(pvz95-discovery-tests PRIVATE ws2_32)
+	endif()
+endif()
+
+if(WIN32)
+	target_link_libraries(pvz-portable PRIVATE ws2_32)
 endif()
 
 if (LOW_MEMORY)
