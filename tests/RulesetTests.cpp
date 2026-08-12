@@ -189,6 +189,11 @@ int main()
 	ExpectEqual("Intro mode immediate", static_cast<int>(GAMEMODE_INTRO), 72);
 	ExpectEqual("Football helmet immediate", static_cast<int>(HELMTYPE_FOOTBALL), 3);
 	ExpectEqual("PvZ 95 magnet sentinel immediate", static_cast<int>(static_cast<HelmType>(-1)), -1);
+	ExpectEqual("normal sun coin immediate", static_cast<int>(COIN_SUN), 4);
+	ExpectEqual("small sun coin immediate", static_cast<int>(COIN_SMALLSUN), 5);
+	ExpectEqual("large sun coin immediate", static_cast<int>(COIN_LARGESUN), 6);
+	ExpectEqual("initial usable packet sentinel", static_cast<int>(SEED_NONE), -1);
+	ExpectEqual("Blover seed immediate", static_cast<int>(SEED_BLOVER), 27);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
@@ -226,6 +231,17 @@ int main()
 		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 8);
 	ExpectEqual("original cold removal", ResolveChillAfterRemovingCold(500), 0);
 	ExpectEqual("original maximum sun", ResolveMaximumSunMoney(9990), 9990);
+	ExpectEqual("original I, Zombie reward", ResolveIZombieSunflowerReward(COIN_SUN), COIN_SUN);
+	ExpectEqual("original arbitrary I, Zombie reward passthrough",
+		ResolveIZombieSunflowerReward(COIN_LARGESUN), COIN_LARGESUN);
+	ExpectEqual("original usable packet initializes to sentinel",
+		ResolveCoinInitialUsableSeedType(SEED_NONE), SEED_NONE);
+	ExpectEqual("original usable packet preserves Blover",
+		ResolveCoinInitialUsableSeedType(SEED_BLOVER), SEED_BLOVER);
+	ExpectEqual("original normal sun score passthrough", ResolveScoredSunValue(COIN_SUN, 104), 104);
+	ExpectEqual("original small sun score passthrough", ResolveScoredSunValue(COIN_SMALLSUN, 105), 105);
+	ExpectEqual("original large sun score passthrough", ResolveScoredSunValue(COIN_LARGESUN, 106), 106);
+	ExpectEqual("original non-sun score passthrough", ResolveScoredSunValue(COIN_DIAMOND, 103), 103);
 	ExpectEqual("original short replay wave count", ResolveShortAdventureReplayWaveCount(20), 20);
 	ExpectEqual("original non-adventure wave count", ResolveNonAdventureWaveCount(
 		GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1, 10), 10);
@@ -625,6 +641,17 @@ int main()
 		ZombieType::ZOMBIE_NEWSPAPER, ZombiePhase::PHASE_NEWSPAPER_READING, true, 4), 4);
 	ExpectEqual("zombie eat damage", ResolveZombieEatDamage(4), 8);
 	ExpectEqual("I, Zombie sunflower reward", ResolveIZombieSunflowerReward(CoinType::COIN_SUN), CoinType::COIN_SMALLSUN);
+	ExpectEqual("I, Zombie reward fixed override",
+		ResolveIZombieSunflowerReward(CoinType::COIN_LARGESUN), CoinType::COIN_SMALLSUN);
+	ExpectEqual("PvZ 95 usable packet initializes to Blover",
+		ResolveCoinInitialUsableSeedType(SEED_NONE), SEED_BLOVER);
+	ExpectEqual("PvZ 95 usable packet keeps fixed Blover default",
+		ResolveCoinInitialUsableSeedType(SEED_BLOVER), SEED_BLOVER);
+	ExpectEqual("PvZ 95 normal sun scores 50", ResolveScoredSunValue(COIN_SUN, 25), 50);
+	ExpectEqual("PvZ 95 small sun scores 25", ResolveScoredSunValue(COIN_SMALLSUN, 15), 25);
+	ExpectEqual("PvZ 95 large sun scores 75", ResolveScoredSunValue(COIN_LARGESUN, 50), 75);
+	ExpectEqual("PvZ 95 lower non-sun score passthrough", ResolveScoredSunValue(COIN_DIAMOND, 103), 103);
+	ExpectEqual("PvZ 95 upper non-sun score passthrough", ResolveScoredSunValue(COIN_FINAL_SEED_PACKET, 107), 107);
 	ExpectEqual("eaten tall-nut transforms", ResolveEatenPlantSeedType(SeedType::SEED_TALLNUT, 299), SeedType::SEED_SQUASH);
 	ExpectEqual("healthy tall-nut stays", ResolveEatenPlantSeedType(SeedType::SEED_TALLNUT, 300), SeedType::SEED_TALLNUT);
 	ExpectEqual("low explodo-nut triggers", EatenPlantTransformTriggersSpecial(SeedType::SEED_EXPLODE_O_NUT, 39), true);

@@ -4908,7 +4908,8 @@ void Challenge::IZombiePlantDropRemainingSun(Plant* thePlant)
 		int aSunCount = thePlant->mPlantHealth / 40 + 1;
 		for (int i = 0; i < aSunCount; i++)
 		{
-			mBoard->AddCoin(thePlant->mX + 5 * i, thePlant->mY, COIN_SUN, COIN_MOTION_FROM_PLANT);
+			mBoard->AddCoin(thePlant->mX + 5 * i, thePlant->mY,
+				PvzRules::ResolveIZombieSunflowerReward(COIN_SUN), COIN_MOTION_FROM_PLANT);
 		}
 	}
 }

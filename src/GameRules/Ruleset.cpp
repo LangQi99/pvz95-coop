@@ -484,6 +484,29 @@ namespace PvzRules
 		return gActiveRuleset == RulesetId::PVZ95 ? CoinType::COIN_SMALLSUN : theOriginalValue;
 	}
 
+	SeedType ResolveCoinInitialUsableSeedType(SeedType theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? SeedType::SEED_BLOVER : theOriginalValue;
+	}
+
+	int ResolveScoredSunValue(CoinType theCoinType, int theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		switch (theCoinType)
+		{
+		case CoinType::COIN_SUN:
+			return 50;
+		case CoinType::COIN_SMALLSUN:
+			return 25;
+		case CoinType::COIN_LARGESUN:
+			return 75;
+		default:
+			return theOriginalValue;
+		}
+	}
+
 	SeedType ResolveEatenPlantSeedType(SeedType theSeedType, int thePlantHealth)
 	{
 		if (gActiveRuleset != RulesetId::PVZ95)

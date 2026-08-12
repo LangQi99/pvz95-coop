@@ -197,6 +197,8 @@ namespace PvzRules
 		bool theIsChilled, int theOriginalBaseValue);
 	int ResolveZombieEatDamage(int theOriginalValue);
 	CoinType ResolveIZombieSunflowerReward(CoinType theOriginalValue);
+	SeedType ResolveCoinInitialUsableSeedType(SeedType theOriginalValue);
+	int ResolveScoredSunValue(CoinType theCoinType, int theOriginalValue);
 	SeedType ResolveEatenPlantSeedType(SeedType theSeedType, int thePlantHealth);
 	bool EatenPlantTransformTriggersSpecial(SeedType theSeedType, int thePlantHealth);
 	ZombieMindControlStats ResolveMindControlStats(ZombieType theZombieType, int theBodyHealth,

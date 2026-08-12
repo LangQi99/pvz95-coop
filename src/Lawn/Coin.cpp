@@ -37,6 +37,7 @@
 #include "../PvzpLib/Reanimator.h"
 #include "../PvzpLib/Attachment.h"
 #include "Widget/AchievementsScreen.h"
+#include "GameRules/Ruleset.h"
 
 Coin::Coin()
 {
@@ -64,7 +65,7 @@ void Coin::CoinInitialize(int theX, int theY, CoinType theCoinType, CoinMotion t
 	mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
 	mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_COIN_BANK, 0, 1);
 	mScale = 1.0f;
-	mUsableSeedType = SeedType::SEED_NONE;
+	mUsableSeedType = PvzRules::ResolveCoinInitialUsableSeedType(SeedType::SEED_NONE);
 	mNeedsBouncyArrow = false;
 	mHasBouncyArrow = false;
 	mHitGround = false;
@@ -436,7 +437,7 @@ void Coin::ScoreCoin()
 
 	if (IsSun())
 	{
-		int aSunValue = GetSunValue();
+		int aSunValue = PvzRules::ResolveScoredSunValue(mType, GetSunValue());
 		mBoard->AddSunMoney(aSunValue);
 	}
 	else if (IsMoney())
