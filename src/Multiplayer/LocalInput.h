@@ -9,7 +9,7 @@ namespace PvzMultiplayer
 
 enum class PointerIntent
 {
-	IGNORE,
+	NO_ACTION,
 	PRIMARY_ACTION,
 	CANCEL_SELECTION
 };
@@ -23,7 +23,7 @@ constexpr PointerIntent DecodePointerIntent(int theClickCount)
 		return PointerIntent::PRIMARY_ACTION;
 	if (theClickCount == -1 || theClickCount == -2)
 		return PointerIntent::CANCEL_SELECTION;
-	return PointerIntent::IGNORE;
+	return PointerIntent::NO_ACTION;
 }
 
 }

@@ -28,7 +28,7 @@ int main()
 		"right click did not cancel selection");
 	Require(DecodePointerIntent(-2) == PointerIntent::CANCEL_SELECTION,
 		"the second click of a right double-click did not cancel selection");
-	Require(DecodePointerIntent(3) == PointerIntent::IGNORE,
+	Require(DecodePointerIntent(3) == PointerIntent::NO_ACTION,
 		"middle click unexpectedly became a gameplay action");
 
 	Sexy::Rect aRetinaViewport(256, 0, 2048, 1536);
