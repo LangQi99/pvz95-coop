@@ -221,7 +221,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		tests/LanDiscoveryTests.cpp
 		src/Multiplayer/LanDiscovery.cpp
 		src/Multiplayer/Protocol.cpp
-		src/Multiplayer/UdpSocket.cpp
+		src/Multiplayer/Socket.cpp
 	)
 	target_include_directories(pvz95-discovery-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 	target_compile_features(pvz95-discovery-tests PRIVATE cxx_std_20)
@@ -247,12 +247,25 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-stream-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-stream COMMAND pvz95-stream-tests)
 
+	add_executable(pvz95-tcp-tests
+		tests/TcpSocketTests.cpp
+		src/Multiplayer/PacketStream.cpp
+		src/Multiplayer/Protocol.cpp
+		src/Multiplayer/Socket.cpp
+	)
+	target_include_directories(pvz95-tcp-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-tcp-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-tcp-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-tcp COMMAND pvz95-tcp-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-protocol-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-discovery-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-lobby-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-stream-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-tcp-tests PRIVATE /utf-8)
+		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
 	endif()
 
 	if(WIN32)
