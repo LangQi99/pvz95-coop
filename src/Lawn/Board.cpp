@@ -3157,7 +3157,8 @@ void Board::UpdateMousePosition()
 	int aMouseX = mApp->mWidgetManager->mLastMouseX - mX;
 	int aMouseY = mApp->mWidgetManager->mLastMouseY - mY;
 
-	if (mApp->IsScaryPotterLevel())
+	if (PvzRules::ShouldRunScaryPotterMousePositionBlock(
+		mApp->mGameMode, mApp->IsScaryPotterLevel()))
 	{
 		for (GridItem* aGridItem : mGridItems)
 		{
@@ -4328,7 +4329,8 @@ bool Board::MouseHitTest(int x, int y, HitResult* theHitResult)
 	if (MouseHitTestPlant(x, y, theHitResult))
 		return true;
 
-	if (mApp->IsScaryPotterLevel() &&
+	if (PvzRules::ShouldEvaluateScaryPotterMouseHitBlock(
+		mApp->mGameMode, mApp->IsScaryPotterLevel()) &&
 		mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL &&
 		mChallenge->mChallengeState != ChallengeState::STATECHALLENGE_SCARY_POTTER_MALLETING &&
 		mApp->mGameScene == GameScenes::SCENE_PLAYING &&

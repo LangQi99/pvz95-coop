@@ -123,6 +123,11 @@ int main()
 		ZombieType mOriginal;
 		ZombieType mPvZ95;
 	};
+	struct ScaryPotterGateCase
+	{
+		GameMode mGameMode;
+		bool mExpandedRange;
+	};
 
 	const std::array<SeedRuleCase, 10> aScarySeedCases = {{
 		{GAMEMODE_SCARY_POTTER_1, 0, SEED_PEASHOOTER, SEED_REPEATER},
@@ -149,6 +154,25 @@ int main()
 		{GAMEMODE_SCARY_POTTER_4, 4, ZOMBIE_NORMAL, ZOMBIE_POLEVAULTER},
 		{GAMEMODE_SCARY_POTTER_4, 5, ZOMBIE_FOOTBALL, ZOMBIE_DANCER}
 	}};
+	const std::array<ScaryPotterGateCase, 8> aScaryPotterGateCases = {{
+		{GAMEMODE_ADVENTURE, true},
+		{GAMEMODE_TREE_OF_WISDOM, true},
+		{GAMEMODE_SCARY_POTTER_1, true},
+		{GAMEMODE_SCARY_POTTER_ENDLESS, true},
+		{GAMEMODE_PUZZLE_I_ZOMBIE_1, false},
+		{GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS, false},
+		{GAMEMODE_UPSELL, false},
+		{GAMEMODE_INTRO, false}
+	}};
+
+	ExpectEqual("Adventure mode immediate", static_cast<int>(GAMEMODE_ADVENTURE), 0);
+	ExpectEqual("Tree of Wisdom mode immediate", static_cast<int>(GAMEMODE_TREE_OF_WISDOM), 50);
+	ExpectEqual("Scary Potter 1 mode immediate", static_cast<int>(GAMEMODE_SCARY_POTTER_1), 51);
+	ExpectEqual("Scary Potter Endless mode immediate", static_cast<int>(GAMEMODE_SCARY_POTTER_ENDLESS), 60);
+	ExpectEqual("I, Zombie 1 mode immediate", static_cast<int>(GAMEMODE_PUZZLE_I_ZOMBIE_1), 61);
+	ExpectEqual("I, Zombie Endless mode immediate", static_cast<int>(GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS), 70);
+	ExpectEqual("Upsell mode immediate", static_cast<int>(GAMEMODE_UPSELL), 71);
+	ExpectEqual("Intro mode immediate", static_cast<int>(GAMEMODE_INTRO), 72);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
@@ -309,6 +333,28 @@ int main()
 		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
 		ExpectEqual("original Scary Potter zombie", ResolveScaryPotterZombie(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
+	for (const ScaryPotterGateCase& aCase : aScaryPotterGateCases)
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("original mouse-position gate passthrough", ShouldRunScaryPotterMousePositionBlock(
+				aCase.mGameMode, anOriginalValue), anOriginalValue);
+			ExpectEqual("original mouse-hit gate passthrough", ShouldEvaluateScaryPotterMouseHitBlock(
+				aCase.mGameMode, anOriginalValue), anOriginalValue);
+			ExpectEqual("original mouse-down gate passthrough", ShouldHandleScaryPotterMouseDown(
+				aCase.mGameMode, anOriginalValue), anOriginalValue);
+			ExpectEqual("original update gate passthrough", ShouldRunScaryPotterUpdate(
+				aCase.mGameMode, anOriginalValue), anOriginalValue);
+		}
+	}
+	ExpectEqual("original Adventure level 35 mouse-position gate", ShouldRunScaryPotterMousePositionBlock(
+		GAMEMODE_ADVENTURE, true), true);
+	ExpectEqual("original Adventure level 35 mouse-hit gate", ShouldEvaluateScaryPotterMouseHitBlock(
+		GAMEMODE_ADVENTURE, true), true);
+	ExpectEqual("original Adventure level 35 mouse-down gate", ShouldHandleScaryPotterMouseDown(
+		GAMEMODE_ADVENTURE, true), true);
+	ExpectEqual("original Adventure level 35 update gate", ShouldRunScaryPotterUpdate(
+		GAMEMODE_ADVENTURE, true), true);
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
@@ -683,6 +729,20 @@ int main()
 		ExpectEqual("PvZ 95 Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mPvZ95);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
 		ExpectEqual("PvZ 95 Scary Potter zombie", ResolveScaryPotterZombie(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mPvZ95);
+	for (const ScaryPotterGateCase& aCase : aScaryPotterGateCases)
+	{
+		for (bool anOriginalValue : {false, true})
+		{
+			ExpectEqual("PvZ 95 mouse-position expanded range", ShouldRunScaryPotterMousePositionBlock(
+				aCase.mGameMode, anOriginalValue), aCase.mExpandedRange);
+			ExpectEqual("PvZ 95 mouse-hit gate is unconditional", ShouldEvaluateScaryPotterMouseHitBlock(
+				aCase.mGameMode, anOriginalValue), true);
+			ExpectEqual("PvZ 95 mouse-down gate is unconditional", ShouldHandleScaryPotterMouseDown(
+				aCase.mGameMode, anOriginalValue), true);
+			ExpectEqual("PvZ 95 update expanded range", ShouldRunScaryPotterUpdate(
+				aCase.mGameMode, anOriginalValue), aCase.mExpandedRange);
+		}
+	}
 	ExpectEqual("unmodified Scary Potter seed", ResolveScaryPotterSeed(GAMEMODE_SCARY_POTTER_3, 0, SEED_LEFTPEATER), SEED_LEFTPEATER);
 	ExpectEqual("unmodified Scary Potter zombie", ResolveScaryPotterZombie(GAMEMODE_SCARY_POTTER_1, 3, ZOMBIE_NORMAL), ZOMBIE_NORMAL);
 	const BurnRowEffects aPvZ95BurnRow = ResolveBurnRowEffects();

@@ -1368,7 +1368,9 @@ int Challenge::MouseDown(int x, int y, int theClickCount, HitResult* theHitResul
 		}
 	}
 
-	if (mApp->IsScaryPotterLevel() && theHitResult->mObjectType == OBJECT_TYPE_SCARY_POT)
+	if (PvzRules::ShouldHandleScaryPotterMouseDown(
+		mApp->mGameMode, mApp->IsScaryPotterLevel()) &&
+		theHitResult->mObjectType == OBJECT_TYPE_SCARY_POT)
 	{
 		ScaryPotterMalletPot((GridItem*)theHitResult->mObject);
 		return true;
@@ -2198,7 +2200,8 @@ void Challenge::Update()
 	{
 		UpdateBeghouled();
 	}
-	if (mApp->IsScaryPotterLevel())
+	if (PvzRules::ShouldRunScaryPotterUpdate(
+		mApp->mGameMode, mApp->IsScaryPotterLevel()))
 	{
 		ScaryPotterUpdate();
 	}

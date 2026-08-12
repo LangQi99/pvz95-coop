@@ -256,4 +256,8 @@ namespace PvzRules
 	int ResolveWhackZombieSpeedCurveStart(int theOriginalValue);
 	SeedType ResolveScaryPotterSeed(GameMode theGameMode, int thePlacementIndex, SeedType theOriginalValue);
 	ZombieType ResolveScaryPotterZombie(GameMode theGameMode, int thePlacementIndex, ZombieType theOriginalValue);
+	bool ShouldRunScaryPotterMousePositionBlock(GameMode theGameMode, bool theOriginalValue);
+	bool ShouldEvaluateScaryPotterMouseHitBlock(GameMode theGameMode, bool theOriginalValue);
+	bool ShouldHandleScaryPotterMouseDown(GameMode theGameMode, bool theOriginalValue);
+	bool ShouldRunScaryPotterUpdate(GameMode theGameMode, bool theOriginalValue);
 }

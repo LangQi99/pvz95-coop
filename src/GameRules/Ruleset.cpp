@@ -61,6 +61,13 @@ namespace PvzRules
 		{
 			return ((theZombieType == theAllowedTypes) || ...);
 		}
+
+		bool IsPvZ95ScaryPotterExpandedMode(GameMode theGameMode)
+		{
+			const int aGameMode = static_cast<int>(theGameMode);
+			return aGameMode >= static_cast<int>(GameMode::GAMEMODE_ADVENTURE) &&
+				aGameMode <= static_cast<int>(GameMode::GAMEMODE_SCARY_POTTER_ENDLESS);
+		}
 	}
 
 	RulesetId GetActiveRuleset()
@@ -1107,5 +1114,29 @@ namespace PvzRules
 		}
 
 		return theOriginalValue;
+	}
+
+	bool ShouldRunScaryPotterMousePositionBlock(GameMode theGameMode, bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ?
+			IsPvZ95ScaryPotterExpandedMode(theGameMode) : theOriginalValue;
+	}
+
+	bool ShouldEvaluateScaryPotterMouseHitBlock(GameMode theGameMode, bool theOriginalValue)
+	{
+		(void)theGameMode;
+		return gActiveRuleset == RulesetId::PVZ95 ? true : theOriginalValue;
+	}
+
+	bool ShouldHandleScaryPotterMouseDown(GameMode theGameMode, bool theOriginalValue)
+	{
+		(void)theGameMode;
+		return gActiveRuleset == RulesetId::PVZ95 ? true : theOriginalValue;
+	}
+
+	bool ShouldRunScaryPotterUpdate(GameMode theGameMode, bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ?
+			IsPvZ95ScaryPotterExpandedMode(theGameMode) : theOriginalValue;
 	}
 }
