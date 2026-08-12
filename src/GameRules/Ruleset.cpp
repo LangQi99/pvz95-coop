@@ -106,6 +106,12 @@ namespace PvzRules
 		return gActiveRuleset == RulesetId::PVZ95 ? RULESET_PROTOCOL_PVZ95 : RULESET_PROTOCOL_ORIGINAL;
 	}
 
+	std::string_view ResolveApplicationTitle(std::string_view theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ?
+			"PlantsVsZombies Plus Version 95" : theOriginalValue;
+	}
+
 	const PlantTuning& GetPlantTuning(SeedType theSeedType)
 	{
 		static const PlantTuning aNoTuning;
@@ -821,6 +827,11 @@ namespace PvzRules
 		}
 
 		return {theCorner, false, false, 0, 0, 0, 0};
+	}
+
+	bool ShouldHideChallengePageButton(bool theOriginalValue)
+	{
+		return gActiveRuleset == RulesetId::PVZ95 ? false : theOriginalValue;
 	}
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)

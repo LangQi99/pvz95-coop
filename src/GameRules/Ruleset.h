@@ -147,6 +147,7 @@ namespace PvzRules
 	bool SetActiveRuleset(std::string_view theName);
 	std::string_view GetActiveRulesetName();
 	uint32_t GetActiveRulesetProtocolId();
+	std::string_view ResolveApplicationTitle(std::string_view theOriginalValue);
 
 	const PlantTuning& GetPlantTuning(SeedType theSeedType);
 	int ResolvePlantSeedCost(SeedType theSeedType, int theOriginalValue);
@@ -233,6 +234,7 @@ namespace PvzRules
 		GameMode theGameMode, SeedType theSeedType, bool theOriginalValue);
 	BeghouledTwistCornerPlan ResolveBeghouledTwistCornerPlan(
 		BeghouledTwistCorner theCorner);
+	bool ShouldHideChallengePageButton(bool theOriginalValue);
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);

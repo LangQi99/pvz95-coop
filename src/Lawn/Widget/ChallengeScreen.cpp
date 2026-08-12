@@ -29,6 +29,7 @@
 #include "../../PvzpLib/PvzpDebug.h"
 #include "../../PvzpLib/PvzpFoley.h"
 #include "../../PvzpLib/PvzpCommon.h"
+#include "GameRules/Ruleset.h"
 #include "misc/Debug.h"
 #include "../../PvzpLib/PvzpStringFile.h"
 #include "widget/WidgetManager.h"
@@ -153,7 +154,9 @@ ChallengeScreen::ChallengeScreen(LawnApp* theApp, ChallengePage thePage)
 		aPageButton->mColors[ButtonWidget::COLOR_LABEL] = Color(255, 240, 0);
 		aPageButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(220, 220, 0);
 		aPageButton->Resize(200 + 100 * aPageIdx, 540, 100, 75);
-		if (!ShowPageButtons() || aPageIdx == CHALLENGE_PAGE_SURVIVAL || aPageIdx == CHALLENGE_PAGE_PUZZLE)
+		const bool aShouldHidePageButton =
+			!ShowPageButtons() || aPageIdx == CHALLENGE_PAGE_SURVIVAL || aPageIdx == CHALLENGE_PAGE_PUZZLE;
+		if (PvzRules::ShouldHideChallengePageButton(aShouldHidePageButton))
 			aPageButton->mVisible = false;
 	}
 

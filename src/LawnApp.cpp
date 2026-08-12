@@ -1293,6 +1293,10 @@ void LawnApp::ShowResourceError(bool doExit)
 void LawnApp::Init()
 {
 	DoParseCmdLine();
+	// Materialize the resolved view before assigning because original-mode passthrough
+	// may return a view into mTitle itself.
+	const std::string aResolvedTitle(PvzRules::ResolveApplicationTitle(mTitle));
+	mTitle = aResolvedTitle;
 	// Distinct explicit save roots are used for local host/client testing and
 	// are safe to run concurrently; the normal profile location stays single-instance.
 	mOnlyAllowOneCopyToRun = !mCheatKeys && mCustomSaveDir.empty();

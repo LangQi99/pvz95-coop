@@ -22,6 +22,16 @@ namespace
 		std::exit(1);
 	}
 
+	void ExpectStringEqual(std::string_view theName,
+		std::string_view theActual, std::string_view theExpected)
+	{
+		if (theActual == theExpected)
+			return;
+
+		std::cerr << theName << ": expected \"" << theExpected << "\", got \"" << theActual << "\"\n";
+		std::exit(1);
+	}
+
 	void ExpectNear(std::string_view theName, float theActual, float theExpected)
 	{
 		if (theActual > theExpected - 0.001f && theActual < theExpected + 0.001f)
@@ -211,6 +221,13 @@ int main()
 	ExpectEqual("maximum special seed immediate", static_cast<int>(SEED_ZOMBIE_IMP), 74);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
+	ExpectStringEqual("original application title passthrough",
+		ResolveApplicationTitle("PvZ 95 Co-op"), "PvZ 95 Co-op");
+	for (bool anOriginalValue : {false, true})
+	{
+		ExpectEqual("original challenge page-button visibility passthrough",
+			ShouldHideChallengePageButton(anOriginalValue), anOriginalValue);
+	}
 	ExpectEqual("original potato cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 25);
 	ExpectEqual("original star damage", ResolveProjectileDamage(ProjectileType::PROJECTILE_STAR, 20), 20);
 	ExpectEqual("original door member type", ResolveZombieMemberType(ZombieType::ZOMBIE_DOOR), ZombieType::ZOMBIE_DOOR);
@@ -445,6 +462,15 @@ int main()
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
+	ExpectStringEqual("PvZ 95 application title",
+		ResolveApplicationTitle("PvZ 95 Co-op"), "PlantsVsZombies Plus Version 95");
+	ExpectEqual("PvZ 95 application title byte length",
+		static_cast<int>(ResolveApplicationTitle("ignored").size()), 31);
+	for (bool anOriginalValue : {false, true})
+	{
+		ExpectEqual("PvZ 95 preserves challenge page-button visibility",
+			ShouldHideChallengePageButton(anOriginalValue), false);
+	}
 
 	ExpectEqual("sunflower production", ResolvePlantLaunchRate(SeedType::SEED_SUNFLOWER, 2500), 3300);
 	ExpectEqual("potato mine cost", ResolvePlantSeedCost(SeedType::SEED_POTATOMINE, 25), 50);
