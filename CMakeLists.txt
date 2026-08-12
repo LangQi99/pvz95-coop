@@ -387,6 +387,15 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-action-timeline-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-action-timeline COMMAND pvz95-action-timeline-tests)
 
+	add_executable(pvz95-state-hash-timeline-tests
+		tests/StateHashTimelineTests.cpp
+		src/Multiplayer/StateHashTimeline.cpp
+	)
+	target_include_directories(pvz95-state-hash-timeline-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-state-hash-timeline-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-state-hash-timeline-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-state-hash-timeline COMMAND pvz95-state-hash-timeline-tests)
+
 	add_executable(pvz95-local-input-tests
 		tests/LocalInputTests.cpp
 	)
@@ -423,6 +432,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-shared-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-session-barrier-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-action-timeline-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-state-hash-timeline-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-local-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-deterministic-hash-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)

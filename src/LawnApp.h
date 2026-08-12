@@ -26,11 +26,11 @@
 #include "SexyAppFramework/SexyApp.h"
 #include "PvzpLib/PvzpFoley.h"
 #include "Multiplayer/ActionTimeline.h"
+#include "Multiplayer/StateHashTimeline.h"
 #include "Multiplayer/SessionBarrier.h"
 #include "Multiplayer/SharedInputState.h"
 
 #include <optional>
-#include <map>
 #include <memory>
 
 class Board;
@@ -157,7 +157,7 @@ public:
 	PvzMultiplayer::SessionBarrier mLanSessionBarrier;
 	PvzMultiplayer::ActionTimeline mLanActionTimeline;
 	std::optional<PvzMultiplayer::SessionStart> mLanSessionStart;
-	std::map<uint64_t, uint64_t> mExpectedLanStateHashes;
+	PvzMultiplayer::StateHashTimeline mLanStateHashTimeline;
 	std::unique_ptr<PlayerInfo>     mLanGameplayProfile;
 	PlayerInfo*                     mLocalPlayerInfo{};
 	uint64_t                        mLanSimulationTick{};
@@ -282,6 +282,7 @@ public:
 	void                            MaybeBeginLanSession();
 	void                            ProcessLanActionsForCurrentTick();
 	void                            PublishOrVerifyLanStateHash();
+	void                            HandleLanStateHashResult(const PvzMultiplayer::StateHashResult& theResult);
 	void                            ResetLanGameState();
 	void                            InstallLanGameplayProfile(const PvzMultiplayer::GameplayProfile& theProfile);
 	void                            RestoreLocalPlayerProfile();

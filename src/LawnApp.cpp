@@ -2194,17 +2194,8 @@ void LawnApp::UpdateLanSession()
 			else if (const auto* aHash = std::get_if<StateHash>(&aMessage))
 			{
 				if (mLanSessionStart && aHash->mStartId == mLanSessionStart->mStartId)
-				{
-					if (aHash->mHostTick < mLanSimulationTick)
-					{
-						Sexy::PrintF("LAN desync: state hash for past tick %llu arrived at local tick %llu\n",
-							static_cast<unsigned long long>(aHash->mHostTick),
-							static_cast<unsigned long long>(mLanSimulationTick));
-						mLanDesynchronized = true;
-					}
-					else
-						mExpectedLanStateHashes[aHash->mHostTick] = aHash->mHash;
-				}
+					HandleLanStateHashResult(mLanStateHashTimeline.ObserveRemote(
+						aHash->mHostTick, aHash->mHash, mLanSimulationTick));
 			}
 		}
 	}
@@ -2489,21 +2480,40 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		return;
 	}
 
-	auto anExpected = mExpectedLanStateHashes.find(mLanSimulationTick);
-	if (anExpected == mExpectedLanStateHashes.end() || anExpected->second != aHash)
+	HandleLanStateHashResult(mLanStateHashTimeline.ObserveLocal(
+		mLanSimulationTick, aHash, mLanSimulationTick));
+}
+
+void LawnApp::HandleLanStateHashResult(const PvzMultiplayer::StateHashResult& theResult)
+{
+	using namespace PvzMultiplayer;
+
+	if (theResult.mKind == StateHashResultKind::WAITING)
+		return;
+	if (theResult.mKind == StateHashResultKind::MATCHED)
 	{
-		Sexy::PrintF("LAN desync: state mismatch at tick %llu (expected %016llx, actual %016llx)\n",
-			static_cast<unsigned long long>(mLanSimulationTick),
-			static_cast<unsigned long long>(anExpected == mExpectedLanStateHashes.end() ? 0 : anExpected->second),
-			static_cast<unsigned long long>(aHash));
-		LanTrace("desync mismatch tick=%llu expected=%016llx actual=%016llx\n",
-			static_cast<unsigned long long>(mLanSimulationTick),
-			static_cast<unsigned long long>(anExpected == mExpectedLanStateHashes.end() ? 0 : anExpected->second),
-			static_cast<unsigned long long>(aHash));
-		mLanDesynchronized = true;
+		LanTrace("state hash matched tick=%llu hash=%016llx\n",
+			static_cast<unsigned long long>(theResult.mTick),
+			static_cast<unsigned long long>(theResult.mLocalHash));
 		return;
 	}
-	mExpectedLanStateHashes.erase(mExpectedLanStateHashes.begin(), std::next(anExpected));
+
+	const char* aReason = "mismatch";
+	if (theResult.mKind == StateHashResultKind::CONFLICT)
+		aReason = "conflicting duplicate";
+	else if (theResult.mKind == StateHashResultKind::EXPIRED)
+		aReason = "grace window expired";
+	else if (theResult.mKind == StateHashResultKind::FULL)
+		aReason = "pending hash capacity exhausted";
+	Sexy::PrintF("LAN desync: state hash %s at tick %llu (host %016llx, local %016llx)\n",
+		aReason, static_cast<unsigned long long>(theResult.mTick),
+		static_cast<unsigned long long>(theResult.mRemoteHash),
+		static_cast<unsigned long long>(theResult.mLocalHash));
+	LanTrace("desync state-hash reason=%s tick=%llu host=%016llx local=%016llx\n",
+		aReason, static_cast<unsigned long long>(theResult.mTick),
+		static_cast<unsigned long long>(theResult.mRemoteHash),
+		static_cast<unsigned long long>(theResult.mLocalHash));
+	mLanDesynchronized = true;
 }
 
 void LawnApp::ResetLanGameState()
@@ -2511,7 +2521,7 @@ void LawnApp::ResetLanGameState()
 	mLanSessionBarrier.Reset();
 	mLanActionTimeline.Reset();
 	mLanSessionStart.reset();
-	mExpectedLanStateHashes.clear();
+	mLanStateHashTimeline.Reset();
 	mLanSimulationTick = 0;
 	mLanTargetTick = 0;
 	mLanWaitingForBegin = false;
