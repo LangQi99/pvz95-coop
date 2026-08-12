@@ -2,7 +2,7 @@
 
 ## Goals
 
-PvZ 95 Co-op must preserve the observable PvZ 95 gameplay, allow two to four people on one LAN to control the same game, and produce native Windows, macOS, and Linux builds from one C++ codebase. The repository must remain buildable without proprietary game data.
+PvZ 95 Co-op must preserve the observable PvZ 95 gameplay, allow two to four people on one LAN to control the same game, and produce native Windows and macOS builds from one C++ codebase. Windows x64 and macOS Apple Silicon are release-blocking targets; Intel macOS remains source-compatible where the upstream engine supports it. The repository must remain buildable without proprietary game data.
 
 ## Source strategy
 

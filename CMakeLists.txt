@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12...4.0)
 
-project(pvz-portable LANGUAGES C CXX)
+project(pvz95-coop LANGUAGES C CXX)
 
 include(CMake/ProjectVersion.cmake)
 
@@ -192,7 +192,10 @@ target_compile_definitions(pvz-portable PRIVATE
 	$<$<BOOL:${DO_FIX_BUGS}>:DO_FIX_BUGS>
 )
 target_compile_features(pvz-portable PRIVATE cxx_std_20)
-set_target_properties(pvz-portable PROPERTIES CXX_EXTENSIONS OFF)
+set_target_properties(pvz-portable PROPERTIES
+	CXX_EXTENSIONS OFF
+	OUTPUT_NAME pvz95-coop
+)
 
 include(CTest)
 if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")

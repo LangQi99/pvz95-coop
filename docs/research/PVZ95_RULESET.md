@@ -57,8 +57,8 @@ These are **located**, not yet all behaviorally restored. A hook is marked compl
 PvZ 95 is the default. For A/B testing:
 
 ```bash
-./pvz-portable -ruleset pvz95
-./pvz-portable -ruleset original
+./pvz95-coop -ruleset pvz95
+./pvz95-coop -ruleset original
 ```
 
 Peers exchange the active ruleset protocol ID during discovery and handshake. Sessions reject a mismatch rather than risk a silent deterministic divergence.
