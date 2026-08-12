@@ -1015,10 +1015,10 @@ bool SeedBank::ContainsPoint(int theX, int theY)
 	return theX >= mX && theX < mX + mWidth && theY >= mY && theY < mY + mHeight;
 }
 
-void SeedBank::AddSeed(SeedType theSeedType, bool thePlaceOnLeft)
+void SeedBank::AddSeed(SeedType theSeedType, bool thePlaceOnLeft, bool theAllowEmptyNonConveyorSeed)
 {
-	PVZP_ASSERT(mBoard->HasConveyorBeltSeedBank());
-	PVZP_ASSERT(theSeedType != SeedType::SEED_NONE);
+	PVZP_ASSERT(mBoard->HasConveyorBeltSeedBank() || theAllowEmptyNonConveyorSeed);
+	PVZP_ASSERT(theSeedType != SeedType::SEED_NONE || theAllowEmptyNonConveyorSeed);
 
 	int aNumSeeds = GetNumSeedsOnConveyorBelt();
 	if (aNumSeeds == mNumPackets)

@@ -76,6 +76,24 @@ namespace PvzRules
 		SeedType mImitaterType;
 	};
 
+	enum class ChallengeWaveGraveAction : uint8_t
+	{
+		NONE,
+		SPAWN_ZOMBIES_FROM_GRAVES,
+		SPAWN_RANDOM_GRAVE
+	};
+
+	struct ChallengeStartSetup
+	{
+		bool mApply;
+		int mZombieCountdown;
+		SeedType mSeedType;
+		int mConveyorBeltCounter;
+		bool mSetShowBowlingLine;
+		bool mShowBowlingLine;
+		bool mAllowEmptyNonConveyorSeed;
+	};
+
 	struct BurnRowEffects
 	{
 		bool mUseSpecialSequence;
@@ -183,6 +201,12 @@ namespace PvzRules
 	bool ShouldProcessTypingCheats(bool theLanGameplayActive);
 	bool ResolveSukhbirEasyPlanting(bool theEnableSukhbir, bool theOriginalValue);
 	bool ShouldDieNoLootAtBoardEdge(bool theIsIZombieLevel, bool thePinataMode);
+	bool ResolveChallengeZombieAllowed(GameMode theGameMode, bool theIsLittleTroubleLevel,
+		bool theIsFirstWallnutBowlingLevel, ZombieType theZombieType, bool theOriginalValue);
+	ChallengeWaveGraveAction ResolveChallengeWaveGraveAction(GameMode theGameMode,
+		bool theDaisyMode, int theCurrentWave, int theNumWaves, bool theIsFlagWave);
+	ChallengeStartSetup ResolveChallengeStartSetup(
+		bool theBoardExists, bool theOriginalWallnutBowlingCondition);
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);

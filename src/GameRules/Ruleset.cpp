@@ -55,6 +55,12 @@ namespace PvzRules
 		{
 			return theOverride >= 0 ? theOverride : theOriginalValue;
 		}
+
+		template <typename... ZombieTypes>
+		bool IsZombieInSet(ZombieType theZombieType, ZombieTypes... theAllowedTypes)
+		{
+			return ((theZombieType == theAllowedTypes) || ...);
+		}
 	}
 
 	RulesetId GetActiveRuleset()
@@ -630,6 +636,105 @@ namespace PvzRules
 	bool ShouldDieNoLootAtBoardEdge(bool theIsIZombieLevel, bool thePinataMode)
 	{
 		return theIsIZombieLevel || (gActiveRuleset == RulesetId::PVZ95 && thePinataMode);
+	}
+
+	bool ResolveChallengeZombieAllowed(GameMode theGameMode, bool theIsLittleTroubleLevel,
+		bool theIsFirstWallnutBowlingLevel, ZombieType theZombieType, bool theOriginalValue)
+	{
+		if (gActiveRuleset != RulesetId::PVZ95)
+			return theOriginalValue;
+
+		if (theIsLittleTroubleLevel)
+		{
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_DOOR, ZOMBIE_FOOTBALL, ZOMBIE_SNORKEL, ZOMBIE_LADDER);
+		}
+		if (theIsFirstWallnutBowlingLevel)
+		{
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_FLAG,
+				ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL, ZOMBIE_POLEVAULTER,
+				ZOMBIE_NEWSPAPER, ZOMBIE_LADDER);
+		}
+
+		switch (theGameMode)
+		{
+		case GAMEMODE_CHALLENGE_SPEED:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_POLEVAULTER, ZOMBIE_FOOTBALL, ZOMBIE_DOLPHIN_RIDER,
+				ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_LADDER);
+		case GAMEMODE_CHALLENGE_POGO_PARTY:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_PAIL, ZOMBIE_NEWSPAPER, ZOMBIE_DOOR, ZOMBIE_FOOTBALL,
+				ZOMBIE_ZAMBONI, ZOMBIE_GARGANTUAR);
+		case GAMEMODE_CHALLENGE_PORTAL_COMBAT:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_PAIL,
+				ZOMBIE_NEWSPAPER, ZOMBIE_BALLOON);
+		case GAMEMODE_CHALLENGE_BIG_TIME:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_PAIL, ZOMBIE_DOOR, ZOMBIE_POGO, ZOMBIE_JACK_IN_THE_BOX);
+		case GAMEMODE_CHALLENGE_RAINING_SEEDS:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_FLAG,
+				ZOMBIE_TRAFFIC_CONE, ZOMBIE_POLEVAULTER, ZOMBIE_PAIL, ZOMBIE_DOOR,
+				ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BUNGEE);
+		case GAMEMODE_CHALLENGE_AIR_RAID:
+			return IsZombieInSet(theZombieType, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_POLEVAULTER, ZOMBIE_PAIL, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BALLOON);
+		case GAMEMODE_CHALLENGE_COLUMN:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_POLEVAULTER, ZOMBIE_PAIL);
+		case GAMEMODE_CHALLENGE_INVISIGHOUL:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_PAIL, ZOMBIE_SNORKEL, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BUNGEE);
+		case GAMEMODE_CHALLENGE_WAR_AND_PEAS:
+			return IsZombieInSet(theZombieType, ZOMBIE_POLEVAULTER, ZOMBIE_NEWSPAPER,
+				ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BALLOON, ZOMBIE_POGO, ZOMBIE_GARGANTUAR);
+		case GAMEMODE_CHALLENGE_ICE:
+			return IsZombieInSet(theZombieType, ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE,
+				ZOMBIE_PAIL, ZOMBIE_NEWSPAPER, ZOMBIE_DANCER, ZOMBIE_SNORKEL,
+				ZOMBIE_DOLPHIN_RIDER, ZOMBIE_DIGGER);
+		default:
+			return theOriginalValue;
+		}
+	}
+
+	ChallengeWaveGraveAction ResolveChallengeWaveGraveAction(GameMode theGameMode,
+		bool theDaisyMode, int theCurrentWave, int theNumWaves, bool theIsFlagWave)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+		{
+			if (theDaisyMode || theCurrentWave == theNumWaves - 1)
+				return ChallengeWaveGraveAction::NONE;
+			if (theIsFlagWave)
+				return ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES;
+			return theCurrentWave > 9 ?
+				ChallengeWaveGraveAction::SPAWN_RANDOM_GRAVE : ChallengeWaveGraveAction::NONE;
+		}
+
+		if (theGameMode != GAMEMODE_CHALLENGE_GRAVE_DANGER ||
+			theCurrentWave == theNumWaves - 1)
+		{
+			return ChallengeWaveGraveAction::NONE;
+		}
+		if (theIsFlagWave)
+			return ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES;
+		return theCurrentWave > 5 ?
+			ChallengeWaveGraveAction::SPAWN_RANDOM_GRAVE : ChallengeWaveGraveAction::NONE;
+	}
+
+	ChallengeStartSetup ResolveChallengeStartSetup(
+		bool theBoardExists, bool theOriginalWallnutBowlingCondition)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+		{
+			if (theBoardExists)
+				return {true, 200, SEED_NONE, 400,
+					theOriginalWallnutBowlingCondition, theOriginalWallnutBowlingCondition, true};
+			return {false, 0, SEED_NONE, 0, false, false, false};
+		}
+
+		if (theBoardExists && theOriginalWallnutBowlingCondition)
+			return {true, 200, SEED_WALLNUT, 400, true, true, false};
+		return {false, 0, SEED_NONE, 0, false, false, false};
 	}
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)

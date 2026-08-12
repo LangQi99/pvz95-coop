@@ -76,7 +76,8 @@ public:
 	bool			    MouseHitTest(int x, int y, HitResult* theHitResult);
 	inline void		    Move(int x, int y) { mX = x; mY = y; }
 	bool			    ContainsPoint(int theX, int theY);
-	void			    AddSeed(SeedType theSeedType, bool thePlaceOnLeft = false);
+	void			    AddSeed(SeedType theSeedType, bool thePlaceOnLeft = false,
+		bool theAllowEmptyNonConveyorSeed = false);
 	void			    RemoveSeed(int theIndex);
 	int				    GetNumSeedsOnConveyorBelt();
 	int		CountOfTypeOnConveyorBelt(SeedType theSeedType);

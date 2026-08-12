@@ -30,6 +30,39 @@ namespace
 		std::cerr << theName << ": expected " << theExpected << ", got " << theActual << '\n';
 		std::exit(1);
 	}
+
+	template <size_t N>
+	void ExpectChallengeZombieSet(std::string_view theName, GameMode theGameMode,
+		bool theIsLittleTroubleLevel, bool theIsFirstWallnutBowlingLevel,
+		const std::array<ZombieType, N>& theExpectedTypes)
+	{
+		for (int aZombieIndex = 0; aZombieIndex < NUM_ZOMBIE_TYPES; aZombieIndex++)
+		{
+			const ZombieType aZombieType = static_cast<ZombieType>(aZombieIndex);
+			bool anExpected = false;
+			for (ZombieType anExpectedType : theExpectedTypes)
+			{
+				if (aZombieType == anExpectedType)
+				{
+					anExpected = true;
+					break;
+				}
+			}
+
+			for (bool anOriginalValue : {false, true})
+			{
+				const bool anActual = PvzRules::ResolveChallengeZombieAllowed(theGameMode,
+					theIsLittleTroubleLevel, theIsFirstWallnutBowlingLevel,
+					aZombieType, anOriginalValue);
+				if (anActual != anExpected)
+				{
+					std::cerr << theName << ": zombie " << aZombieIndex << " with original " <<
+						anOriginalValue << " expected " << anExpected << ", got " << anActual << '\n';
+					std::exit(1);
+				}
+			}
+		}
+	}
 }
 
 int main()
@@ -192,6 +225,32 @@ int main()
 	ExpectEqual("original Sukhbir preserves easy planting", ResolveSukhbirEasyPlanting(true, false), false);
 	ExpectEqual("original I, Zombie board edge dies without loot", ShouldDieNoLootAtBoardEdge(true, false), true);
 	ExpectEqual("original Pinata board edge still loses", ShouldDieNoLootAtBoardEdge(false, true), false);
+	ExpectEqual("original challenge zombie addition stays absent", ResolveChallengeZombieAllowed(
+		GAMEMODE_CHALLENGE_SPEED, false, false, ZOMBIE_FOOTBALL, false), false);
+	ExpectEqual("original challenge zombie remains allowed", ResolveChallengeZombieAllowed(
+		GAMEMODE_CHALLENGE_SPEED, false, false, ZOMBIE_DOLPHIN_RIDER, true), true);
+	ExpectEqual("original non-Grave mode skips grave action", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, false, 10, 20, true)), static_cast<int>(ChallengeWaveGraveAction::NONE));
+	ExpectEqual("original Grave Danger flag wave spawns from graves", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_CHALLENGE_GRAVE_DANGER, true, 5, 20, true)),
+		static_cast<int>(ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES));
+	ExpectEqual("original Grave Danger threshold", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_CHALLENGE_GRAVE_DANGER, false, 6, 20, false)),
+		static_cast<int>(ChallengeWaveGraveAction::SPAWN_RANDOM_GRAVE));
+	ExpectEqual("original Grave Danger below threshold", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_CHALLENGE_GRAVE_DANGER, false, 5, 20, false)),
+		static_cast<int>(ChallengeWaveGraveAction::NONE));
+	const ChallengeStartSetup anOriginalNoStartSetup = ResolveChallengeStartSetup(true, false);
+	ExpectEqual("original ordinary mode skips bowling setup", anOriginalNoStartSetup.mApply, false);
+	const ChallengeStartSetup anOriginalStartSetup = ResolveChallengeStartSetup(true, true);
+	ExpectEqual("original bowling setup applies", anOriginalStartSetup.mApply, true);
+	ExpectEqual("original bowling setup countdown", anOriginalStartSetup.mZombieCountdown, 200);
+	ExpectEqual("original bowling setup seed", anOriginalStartSetup.mSeedType, SEED_WALLNUT);
+	ExpectEqual("original bowling setup conveyor", anOriginalStartSetup.mConveyorBeltCounter, 400);
+	ExpectEqual("original bowling setup writes line", anOriginalStartSetup.mSetShowBowlingLine, true);
+	ExpectEqual("original bowling setup line", anOriginalStartSetup.mShowBowlingLine, true);
+	ExpectEqual("original bowling setup keeps AddSeed checks", anOriginalStartSetup.mAllowEmptyNonConveyorSeed, false);
+	ExpectEqual("original missing Board skips bowling setup", ResolveChallengeStartSetup(false, true).mApply, false);
 	for (const SeedRuleCase& aCase : aScarySeedCases)
 		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
@@ -246,6 +305,79 @@ int main()
 	ExpectEqual("PvZ 95 Sukhbir disables easy planting", ResolveSukhbirEasyPlanting(false, true), false);
 	ExpectEqual("PvZ 95 Pinata board edge dies without loot", ShouldDieNoLootAtBoardEdge(false, true), true);
 	ExpectEqual("PvZ 95 ordinary board edge still loses", ShouldDieNoLootAtBoardEdge(false, false), false);
+	ExpectChallengeZombieSet("PvZ 95 Speed zombie set", GAMEMODE_CHALLENGE_SPEED, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_POLEVAULTER, ZOMBIE_FOOTBALL,
+			ZOMBIE_DOLPHIN_RIDER, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_LADDER});
+	ExpectChallengeZombieSet("PvZ 95 Pogo Party zombie set", GAMEMODE_CHALLENGE_POGO_PARTY, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL, ZOMBIE_NEWSPAPER,
+			ZOMBIE_DOOR, ZOMBIE_FOOTBALL, ZOMBIE_ZAMBONI, ZOMBIE_GARGANTUAR});
+	ExpectChallengeZombieSet("PvZ 95 Portal Combat zombie set", GAMEMODE_CHALLENGE_PORTAL_COMBAT, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_PAIL, ZOMBIE_NEWSPAPER, ZOMBIE_BALLOON});
+	ExpectChallengeZombieSet("PvZ 95 Little Trouble zombie set", GAMEMODE_CHALLENGE_LITTLE_TROUBLE, true, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_DOOR,
+			ZOMBIE_FOOTBALL, ZOMBIE_SNORKEL, ZOMBIE_LADDER});
+	ExpectChallengeZombieSet("PvZ 95 adventure 2-5 zombie set", GAMEMODE_ADVENTURE, true, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_DOOR,
+			ZOMBIE_FOOTBALL, ZOMBIE_SNORKEL, ZOMBIE_LADDER});
+	ExpectChallengeZombieSet("PvZ 95 Big Time zombie set", GAMEMODE_CHALLENGE_BIG_TIME, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL,
+			ZOMBIE_DOOR, ZOMBIE_POGO, ZOMBIE_JACK_IN_THE_BOX});
+	ExpectChallengeZombieSet("PvZ 95 Raining Seeds zombie set", GAMEMODE_CHALLENGE_RAINING_SEEDS, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_FLAG, ZOMBIE_TRAFFIC_CONE, ZOMBIE_POLEVAULTER,
+			ZOMBIE_PAIL, ZOMBIE_DOOR, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BUNGEE});
+	ExpectChallengeZombieSet("PvZ 95 Air Raid zombie set", GAMEMODE_CHALLENGE_AIR_RAID, false, false,
+		std::array{ZOMBIE_TRAFFIC_CONE, ZOMBIE_POLEVAULTER,
+			ZOMBIE_PAIL, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BALLOON});
+	ExpectChallengeZombieSet("PvZ 95 Column zombie set", GAMEMODE_CHALLENGE_COLUMN, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_POLEVAULTER, ZOMBIE_PAIL});
+	ExpectChallengeZombieSet("PvZ 95 Invisighoul zombie set", GAMEMODE_CHALLENGE_INVISIGHOUL, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL,
+			ZOMBIE_SNORKEL, ZOMBIE_JACK_IN_THE_BOX, ZOMBIE_BUNGEE});
+	ExpectChallengeZombieSet("PvZ 95 War and Peas zombie set", GAMEMODE_CHALLENGE_WAR_AND_PEAS, false, false,
+		std::array{ZOMBIE_POLEVAULTER, ZOMBIE_NEWSPAPER, ZOMBIE_JACK_IN_THE_BOX,
+			ZOMBIE_BALLOON, ZOMBIE_POGO, ZOMBIE_GARGANTUAR});
+	ExpectChallengeZombieSet("PvZ 95 Wall-nut Bowling zombie set", GAMEMODE_CHALLENGE_WALLNUT_BOWLING, false, true,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_FLAG, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL,
+			ZOMBIE_POLEVAULTER, ZOMBIE_NEWSPAPER, ZOMBIE_LADDER});
+	ExpectChallengeZombieSet("PvZ 95 adventure 1-5 zombie set", GAMEMODE_ADVENTURE, false, true,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_FLAG, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL,
+			ZOMBIE_POLEVAULTER, ZOMBIE_NEWSPAPER, ZOMBIE_LADDER});
+	ExpectChallengeZombieSet("PvZ 95 Ice zombie set", GAMEMODE_CHALLENGE_ICE, false, false,
+		std::array{ZOMBIE_NORMAL, ZOMBIE_TRAFFIC_CONE, ZOMBIE_PAIL, ZOMBIE_NEWSPAPER,
+			ZOMBIE_DANCER, ZOMBIE_SNORKEL, ZOMBIE_DOLPHIN_RIDER, ZOMBIE_DIGGER});
+	ExpectEqual("PvZ 95 unaffected zombie permission stays true", ResolveChallengeZombieAllowed(
+		GAMEMODE_CHALLENGE_SUNNY_DAY, false, false, ZOMBIE_NORMAL, true), true);
+	ExpectEqual("PvZ 95 unaffected zombie permission stays false", ResolveChallengeZombieAllowed(
+		GAMEMODE_CHALLENGE_SUNNY_DAY, false, false, ZOMBIE_POGO, false), false);
+	ExpectEqual("PvZ 95 Daisy skips grave chain", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, true, 10, 20, true)), static_cast<int>(ChallengeWaveGraveAction::NONE));
+	ExpectEqual("PvZ 95 all modes run flag grave chain", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, false, 5, 20, true)),
+		static_cast<int>(ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES));
+	ExpectEqual("PvZ 95 Seeing Stars compare has no semantic effect", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_CHALLENGE_SEEING_STARS, false, 5, 20, true)),
+		static_cast<int>(ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES));
+	ExpectEqual("PvZ 95 grave threshold excludes wave nine", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, false, 9, 20, false)), static_cast<int>(ChallengeWaveGraveAction::NONE));
+	ExpectEqual("PvZ 95 grave threshold starts above nine", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, false, 10, 20, false)),
+		static_cast<int>(ChallengeWaveGraveAction::SPAWN_RANDOM_GRAVE));
+	ExpectEqual("PvZ 95 final wave skips grave chain", static_cast<int>(ResolveChallengeWaveGraveAction(
+		GAMEMODE_ADVENTURE, false, 19, 20, true)), static_cast<int>(ChallengeWaveGraveAction::NONE));
+	const ChallengeStartSetup aPvZ95StartSetup = ResolveChallengeStartSetup(true, false);
+	ExpectEqual("PvZ 95 ordinary mode enters bowling setup", aPvZ95StartSetup.mApply, true);
+	ExpectEqual("PvZ 95 universal setup countdown", aPvZ95StartSetup.mZombieCountdown, 200);
+	ExpectEqual("PvZ 95 universal setup seed", aPvZ95StartSetup.mSeedType, SEED_NONE);
+	ExpectEqual("PvZ 95 universal setup conveyor", aPvZ95StartSetup.mConveyorBeltCounter, 400);
+	ExpectEqual("PvZ 95 ordinary mode does not write bowling line",
+		aPvZ95StartSetup.mSetShowBowlingLine, false);
+	ExpectEqual("PvZ 95 ordinary setup line value remains false", aPvZ95StartSetup.mShowBowlingLine, false);
+	ExpectEqual("PvZ 95 universal setup permits empty non-conveyor seed",
+		aPvZ95StartSetup.mAllowEmptyNonConveyorSeed, true);
+	const ChallengeStartSetup aPvZ95BowlingStartSetup = ResolveChallengeStartSetup(true, true);
+	ExpectEqual("PvZ 95 Wall-nut Bowling still writes line", aPvZ95BowlingStartSetup.mSetShowBowlingLine, true);
+	ExpectEqual("PvZ 95 Wall-nut Bowling still shows line", aPvZ95BowlingStartSetup.mShowBowlingLine, true);
+	ExpectEqual("PvZ 95 missing Board skips universal setup", ResolveChallengeStartSetup(false, true).mApply, false);
 	ExpectEqual("gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), true);
 	ExpectEqual("cattail counter-fifty shot removed", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), false);
 	ExpectEqual("marigold large sun", ResolveMarigoldCoinType(49, CoinType::COIN_GOLD), CoinType::COIN_LARGESUN);

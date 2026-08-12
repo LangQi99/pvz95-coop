@@ -475,13 +475,17 @@ void Challenge::StartLevel()
 			}
 		}
 	}
-	if (mApp->IsWallnutBowlingLevel())
+	const PvzRules::ChallengeStartSetup aStartSetup = PvzRules::ResolveChallengeStartSetup(
+		mBoard != nullptr, mApp->IsWallnutBowlingLevel());
+	if (aStartSetup.mApply)
 	{
-		mBoard->mZombieCountDown = 200;
+		mBoard->mZombieCountDown = aStartSetup.mZombieCountdown;
 		mBoard->mZombieCountDownStart = mBoard->mZombieCountDown;
-		mBoard->mSeedBank->AddSeed(SEED_WALLNUT);
-		mConveyorBeltCounter = 400;
-		mShowBowlingLine = true;
+		mBoard->mSeedBank->AddSeed(
+			aStartSetup.mSeedType, false, aStartSetup.mAllowEmptyNonConveyorSeed);
+		mConveyorBeltCounter = aStartSetup.mConveyorBeltCounter;
+		if (aStartSetup.mSetShowBowlingLine)
+			mShowBowlingLine = aStartSetup.mShowBowlingLine;
 	}
 	if (aGameMode == GAMEMODE_CHALLENGE_SHOVEL || aGameMode == GAMEMODE_CHALLENGE_SQUIRREL)
 	{
@@ -2744,6 +2748,16 @@ void Challenge::InitZombieWaves()
 		aList[ZOMBIE_PAIL] = true;
 	}
 
+	const bool anIsFirstWallnutBowlingLevel = mApp->IsWallnutBowlingLevel() &&
+		(aGameMode == GAMEMODE_CHALLENGE_WALLNUT_BOWLING || mApp->IsAdventureMode());
+	for (int aZombieIndex = 0; aZombieIndex < NUM_ZOMBIE_TYPES; aZombieIndex++)
+	{
+		const ZombieType aZombieType = static_cast<ZombieType>(aZombieIndex);
+		aList[aZombieIndex] = PvzRules::ResolveChallengeZombieAllowed(aGameMode,
+			mApp->IsLittleTroubleLevel(), anIsFirstWallnutBowlingLevel,
+			aZombieType, aList[aZombieIndex]);
+	}
+
 	if (mApp->CanSpawnYetis() && !mApp->IsWhackAZombieLevel() && !mApp->IsLittleTroubleLevel())
 		aList[ZOMBIE_YETI] = true;
 }
@@ -2996,16 +3010,16 @@ void Challenge::SpawnZombieWave()
 	}
 
 	int aIsFlagWave = mBoard->IsFlagWave(mBoard->mCurrentWave);
-	if (mApp->mGameMode == GAMEMODE_CHALLENGE_GRAVE_DANGER && mBoard->mCurrentWave != mBoard->mNumWaves - 1)
+	const PvzRules::ChallengeWaveGraveAction aGraveAction = PvzRules::ResolveChallengeWaveGraveAction(
+		mApp->mGameMode, mBoard->mDaisyMode, mBoard->mCurrentWave,
+		mBoard->mNumWaves, aIsFlagWave);
+	if (aGraveAction == PvzRules::ChallengeWaveGraveAction::SPAWN_ZOMBIES_FROM_GRAVES)
 	{
-		if (aIsFlagWave)
-		{
-			mBoard->SpawnZombiesFromGraves();
-		}
-		else if (mBoard->mCurrentWave > 5)
-		{
-			GraveDangerSpawnRandomGrave();
-		}
+		mBoard->SpawnZombiesFromGraves();
+	}
+	else if (aGraveAction == PvzRules::ChallengeWaveGraveAction::SPAWN_RANDOM_GRAVE)
+	{
+		GraveDangerSpawnRandomGrave();
 	}
 	if (mApp->IsSurvivalMode() && mBoard->mBackground == BACKGROUND_2_NIGHT && mBoard->mCurrentWave == mBoard->mNumWaves - 1)
 	{
