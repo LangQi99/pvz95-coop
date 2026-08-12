@@ -754,6 +754,45 @@ namespace PvzRules
 			theSeedType == SEED_MARIGOLD || theSeedType == SEED_PUFFSHROOM;
 	}
 
+	BeghouledTwistCornerPlan ResolveBeghouledTwistCornerPlan(
+		BeghouledTwistCorner theCorner)
+	{
+		if (gActiveRuleset == RulesetId::PVZ95)
+		{
+			switch (theCorner)
+			{
+			case BeghouledTwistCorner::TOP_LEFT:
+				return {BeghouledTwistCorner::BOTTOM_RIGHT, true, true, 20, 20, 1, 1};
+			case BeghouledTwistCorner::TOP_RIGHT:
+				return {BeghouledTwistCorner::BOTTOM_LEFT, true, true, -20, 20, -1, 1};
+			case BeghouledTwistCorner::BOTTOM_LEFT:
+				return {BeghouledTwistCorner::TOP_RIGHT, true, true, 20, -20, 1, -1};
+			case BeghouledTwistCorner::BOTTOM_RIGHT:
+				return {BeghouledTwistCorner::TOP_LEFT, true, true, -20, -20, -1, -1};
+			default:
+				break;
+			}
+		}
+		else
+		{
+			switch (theCorner)
+			{
+			case BeghouledTwistCorner::TOP_LEFT:
+				return {BeghouledTwistCorner::BOTTOM_LEFT, true, false, 20, 0, 1, 0};
+			case BeghouledTwistCorner::TOP_RIGHT:
+				return {BeghouledTwistCorner::TOP_LEFT, false, true, 0, 20, 0, 1};
+			case BeghouledTwistCorner::BOTTOM_LEFT:
+				return {BeghouledTwistCorner::BOTTOM_RIGHT, false, true, 0, -20, 0, -1};
+			case BeghouledTwistCorner::BOTTOM_RIGHT:
+				return {BeghouledTwistCorner::TOP_RIGHT, true, false, -20, 0, -1, 0};
+			default:
+				break;
+			}
+		}
+
+		return {theCorner, false, false, 0, 0, 0, 0};
+	}
+
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95 && theGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)

@@ -603,22 +603,30 @@ int Challenge::BeghouledTwistMoveCausesMatch(int theGridX, int theGridY, Beghoul
 	if (!BeghouledTwistValidMove(theGridX, theGridY, theBoardState))
 		return false;
 
-	SeedType aSeed1 = theBoardState->mSeedType[theGridX][theGridY];
-	SeedType aSeed2 = theBoardState->mSeedType[theGridX + 1][theGridY];
-	SeedType aSeed3 = theBoardState->mSeedType[theGridX][theGridY + 1];
-	SeedType aSeed4 = theBoardState->mSeedType[theGridX + 1][theGridY + 1];
-
-	theBoardState->mSeedType[theGridX + 1][theGridY] = aSeed1;
-	theBoardState->mSeedType[theGridX + 1][theGridY + 1] = aSeed2;
-	theBoardState->mSeedType[theGridX][theGridY + 1] = aSeed4;
-	theBoardState->mSeedType[theGridX][theGridY] = aSeed3;
+	SeedType aSeeds[4] = {
+		theBoardState->mSeedType[theGridX][theGridY],
+		theBoardState->mSeedType[theGridX + 1][theGridY],
+		theBoardState->mSeedType[theGridX][theGridY + 1],
+		theBoardState->mSeedType[theGridX + 1][theGridY + 1]
+	};
+	constexpr int aCornerColumn[4] = {0, 1, 0, 1};
+	constexpr int aCornerRow[4] = {0, 0, 1, 1};
+	for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+	{
+		const auto aCorner = static_cast<PvzRules::BeghouledTwistCorner>(aCornerIndex);
+		const PvzRules::BeghouledTwistCornerPlan aPlan =
+			PvzRules::ResolveBeghouledTwistCornerPlan(aCorner);
+		theBoardState->mSeedType[theGridX + aCornerColumn[aCornerIndex]]
+			[theGridY + aCornerRow[aCornerIndex]] = aSeeds[static_cast<int>(aPlan.mTrialSourceCorner)];
+	}
 
 	int aHasMatch = BeghouledBoardHasMatch(theBoardState);
 
-	theBoardState->mSeedType[theGridX][theGridY] = aSeed1;
-	theBoardState->mSeedType[theGridX + 1][theGridY] = aSeed2;
-	theBoardState->mSeedType[theGridX][theGridY + 1] = aSeed3;
-	theBoardState->mSeedType[theGridX + 1][theGridY + 1] = aSeed4;
+	for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+	{
+		theBoardState->mSeedType[theGridX + aCornerColumn[aCornerIndex]]
+			[theGridY + aCornerRow[aCornerIndex]] = aSeeds[aCornerIndex];
+	}
 
 	return aHasMatch;
 }
@@ -647,28 +655,39 @@ void Challenge::BeghouledTwistMouseDown(int x, int y)
 	int aGridX, aGridY;
 	if (BeghouledTwistSquareFromMouse(x, y, aGridX, aGridY) && BeghouledTwistValidMove(aGridX, aGridY, &aBoardState))
 	{
-		Plant* aPlant1 = mBoard->GetTopPlantAt(aGridX, aGridY, TOPPLANT_ANY);
-		Plant* aPlant2 = mBoard->GetTopPlantAt(aGridX + 1, aGridY, TOPPLANT_ANY);
-		Plant* aPlant3 = mBoard->GetTopPlantAt(aGridX, aGridY + 1, TOPPLANT_ANY);
-		Plant* aPlant4 = mBoard->GetTopPlantAt(aGridX + 1, aGridY + 1, TOPPLANT_ANY);
+		Plant* aPlants[4] = {
+			mBoard->GetTopPlantAt(aGridX, aGridY, TOPPLANT_ANY),
+			mBoard->GetTopPlantAt(aGridX + 1, aGridY, TOPPLANT_ANY),
+			mBoard->GetTopPlantAt(aGridX, aGridY + 1, TOPPLANT_ANY),
+			mBoard->GetTopPlantAt(aGridX + 1, aGridY + 1, TOPPLANT_ANY)
+		};
 		if (!BeghouledTwistMoveCausesMatch(aGridX, aGridY, &aBoardState))
 		{
-			aPlant1->mX = mBoard->GridToPixelX(aPlant1->mPlantCol, aPlant1->mRow) + 20;
-			aPlant2->mY = mBoard->GridToPixelY(aPlant2->mPlantCol, aPlant2->mRow) + 20;
-			aPlant3->mY = mBoard->GridToPixelY(aPlant3->mPlantCol, aPlant3->mRow) - 20;
-			aPlant4->mX = mBoard->GridToPixelX(aPlant4->mPlantCol, aPlant4->mRow) - 20;
+			for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+			{
+				Plant* aPlant = aPlants[aCornerIndex];
+				const auto aCorner = static_cast<PvzRules::BeghouledTwistCorner>(aCornerIndex);
+				const PvzRules::BeghouledTwistCornerPlan aPlan =
+					PvzRules::ResolveBeghouledTwistCornerPlan(aCorner);
+				if (aPlan.mSetInvalidX)
+					aPlant->mX = mBoard->GridToPixelX(aPlant->mPlantCol, aPlant->mRow) + aPlan.mInvalidOffsetX;
+				if (aPlan.mSetInvalidY)
+					aPlant->mY = mBoard->GridToPixelY(aPlant->mPlantCol, aPlant->mRow) + aPlan.mInvalidOffsetY;
+			}
 			mApp->PlayFoley(FOLEY_FLOOP);
 		}
 		else
 		{
-			aPlant1->mPlantCol++;
-			aPlant1->mRenderOrder = aPlant1->CalcRenderOrder();
-			aPlant2->mRow++;
-			aPlant2->mRenderOrder = aPlant2->CalcRenderOrder();
-			aPlant3->mRow--;
-			aPlant3->mRenderOrder = aPlant3->CalcRenderOrder();
-			aPlant4->mPlantCol--;
-			aPlant4->mRenderOrder = aPlant4->CalcRenderOrder();
+			for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+			{
+				Plant* aPlant = aPlants[aCornerIndex];
+				const auto aCorner = static_cast<PvzRules::BeghouledTwistCorner>(aCornerIndex);
+				const PvzRules::BeghouledTwistCornerPlan aPlan =
+					PvzRules::ResolveBeghouledTwistCornerPlan(aCorner);
+				aPlant->mPlantCol += aPlan.mValidColumnDelta;
+				aPlant->mRow += aPlan.mValidRowDelta;
+				aPlant->mRenderOrder = aPlant->CalcRenderOrder();
+			}
 			BeghouledStartFalling(STATECHALLENGE_BEGHOULED_MOVING);
 		}
 	}

@@ -94,6 +94,26 @@ namespace PvzRules
 		bool mAllowEmptyNonConveyorSeed;
 	};
 
+	enum class BeghouledTwistCorner : uint8_t
+	{
+		TOP_LEFT,
+		TOP_RIGHT,
+		BOTTOM_LEFT,
+		BOTTOM_RIGHT,
+		COUNT
+	};
+
+	struct BeghouledTwistCornerPlan
+	{
+		BeghouledTwistCorner mTrialSourceCorner;
+		bool mSetInvalidX;
+		bool mSetInvalidY;
+		int mInvalidOffsetX;
+		int mInvalidOffsetY;
+		int mValidColumnDelta;
+		int mValidRowDelta;
+	};
+
 	struct BurnRowEffects
 	{
 		bool mUseSpecialSequence;
@@ -209,6 +229,8 @@ namespace PvzRules
 		bool theBoardExists, bool theOriginalWallnutBowlingCondition);
 	bool ResolveSeedNotAllowedToPick(
 		GameMode theGameMode, SeedType theSeedType, bool theOriginalValue);
+	BeghouledTwistCornerPlan ResolveBeghouledTwistCornerPlan(
+		BeghouledTwistCorner theCorner);
 
 	int ResolveInitialSunMoney(GameMode theGameMode, int theOriginalValue);
 	int ResolveMaximumSunMoney(int theOriginalValue);

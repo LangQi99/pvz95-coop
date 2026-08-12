@@ -63,6 +63,47 @@ namespace
 			}
 		}
 	}
+
+	void ExpectTwistPermutation(std::string_view theName,
+		const std::array<SeedType, 4>& theInput, const std::array<SeedType, 4>& theExpected)
+	{
+		for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+		{
+			const auto aCorner = static_cast<PvzRules::BeghouledTwistCorner>(aCornerIndex);
+			const PvzRules::BeghouledTwistCornerPlan aPlan =
+				PvzRules::ResolveBeghouledTwistCornerPlan(aCorner);
+			const SeedType anActual = theInput[static_cast<int>(aPlan.mTrialSourceCorner)];
+			if (anActual != theExpected[aCornerIndex])
+			{
+				std::cerr << theName << ": corner " << aCornerIndex << " expected " <<
+					theExpected[aCornerIndex] << ", got " << anActual << '\n';
+				std::exit(1);
+			}
+		}
+	}
+
+	void ExpectTwistPlans(std::string_view theName,
+		const std::array<PvzRules::BeghouledTwistCornerPlan, 4>& theExpected)
+	{
+		for (int aCornerIndex = 0; aCornerIndex < 4; aCornerIndex++)
+		{
+			const auto aCorner = static_cast<PvzRules::BeghouledTwistCorner>(aCornerIndex);
+			const PvzRules::BeghouledTwistCornerPlan anActual =
+				PvzRules::ResolveBeghouledTwistCornerPlan(aCorner);
+			const PvzRules::BeghouledTwistCornerPlan& anExpected = theExpected[aCornerIndex];
+			if (anActual.mTrialSourceCorner != anExpected.mTrialSourceCorner ||
+				anActual.mSetInvalidX != anExpected.mSetInvalidX ||
+				anActual.mSetInvalidY != anExpected.mSetInvalidY ||
+				anActual.mInvalidOffsetX != anExpected.mInvalidOffsetX ||
+				anActual.mInvalidOffsetY != anExpected.mInvalidOffsetY ||
+				anActual.mValidColumnDelta != anExpected.mValidColumnDelta ||
+				anActual.mValidRowDelta != anExpected.mValidRowDelta)
+			{
+				std::cerr << theName << ": mismatch at corner " << aCornerIndex << '\n';
+				std::exit(1);
+			}
+		}
+	}
 }
 
 int main()
@@ -255,6 +296,15 @@ int main()
 		GAMEMODE_CHALLENGE_AIR_RAID, SEED_SUNFLOWER, false), false);
 	ExpectEqual("original seed chooser preserves forbidden result", ResolveSeedNotAllowedToPick(
 		GAMEMODE_ADVENTURE, SEED_PEASHOOTER, true), true);
+	const std::array<SeedType, 4> aTwistMarkers{
+		SEED_PEASHOOTER, SEED_SUNFLOWER, SEED_CHERRYBOMB, SEED_WALLNUT};
+	ExpectTwistPermutation("original clockwise Twist trial", aTwistMarkers,
+		std::array{SEED_CHERRYBOMB, SEED_PEASHOOTER, SEED_WALLNUT, SEED_SUNFLOWER});
+	ExpectTwistPlans("original clockwise Twist plan", std::array<BeghouledTwistCornerPlan, 4>{
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::BOTTOM_LEFT, true, false, 20, 0, 1, 0},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::TOP_LEFT, false, true, 0, 20, 0, 1},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::BOTTOM_RIGHT, false, true, 0, -20, 0, -1},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::TOP_RIGHT, true, false, -20, 0, -1, 0}});
 	for (const SeedRuleCase& aCase : aScarySeedCases)
 		ExpectEqual("original Scary Potter seed", ResolveScaryPotterSeed(aCase.mGameMode, aCase.mIndex, aCase.mOriginal), aCase.mOriginal);
 	for (const ZombieRuleCase& aCase : aScaryZombieCases)
@@ -402,6 +452,13 @@ int main()
 		GAMEMODE_CHALLENGE_AIR_RAID, SEED_FUMESHROOM, true), false);
 	ExpectEqual("PvZ 95 unrelated mode has no chooser restriction", ResolveSeedNotAllowedToPick(
 		GAMEMODE_ADVENTURE, SEED_MARIGOLD, true), false);
+	ExpectTwistPermutation("PvZ 95 diagonal Twist trial", aTwistMarkers,
+		std::array{SEED_WALLNUT, SEED_CHERRYBOMB, SEED_SUNFLOWER, SEED_PEASHOOTER});
+	ExpectTwistPlans("PvZ 95 diagonal Twist plan", std::array<BeghouledTwistCornerPlan, 4>{
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::BOTTOM_RIGHT, true, true, 20, 20, 1, 1},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::BOTTOM_LEFT, true, true, -20, 20, -1, 1},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::TOP_RIGHT, true, true, 20, -20, 1, -1},
+		BeghouledTwistCornerPlan{BeghouledTwistCorner::TOP_LEFT, true, true, -20, -20, -1, -1}});
 	ExpectEqual("gatling counter-fifty shot", ShootsAtCounterFifty(SeedType::SEED_GATLINGPEA), true);
 	ExpectEqual("cattail counter-fifty shot removed", ShootsAtCounterFifty(SeedType::SEED_CATTAIL), false);
 	ExpectEqual("marigold large sun", ResolveMarigoldCoinType(49, CoinType::COIN_GOLD), CoinType::COIN_LARGESUN);
