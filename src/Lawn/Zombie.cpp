@@ -43,6 +43,7 @@
 #include "../PvzpLib/Reanimator.h"
 #include "../PvzpLib/Attachment.h"
 #include "../PvzpLib/PvzpParticle.h"
+#include "../SexyAppFramework/misc/ResourceManager.h"
 #include <algorithm>
 
 constexpr const int ZOMBIE_START_RANDOM_OFFSET = 40;
@@ -75,6 +76,21 @@ constexpr Color ZOMBIE_MINDCONTROLLED_COLOR = Color(128, 64, 192, 255);
 static std::string ZombatarTrackName(const char* thePrefix, int theIndex)
 {
 	return Sexy::StrFormat("%s%02d", thePrefix, theIndex);
+}
+
+static const char* DancerTrackName(Reanimation* theReanim, const char* theGotyName, const char* theRetailName)
+{
+	return theReanim != nullptr && theReanim->TrackExists(theGotyName) ? theGotyName : theRetailName;
+}
+
+static Image* LoadDancerImage(const char* theGotyName, Image* theGotyImage, const char* theRetailName)
+{
+	if (theGotyImage != nullptr)
+		return theGotyImage;
+	Image* aRetailImage = (Image*)gSexyAppBase->mResourceManager->LoadImage(theRetailName);
+	if (aRetailImage == nullptr)
+		PvzpTraceAndLogLn("Missing both GOTY dancer image '%s' and retail image '%s'", theGotyName, theRetailName);
+	return aRetailImage;
 }
 
 constinit const ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
@@ -3609,6 +3625,7 @@ void Zombie::DropHead(unsigned int theDamageFlags)
 		{
 			ReanimShowPrefix("Zombie_disco_chops", RENDER_GROUP_HIDDEN);
 			ReanimShowPrefix("Zombie_backup_stash", RENDER_GROUP_HIDDEN);
+			ReanimShowPrefix("anim_earing", RENDER_GROUP_HIDDEN);
 			aParticle->OverrideImage(nullptr, IMAGE_ZOMBIEBACKUPDANCERHEAD);
 		}
 		else if (mZombieType == ZombieType::ZOMBIE_BOBSLED)
@@ -3711,6 +3728,7 @@ void Zombie::DropHead(unsigned int theDamageFlags)
 
 void Zombie::SetupReanimForLostArm(unsigned int theDamageFlags)
 {
+	Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
 	switch (mZombieType)
 	{
 	case ZombieType::ZOMBIE_FOOTBALL:
@@ -3726,12 +3744,12 @@ void Zombie::SetupReanimForLostArm(unsigned int theDamageFlags)
 		ReanimShowTrack("Zombie_outerarm_hand", RENDER_GROUP_HIDDEN);
 		break;
 	case ZombieType::ZOMBIE_DANCER:
-		ReanimShowTrack("Zombie_disco_outerarm_lower", RENDER_GROUP_HIDDEN);
-		ReanimShowTrack("Zombie_disco_outerhand_point", RENDER_GROUP_HIDDEN);
+		ReanimShowTrack(DancerTrackName(aBodyReanim, "Zombie_disco_outerarm_lower", "Zombie_outerarm_lower"), RENDER_GROUP_HIDDEN);
+		ReanimShowTrack(DancerTrackName(aBodyReanim, "Zombie_disco_outerhand_point", "Zombie_outerarm_hand"), RENDER_GROUP_HIDDEN);
 		break;
 	case ZombieType::ZOMBIE_BACKUP_DANCER:
-		ReanimShowTrack("Zombie_disco_outerarm_lower", RENDER_GROUP_HIDDEN);
-		ReanimShowTrack("Zombie_disco_outerhand", RENDER_GROUP_HIDDEN);
+		ReanimShowTrack(DancerTrackName(aBodyReanim, "Zombie_disco_outerarm_lower", "Zombie_outerarm_lower"), RENDER_GROUP_HIDDEN);
+		ReanimShowTrack(DancerTrackName(aBodyReanim, "Zombie_disco_outerhand", "Zombie_outerarm_hand"), RENDER_GROUP_HIDDEN);
 		break;
 	default:
 		ReanimShowPrefix("Zombie_outerarm_lower", RENDER_GROUP_HIDDEN);
@@ -3748,7 +3766,6 @@ void Zombie::SetupReanimForLostArm(unsigned int theDamageFlags)
 		aPosX += 36.0f;
 	}
 
-	Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
 	if (aBodyReanim)
 	{
 		switch (mZombieType)
@@ -3813,12 +3830,16 @@ void Zombie::SetupReanimForLostArm(unsigned int theDamageFlags)
 			break;
 		}
 		case ZombieType::ZOMBIE_DANCER:
-			GetTrackPosition("Zombie_disco_outerarm_lower", aPosX, aPosY);
-			aBodyReanim->SetImageOverride("Zombie_disco_outerarm_upper", IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_UPPER2); // GOTY assets use a different name
+			GetTrackPosition(DancerTrackName(aBodyReanim, "Zombie_disco_outerarm_lower", "Zombie_outerarm_lower"), aPosX, aPosY);
+			aBodyReanim->SetImageOverride(
+				DancerTrackName(aBodyReanim, "Zombie_disco_outerarm_upper", "Zombie_Jackson_outerarm_upper"),
+				LoadDancerImage("IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_UPPER2", IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_UPPER2,
+					"IMAGE_REANIM_ZOMBIE_JACKSON_OUTERARM_UPPER2"));
 			break;
 		case ZombieType::ZOMBIE_BACKUP_DANCER:
-			GetTrackPosition("Zombie_disco_outerarm_lower", aPosX, aPosY);
-			aBodyReanim->SetImageOverride("Zombie_disco_outerarm_upper", IMAGE_REANIM_ZOMBIE_BACKUP_OUTERARM_UPPER2);
+			GetTrackPosition(DancerTrackName(aBodyReanim, "Zombie_disco_outerarm_lower", "Zombie_outerarm_lower"), aPosX, aPosY);
+			if (aBodyReanim->TrackExists("Zombie_disco_outerarm_upper"))
+				aBodyReanim->SetImageOverride("Zombie_disco_outerarm_upper", IMAGE_REANIM_ZOMBIE_BACKUP_OUTERARM_UPPER2);
 			break;
 		case ZombieType::ZOMBIE_LADDER:
 			GetTrackPosition("Zombie_outerarm_hand", aPosX, aPosY);
@@ -3858,10 +3879,14 @@ void Zombie::SetupReanimForLostArm(unsigned int theDamageFlags)
 				aParticle->OverrideImage(nullptr, IMAGE_REANIM_ZOMBIE_PAPER_LEFTARM_LOWER);
 				break;
 			case ZombieType::ZOMBIE_DANCER:
-				aParticle->OverrideImage(nullptr, IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_HAND);
+				aParticle->OverrideImage(nullptr,
+					LoadDancerImage("IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_HAND", IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_HAND,
+						"IMAGE_REANIM_ZOMBIE_JACKSON_OUTERARM_HAND"));
 				break;
 			case ZombieType::ZOMBIE_BACKUP_DANCER:
-				aParticle->OverrideImage(nullptr, IMAGE_REANIM_ZOMBIE_BACKUP_INNERARM_HAND);
+				aParticle->OverrideImage(nullptr,
+					LoadDancerImage("IMAGE_REANIM_ZOMBIE_BACKUP_INNERARM_HAND", IMAGE_REANIM_ZOMBIE_BACKUP_INNERARM_HAND,
+						"IMAGE_REANIM_ZOMBIE_DANCER_INNERARM_HAND"));
 				break;
 			case ZombieType::ZOMBIE_BOBSLED:
 				aParticle->OverrideImage(nullptr, IMAGE_REANIM_ZOMBIE_BOBSLED_OUTERARM_HAND);

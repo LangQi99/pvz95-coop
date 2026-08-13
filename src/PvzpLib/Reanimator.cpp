@@ -33,6 +33,7 @@
 #include "misc/PerfTimer.h"
 #include "graphics/MemoryImage.h"
 #include <algorithm>
+#include <vector>
 
 constexpr const int NO_BASE_POSE = -2;
 
@@ -40,6 +41,37 @@ unsigned int gReanimatorDefCount;
 ReanimatorDefinition* gReanimatorDefArray;
 unsigned int gReanimationParamArraySize;
 const ReanimationParams* gReanimationParamArray;
+
+namespace
+{
+std::vector<ReanimationParams> gResolvedReanimationParams;
+
+const char* ResolveReanimationFileName(const ReanimationParams& theParams)
+{
+	if (DefinitionIsCompiled(theParams.mReanimFileName))
+		return theParams.mReanimFileName;
+
+	const char* aFallback = nullptr;
+	switch (theParams.mReanimationType)
+	{
+	case ReanimationType::REANIM_DANCER:
+		aFallback = "reanim/Zombie_Jackson.reanim";
+		break;
+	case ReanimationType::REANIM_BACKUP_DANCER:
+		aFallback = "reanim/Zombie_dancer.reanim";
+		break;
+	default:
+		return theParams.mReanimFileName;
+	}
+
+	if (DefinitionIsCompiled(aFallback))
+	{
+		PvzpTraceAndLogLn("Using retail reanimation '%s' for missing GOTY asset '%s'", aFallback, theParams.mReanimFileName);
+		return aFallback;
+	}
+	return theParams.mReanimFileName;
+}
+}
 
 constinit const ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ .mReanimationType = ReanimationType::REANIM_LOADBAR_SPROUT, .mReanimFileName = "reanim/LoadBar_sprout.reanim", .mReanimParamFlags = 1 },
@@ -93,7 +125,7 @@ constinit const ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REA
 	{ .mReanimationType = ReanimationType::REANIM_BLOVER, .mReanimFileName = "reanim/Blover.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_FLOWER_POT, .mReanimFileName = "reanim/Pot.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_CACTUS, .mReanimFileName = "reanim/Cactus.reanim", .mReanimParamFlags = 0 },
-	{ .mReanimationType = ReanimationType::REANIM_DANCER, .mReanimFileName = "reanim/Zombie_disco.reanim", .mReanimParamFlags = 0 }, // GOTY uses a different reanim file name
+	{ .mReanimationType = ReanimationType::REANIM_DANCER, .mReanimFileName = "reanim/Zombie_disco.reanim", .mReanimParamFlags = 0 }, // Retail 1.0 uses Zombie_Jackson
 	{ .mReanimationType = ReanimationType::REANIM_TANGLEKELP, .mReanimFileName = "reanim/Tanglekelp.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_STARFRUIT, .mReanimFileName = "reanim/Starfruit.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_POLEVAULTER, .mReanimFileName = "reanim/Zombie_polevaulter.reanim", .mReanimParamFlags = 0 },
@@ -104,7 +136,7 @@ constinit const ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REA
 	{ .mReanimationType = ReanimationType::REANIM_DIGGER_DIRT, .mReanimFileName = "reanim/Digger_rising_dirt.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_ZOMBIE_DOLPHINRIDER, .mReanimFileName = "reanim/Zombie_dolphinrider.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_POGO, .mReanimFileName = "reanim/Zombie_pogo.reanim", .mReanimParamFlags = 0 },
-	{ .mReanimationType = ReanimationType::REANIM_BACKUP_DANCER, .mReanimFileName = "reanim/Zombie_backup.reanim", .mReanimParamFlags = 0 }, // GOTY uses a different reanim file name
+	{ .mReanimationType = ReanimationType::REANIM_BACKUP_DANCER, .mReanimFileName = "reanim/Zombie_backup.reanim", .mReanimParamFlags = 0 }, // Retail 1.0 uses Zombie_dancer
 	{ .mReanimationType = ReanimationType::REANIM_BOBSLED, .mReanimFileName = "reanim/Zombie_bobsled.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_JACKINTHEBOX, .mReanimFileName = "reanim/Zombie_jackbox.reanim", .mReanimParamFlags = 0 },
 	{ .mReanimationType = ReanimationType::REANIM_SNORKEL, .mReanimFileName = "reanim/Zombie_snorkle.reanim", .mReanimParamFlags = 0 },
@@ -1199,7 +1231,10 @@ void ReanimatorLoadDefinitions(const ReanimationParams* theReanimationParamArray
 	PvzpHesitationBracket aHesitation("ReanimatorLoadDefinitions");
 	PVZP_ASSERT(!gReanimationParamArray && !gReanimatorDefArray);
 	gReanimationParamArraySize = theReanimationParamArraySize;
-	gReanimationParamArray = theReanimationParamArray;
+	gResolvedReanimationParams.assign(theReanimationParamArray, theReanimationParamArray + theReanimationParamArraySize);
+	for (ReanimationParams& aParams : gResolvedReanimationParams)
+		aParams.mReanimFileName = ResolveReanimationFileName(aParams);
+	gReanimationParamArray = gResolvedReanimationParams.data();
 	gReanimatorDefCount = theReanimationParamArraySize;
 	gReanimatorDefArray = new ReanimatorDefinition[theReanimationParamArraySize];
 
@@ -1224,6 +1259,7 @@ void ReanimatorFreeDefinitions()
 	gReanimatorDefCount = 0;
 	gReanimationParamArray = nullptr;
 	gReanimationParamArraySize = 0;
+	gResolvedReanimationParams.clear();
 }
 
 float Reanimation::GetTrackVelocity(const char* theTrackName)
