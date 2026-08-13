@@ -41,9 +41,18 @@ PvZ 95 Co-op 的目标是让 2–4 名玩家共同操控同一局《植物大战
 
 ### 所需游戏资源
 
-本仓库**不包含** PopCap/EA 的游戏资源或可执行文件。你需要从自己有合法使用权的《植物大战僵尸》副本中提供兼容的 `main.pak` 和 `properties/` 数据。加载器既支持所分析 PvZ 95 包使用的原版零售 1.0 编译定义，也支持较新的原生布局，并会在加载时把旧版 GBK 中文文本转换为 UTF-8。
+本仓库**不包含** PopCap/EA 的游戏资源或原版可执行文件。你可以从第三方提供的[植物大战僵尸 95 版资源包](https://d2.wwh8.net/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B895%E7%89%88.zip)获取兼容资源；请仅在你拥有相应游戏合法使用权时下载和使用。该链接及其内容不由本项目托管或维护。
 
-请将资源放在可执行文件旁边，或在启动时显式指定资源目录：
+下载与启动：
+
+1. 下载上面的资源包并完整解压。
+2. 从本仓库的 [Releases](https://github.com/LangQi99/pvz95-coop/releases/latest) 下载对应平台版本。
+3. Windows：把下载的 `PvZ-95-Co-op-*-Windows-x64.exe` 拖进解压后的完整游戏目录，与 `main.pak`、`properties/` 放在同一级，然后双击启动。
+4. Apple Silicon macOS：解压下载的 ZIP，把 `pvz95-coop.app` 拖进同一个完整游戏目录，然后双击启动。首次打开可能需要在 Finder 中右键应用并选择“打开”。
+
+加载器支持所分析 PvZ 95 包使用的原版零售 1.0 编译定义，也支持较新的原生布局，并会在加载时把旧版 GBK 中文文本转换为 UTF-8。
+
+也可以在启动时显式指定资源目录：
 
 ```bash
 ./pvz95-coop -resdir /path/to/your/legal/game-data
@@ -187,9 +196,18 @@ Recovered behavior is implemented as maintainable C++ and tested against observe
 
 ### Required game data
 
-This repository does **not** contain PopCap/EA game assets or executables. You must supply compatible `main.pak` and `properties/` data from a copy of Plants vs. Zombies you are legally entitled to use. The loader accepts the original retail 1.0 compiled definitions used by the analyzed PvZ 95 package as well as the newer native layout, and converts legacy Chinese GBK text to UTF-8 at load time.
+This repository does **not** contain PopCap/EA game assets or original executables. Compatible data is available from this third-party [Plants vs. Zombies 95 resource archive](https://d2.wwh8.net/%E6%A4%8D%E7%89%A9%E5%A4%A7%E6%88%98%E5%83%B5%E5%B0%B895%E7%89%88.zip); download and use it only if you are legally entitled to use the corresponding game. This project neither hosts nor maintains the link or its contents.
 
-Place the files next to the executable, or launch with an explicit resource directory:
+To download and run the game:
+
+1. Download the resource archive above and extract it completely.
+2. Download the package for your platform from this repository's [Releases](https://github.com/LangQi99/pvz95-coop/releases/latest).
+3. Windows: move `PvZ-95-Co-op-*-Windows-x64.exe` into the extracted game folder, alongside `main.pak` and `properties/`, then double-click it.
+4. Apple Silicon macOS: extract the downloaded ZIP, move `pvz95-coop.app` into the same complete game folder, then double-click it. On first launch, you may need to right-click the app in Finder and choose **Open**.
+
+The loader accepts the original retail 1.0 compiled definitions used by the analyzed PvZ 95 package as well as the newer native layout, and converts legacy Chinese GBK text to UTF-8 at load time.
+
+Alternatively, launch with an explicit resource directory:
 
 ```bash
 ./pvz95-coop -resdir /path/to/your/legal/game-data

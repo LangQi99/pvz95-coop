@@ -204,6 +204,29 @@ SexyAppBase::SexyAppBase()
 	if (aBasePath)
 	{
 		mResourceDir = aBasePath;
+
+#ifdef __APPLE__
+		// SDL points at Contents/MacOS when launched from an app bundle.  Release
+		// users keep the proprietary game data outside the bundle, next to the
+		// app, so prefer that directory when it contains a complete resource set.
+		std::filesystem::path aExecutableDir = std::filesystem::path(aBasePath).lexically_normal();
+		if (aExecutableDir.filename().empty())
+			aExecutableDir = aExecutableDir.parent_path();
+		const std::filesystem::path aContentsDir = aExecutableDir.parent_path();
+		const std::filesystem::path anAppDir = aContentsDir.parent_path();
+		if (aExecutableDir.filename() == "MacOS" &&
+			aContentsDir.filename() == "Contents" &&
+			anAppDir.extension() == ".app")
+		{
+			const std::filesystem::path anAdjacentResourceDir = anAppDir.parent_path();
+			if (std::filesystem::is_regular_file(anAdjacentResourceDir / "main.pak") &&
+				std::filesystem::is_regular_file(anAdjacentResourceDir / "properties" / "resources.xml"))
+			{
+				mResourceDir = anAdjacentResourceDir.generic_string();
+			}
+		}
+#endif
+
 		SDL_free(aBasePath);
 	}
 	else
