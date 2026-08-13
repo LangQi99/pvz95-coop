@@ -18,10 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 8 adds a host-authoritative Crazy Dave dialog action and extends
-	// the canonical gameplay checksum with dialog/tutorial state.  Older peers
-	// must fail the handshake instead of silently advancing cutscenes locally.
-	constexpr uint16_t PROTOCOL_VERSION = 8;
+	// Version 9 adds an ordered Whack-a-Zombie action.  Older peers must fail the
+	// handshake instead of accepting a session in which hammer clicks disappear.
+	constexpr uint16_t PROTOCOL_VERSION = 9;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -77,7 +76,8 @@ namespace PvzMultiplayer
 		REMOVE_SEED_CHOICE,
 		CHOOSE_IMITATER,
 		CONFIRM_SEED_CHOICES,
-		ADVANCE_CRAZY_DAVE_DIALOG
+		ADVANCE_CRAZY_DAVE_DIALOG,
+		WHACK_ZOMBIE
 	};
 
 	enum class CodecError : uint8_t

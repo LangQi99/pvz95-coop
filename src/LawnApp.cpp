@@ -25,6 +25,7 @@
 #include "Lawn/LawnCommon.h"
 #include "Lawn/Board.h"
 #include "Lawn/Coin.h"
+#include "Lawn/CursorObject.h"
 #include "Lawn/Plant.h"
 #include "Lawn/SeedPacket.h"
 #include "Lawn/Zombie.h"
@@ -2050,6 +2051,16 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	}
 	if (QueueHitCoin())
 		return true;
+	if (IsWhackAZombieLevel() &&
+		mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_HAMMER &&
+		aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_NONE)
+	{
+		QueueLocalLanAction({0, 0, 0,
+			PvzMultiplayer::NormalizeCoordinate(aBoardX, mBoard->mWidth),
+			PvzMultiplayer::NormalizeCoordinate(aBoardY, mBoard->mHeight), 0,
+			PvzMultiplayer::ActionKind::WHACK_ZOMBIE});
+		return true;
+	}
 	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SHOVEL)
 	{
 		mLocalLanSeedBankIndex = -1;
@@ -2309,6 +2320,8 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 		return theAction.mPlayerId == 0 &&
 			theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::WHACK_ZOMBIE:
+		return theAction.mParameter == 0;
 	}
 	return false;
 }
@@ -2612,6 +2625,19 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 		}
 		return false;
 	}
+	case ActionKind::WHACK_ZOMBIE:
+		// A click queued just before the award appears is a harmless stale input.
+		// Otherwise replay the original challenge logic at the ordered tick so
+		// helmet damage, loot and target selection are identical on every peer.
+		if (!IsWhackAZombieLevel() || mGameScene != GameScenes::SCENE_PLAYING ||
+			mBoard->HasLevelAwardDropped())
+		{
+			return true;
+		}
+		mBoard->mChallenge->MouseDownWhackAZombie(
+			DenormalizeCoordinate(theAction.mTargetX, mBoard->mWidth),
+			DenormalizeCoordinate(theAction.mTargetY, mBoard->mHeight));
+		return true;
 	}
 	return false;
 }

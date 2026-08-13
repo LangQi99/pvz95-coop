@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::ADVANCE_CRAZY_DAVE_DIALOG);
+				theValue <= static_cast<uint8_t>(ActionKind::WHACK_ZOMBIE);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -231,6 +231,8 @@ namespace PvzMultiplayer
 					theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
 					theAction.mTargetX == 0 && theAction.mTargetY == 0;
 			}
+			if (theAction.mKind == ActionKind::WHACK_ZOMBIE)
+				return theAction.mParameter == 0;
 
 			return true;
 		}

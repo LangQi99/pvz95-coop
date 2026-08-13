@@ -70,7 +70,7 @@ Until these actions exist, unsupported special modes should be rejected when cre
 
 | Mode | Required semantic actions |
 |---|---|
-| Whack-a-Zombie | `WHACK_ZOMBIE` |
+| Whack-a-Zombie | `WHACK_ZOMBIE` (implemented in protocol version 9 for Adventure level 15 and the challenge mode) |
 | Vasebreaker / Scary Potter | `BREAK_VASE` |
 | Slot Machine | `PULL_SLOT_MACHINE` |
 | Beghouled / Twist | `BEGHOULED_SWAP`, `BEGHOULED_TWIST`, `BEGHOULED_BUY` |
