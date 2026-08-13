@@ -69,6 +69,24 @@ int main()
 		Fail("first client assignment is invalid");
 	if (ValidateWelcome(aPlayerOne, SESSION_ID, RULESET_ID) != WelcomeValidation::ACCEPTED)
 		Fail("valid welcome was rejected by client validation");
+	if (ValidateWelcome(aPlayerOne, std::nullopt, RULESET_ID) != WelcomeValidation::ACCEPTED)
+		Fail("direct-join welcome with an unknown session ID was rejected");
+	Welcome aZeroSession = aPlayerOne;
+	aZeroSession.mSessionId = 0;
+	if (ValidateWelcome(aZeroSession, std::nullopt, RULESET_ID) != WelcomeValidation::WRONG_SESSION)
+		Fail("direct-join welcome accepted a zero session ID");
+	Welcome aWrongRuleset = aPlayerOne;
+	aWrongRuleset.mRulesetId++;
+	if (ValidateWelcome(aWrongRuleset, std::nullopt, RULESET_ID) != WelcomeValidation::WRONG_RULESET)
+		Fail("direct-join welcome accepted the wrong ruleset");
+	Welcome anInvalidPlayer = aPlayerOne;
+	anInvalidPlayer.mMaxPlayers = 0;
+	if (ValidateWelcome(anInvalidPlayer, std::nullopt, RULESET_ID) != WelcomeValidation::INVALID_PLAYER)
+		Fail("direct-join welcome accepted invalid player fields");
+	Welcome anInvalidTickRate = aPlayerOne;
+	anInvalidTickRate.mTickRate = 0;
+	if (ValidateWelcome(anInvalidTickRate, std::nullopt, RULESET_ID) != WelcomeValidation::INVALID_TICK_RATE)
+		Fail("direct-join welcome accepted an invalid tick rate");
 
 	Welcome aRetry = ExpectWelcome(aLobby.HandleHello({11, RULESET_ID, 0, "Player One"}));
 	if (aRetry != aPlayerOne || aLobby.GetPlayerCount() != 2)

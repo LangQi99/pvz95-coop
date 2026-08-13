@@ -137,6 +137,21 @@ int main()
 		aClient.GetReject()->mReason != RejectReason::RULESET_MISMATCH)
 		Fail("ruleset mismatch was not rejected cleanly");
 
+	aClient.Stop();
+	aHost.Stop();
+	if (!aHost.Start(aHostConfig, 0))
+		Fail("host failed to restart for direct joining");
+	aClientConfig.mEndpoint = Ipv4Endpoint::Loopback(aHost.GetLocalPort());
+	aClientConfig.mExpectedSessionId = std::nullopt;
+	aClientConfig.mClientNonce++;
+	aClientConfig.mRulesetId = aHostConfig.mRulesetId;
+	aClientConfig.mPlayerName = "Direct Guest";
+	if (!aClient.Start(aClientConfig))
+		Fail("direct client failed to start: " + aClient.GetLastError());
+	PollUntilConnected(aHost, aClient);
+	if (!aClient.GetWelcome() || aClient.GetWelcome()->mSessionId != aHostConfig.mSessionId)
+		Fail("direct client did not accept the host-provided session ID");
+
 	std::cout << "PvZ 95 client session test passed\n";
 	return 0;
 }

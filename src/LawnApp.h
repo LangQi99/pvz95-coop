@@ -54,6 +54,7 @@ class TitleScreen;
 class ChallengeScreen;
 class StoreScreen;
 class AlmanacDialog;
+class JoinLanDialog;
 class TypingCheck;
 
 namespace PvzMultiplayer
@@ -214,6 +215,8 @@ public:
 	void							DoCreateUserDialog();
 	void							DoCheatDialog();
 	void							FinishCheatDialog(bool isYes);
+	void                            DoJoinLanDialog();
+	void                            FinishJoinLanDialog(bool isYes);
 	void							FinishCreateUserDialog(bool isYes);
 	void							DoConfirmDeleteUserDialog(const std::string& theName);
 	void							FinishConfirmDeleteUserDialog(bool isYes);

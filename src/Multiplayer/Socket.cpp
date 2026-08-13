@@ -746,9 +746,20 @@ namespace PvzMultiplayer
 
 		int anEnabled = 1;
 #ifdef _WIN32
-		setsockopt(aSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&anEnabled), sizeof(anEnabled));
+		if (setsockopt(aSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+			reinterpret_cast<const char*>(&anEnabled), sizeof(anEnabled)) != 0)
+		{
+			SetError("configure exclusive TCP listener address use");
+			Close();
+			return false;
+		}
 #else
-		setsockopt(aSocket, SOL_SOCKET, SO_REUSEADDR, &anEnabled, sizeof(anEnabled));
+		if (setsockopt(aSocket, SOL_SOCKET, SO_REUSEADDR, &anEnabled, sizeof(anEnabled)) != 0)
+		{
+			SetError("configure reusable TCP listener address");
+			Close();
+			return false;
+		}
 #endif
 		if (!SetNativeNonBlocking(mHandle))
 		{

@@ -320,6 +320,7 @@ enum Dialogs : int32_t
 	DIALOG_PURCHASE_PACKET_SLOT,                // 50
 	DIALOG_ZOMBATAR_TOS,                        // 51: terms of service
 	DIALOG_ZOMBATAR_DELETE,                     // 52
+	DIALOG_JOIN_LAN,                            // 53: manual LAN address and port entry
 	NUM_DIALOGS
 };
 enum DebugTextMode : int32_t

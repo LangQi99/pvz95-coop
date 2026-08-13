@@ -25,6 +25,7 @@ namespace
 int main()
 {
 	using namespace PvzMultiplayer;
+	static_assert(DEFAULT_GAME_PORT == 43096);
 	if (IsLanClientWaitingForHost(LanMode::OFFLINE) ||
 		IsLanClientWaitingForHost(LanMode::HOSTING) ||
 		!IsLanClientWaitingForHost(LanMode::SEARCHING) ||
@@ -43,8 +44,12 @@ int main()
 		Fail("LAN lifecycle authority classification is incorrect");
 
 	LanCoordinator aHost;
-	if (!aHost.StartHosting("Test Garden", "Host", 0x50563935))
+	if (!aHost.StartHosting("Test Garden", "Host", 0x50563935, 0))
 		Fail("coordinator host failed: " + aHost.GetStatusText());
+	uint16_t aHostGamePort = aHost.GetHostSession().GetLocalPort();
+	if (aHostGamePort == 0 ||
+		aHost.GetStatusText().find("TCP port " + std::to_string(aHostGamePort)) == std::string::npos)
+		Fail("coordinator host status did not show its actual TCP game port");
 
 	LanCoordinator aClient;
 	if (!aClient.StartJoining("Guest", 0x50563935, Ipv4Endpoint::Loopback(DEFAULT_DISCOVERY_PORT)))
@@ -219,6 +224,46 @@ int main()
 	}
 	if (aMessages.size() != 1 || aMessages.front() != Message{aHash})
 		Fail("coordinator client did not receive host broadcast");
+
+	aClient.Stop();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline &&
+		aHost.GetHostSession().GetLobby().GetPlayerCount() != 1)
+	{
+		aHost.Poll();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aHost.GetHostSession().GetLobby().GetPlayerCount() != 1)
+		Fail("coordinator host did not observe the discovery client leaving");
+
+	LanCoordinator aDirectClient;
+	Ipv4Endpoint aDirectEndpoint = Ipv4Endpoint::Loopback(aHostGamePort);
+	if (!aDirectClient.StartDirectJoining("Direct Guest", 0x50563935, aDirectEndpoint))
+		Fail("direct coordinator client failed: " + aDirectClient.GetStatusText());
+	if (aDirectClient.GetMode() != LanMode::JOINING ||
+		aDirectClient.GetStatusText().find("127.0.0.1:" + std::to_string(aHostGamePort)) == std::string::npos)
+		Fail("direct coordinator client did not enter the direct joining state");
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aDirectClient.GetMode() != LanMode::CONNECTED)
+	{
+		aHost.Poll();
+		aDirectClient.Poll();
+		if (aHost.GetMode() == LanMode::FAILED || aDirectClient.GetMode() == LanMode::FAILED)
+			Fail("direct coordinator handshake error: " + aHost.GetStatusText() + "; " +
+				aDirectClient.GetStatusText());
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aDirectClient.GetMode() != LanMode::CONNECTED ||
+		aHost.GetHostSession().GetLobby().GetPlayerCount() != 2)
+		Fail("direct coordinator handshake timed out");
+	if (aHost.GetStatusText().find("2/4") == std::string::npos ||
+		aHost.GetStatusText().find("TCP port " + std::to_string(aHostGamePort)) == std::string::npos)
+		Fail("coordinator host status lost the player count or TCP port after a direct join");
+
+	LanCoordinator anInvalidDirectClient;
+	if (anInvalidDirectClient.StartDirectJoining("Guest", 0x50563935, Ipv4Endpoint::Loopback(0)) ||
+		anInvalidDirectClient.GetMode() != LanMode::FAILED)
+		Fail("direct coordinator accepted an invalid zero game port");
 
 	std::cout << "PvZ 95 LAN coordinator test passed\n";
 	return 0;

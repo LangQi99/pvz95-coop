@@ -54,9 +54,12 @@ namespace PvzMultiplayer
 	class LanCoordinator
 	{
 	public:
-		bool StartHosting(std::string theSessionName, std::string theHostName, uint32_t theRulesetId);
+		bool StartHosting(std::string theSessionName, std::string theHostName, uint32_t theRulesetId,
+			uint16_t theGamePort = DEFAULT_GAME_PORT);
 		bool StartJoining(std::string thePlayerName, uint32_t theRulesetId,
 			std::optional<Ipv4Endpoint> theDiscoveryEndpoint = std::nullopt);
+		bool StartDirectJoining(std::string thePlayerName, uint32_t theRulesetId,
+			const Ipv4Endpoint& theGameEndpoint);
 		void Stop();
 		void Poll();
 		bool SendCursor(CursorUpdate theCursor);
@@ -88,6 +91,7 @@ namespace PvzMultiplayer
 		uint64_t mClientNonce{};
 		uint32_t mRulesetId{};
 		std::optional<Ipv4Endpoint> mDiscoveryEndpoint;
+		std::optional<std::chrono::steady_clock::time_point> mDirectJoinDeadline;
 		std::string mPlayerName;
 		std::string mStatusText{"Offline"};
 		std::chrono::steady_clock::time_point mLastDiscoveryQuery;

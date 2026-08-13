@@ -92,14 +92,20 @@ PvZ 95 values are enabled by default. Original PvZ values remain available for A
 
 The ruleset protocol ID is part of the multiplayer handshake. Peers with incompatible gameplay rules are rejected before starting a session.
 
-For repeatable two-instance testing, the same Host LAN and Join Room actions can be requested at startup. Use a different save directory for each local instance:
+The main menu exposes three separate LAN actions:
+
+- **Host LAN** listens for game traffic on TCP port `43096` by default and shows that port beside the current/maximum player count.
+- **Join Room** opens an editable IPv4 address and TCP port dialog, prefilled with `127.0.0.1:43096`. For a tunnel or port-forwarded game, enter its public IPv4 address and exposed TCP port here.
+- **Auto Search** keeps the zero-configuration LAN discovery path. Discovery uses UDP port `43095`, then connects to the TCP game port advertised by the host.
+
+For repeatable two-instance testing, hosting and automatic discovery can also be requested at startup. Use a different save directory for each local instance:
 
 ```bash
 ./pvz95-coop -windowed -savedir /tmp/pvz-host -lan-host
 ./pvz95-coop -windowed -savedir /tmp/pvz-client -lan-join -lan-address 127.0.0.1
 ```
 
-Omit `-lan-address` to use normal LAN broadcast discovery. The explicit IPv4 address is intended for same-machine tests or networks that block broadcast.
+Omit `-lan-address` to use normal LAN broadcast discovery. This command-line address targets the UDP discovery service; use the main-menu **Join Room** dialog for a direct TCP connection or an Internet tunnel.
 `-windowed` overrides the saved display preference, so two local test instances always open as independent windows.
 
 ## Tests

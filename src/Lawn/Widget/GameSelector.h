@@ -65,7 +65,8 @@ private:
 		GameSelector_Zombatar,
 		GameSelector_Achievements,
 		GameSelector_HostLan,
-		GameSelector_JoinLan
+		GameSelector_JoinLan,
+		GameSelector_AutoSearchLan
 	};
 
 public:
@@ -85,6 +86,7 @@ public:
 	NewLawnButton*              mAchievementsButton;        //+0xC4
 	LawnStoneButton*            mHostLanButton;
 	LawnStoneButton*            mJoinLanButton;
+	LawnStoneButton*            mAutoSearchLanButton;
 	Widget*                     mOverlayWidget;
 	bool                        mStartingGame;
 	int                         mStartingGameCounter;

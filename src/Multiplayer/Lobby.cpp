@@ -12,9 +12,11 @@
 
 namespace PvzMultiplayer
 {
-	WelcomeValidation ValidateWelcome(const Welcome& theWelcome, uint64_t theExpectedSessionId, uint32_t theExpectedRulesetId)
+	WelcomeValidation ValidateWelcome(const Welcome& theWelcome,
+		std::optional<uint64_t> theExpectedSessionId, uint32_t theExpectedRulesetId)
 	{
-		if (theWelcome.mSessionId != theExpectedSessionId)
+		if (theWelcome.mSessionId == 0 ||
+			(theExpectedSessionId && theWelcome.mSessionId != *theExpectedSessionId))
 			return WelcomeValidation::WRONG_SESSION;
 		if (theWelcome.mRulesetId != theExpectedRulesetId)
 			return WelcomeValidation::WRONG_RULESET;

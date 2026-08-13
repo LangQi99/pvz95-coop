@@ -46,7 +46,8 @@ namespace PvzMultiplayer
 		INVALID_TICK_RATE
 	};
 
-	WelcomeValidation ValidateWelcome(const Welcome& theWelcome, uint64_t theExpectedSessionId, uint32_t theExpectedRulesetId);
+	WelcomeValidation ValidateWelcome(const Welcome& theWelcome,
+		std::optional<uint64_t> theExpectedSessionId, uint32_t theExpectedRulesetId);
 
 	class HostLobby
 	{

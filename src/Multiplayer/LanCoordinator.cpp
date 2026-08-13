@@ -12,7 +12,13 @@
 
 namespace PvzMultiplayer
 {
-	bool LanCoordinator::StartHosting(std::string theSessionName, std::string theHostName, uint32_t theRulesetId)
+	namespace
+	{
+		constexpr auto DIRECT_JOIN_TIMEOUT = std::chrono::seconds(10);
+	}
+
+	bool LanCoordinator::StartHosting(std::string theSessionName, std::string theHostName, uint32_t theRulesetId,
+		uint16_t theGamePort)
 	{
 		Stop();
 		HostLobbyConfig aConfig{
@@ -23,7 +29,7 @@ namespace PvzMultiplayer
 			std::move(theSessionName),
 			std::move(theHostName)
 		};
-		if (!mHostSession.Start(aConfig))
+		if (!mHostSession.Start(aConfig, theGamePort))
 		{
 			SetError(mHostSession.GetLastError());
 			return false;
@@ -41,6 +47,34 @@ namespace PvzMultiplayer
 		mMode = LanMode::HOSTING;
 		mRulesetId = theRulesetId;
 		UpdateHostStatus();
+		return true;
+	}
+
+	bool LanCoordinator::StartDirectJoining(std::string thePlayerName, uint32_t theRulesetId,
+		const Ipv4Endpoint& theGameEndpoint)
+	{
+		Stop();
+		mClientNonce = GenerateId();
+		ClientSessionConfig aConfig{
+			theGameEndpoint,
+			std::nullopt,
+			mClientNonce,
+			theRulesetId,
+			0,
+			thePlayerName
+		};
+		if (!mClientSession.Start(std::move(aConfig)))
+		{
+			SetError(mClientSession.GetLastError());
+			return false;
+		}
+
+		mPlayerName = std::move(thePlayerName);
+		mRulesetId = theRulesetId;
+		mDirectJoinDeadline = std::chrono::steady_clock::now() + DIRECT_JOIN_TIMEOUT;
+		mMode = LanMode::JOINING;
+		mStatusText = "Connecting to " + theGameEndpoint.AddressString() + ":" +
+			std::to_string(theGameEndpoint.mPort) + "...";
 		return true;
 	}
 
@@ -79,6 +113,7 @@ namespace PvzMultiplayer
 		mClientNonce = 0;
 		mRulesetId = 0;
 		mDiscoveryEndpoint.reset();
+		mDirectJoinDeadline.reset();
 		mPlayerName.clear();
 		mStatusText = "Offline";
 	}
@@ -151,6 +186,7 @@ namespace PvzMultiplayer
 			{
 			case ClientSessionState::CONNECTED:
 				mMode = LanMode::CONNECTED;
+				mDirectJoinDeadline.reset();
 				mStatusText = "Connected to LAN room as player " +
 					std::to_string(static_cast<unsigned int>(mClientSession.GetWelcome()->mPlayerId) + 1);
 				break;
@@ -165,6 +201,13 @@ namespace PvzMultiplayer
 				break;
 			default:
 				break;
+			}
+
+			if (mMode == LanMode::JOINING && mDirectJoinDeadline &&
+				std::chrono::steady_clock::now() >= *mDirectJoinDeadline)
+			{
+				SetError("The direct connection timed out");
+				return;
 			}
 		}
 	}
@@ -248,6 +291,7 @@ namespace PvzMultiplayer
 		mDiscoveryClient.Stop();
 		mHostSession.Stop();
 		mClientSession.Stop();
+		mDirectJoinDeadline.reset();
 		mMode = LanMode::FAILED;
 		mStatusText = "LAN error: " + (theError.empty() ? std::string("unknown error") : std::move(theError));
 	}
@@ -256,6 +300,7 @@ namespace PvzMultiplayer
 	{
 		const HostLobby& aLobby = mHostSession.GetLobby();
 		mStatusText = "Hosting \"" + aLobby.GetConfig().mSessionName + "\" (" +
-			std::to_string(aLobby.GetPlayerCount()) + "/" + std::to_string(aLobby.GetConfig().mMaxPlayers) + ")";
+			std::to_string(aLobby.GetPlayerCount()) + "/" + std::to_string(aLobby.GetConfig().mMaxPlayers) +
+			", TCP port " + std::to_string(mHostSession.GetLocalPort()) + ")";
 	}
 }

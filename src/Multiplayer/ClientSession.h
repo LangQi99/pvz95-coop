@@ -29,7 +29,7 @@ namespace PvzMultiplayer
 	struct ClientSessionConfig
 	{
 		Ipv4Endpoint mEndpoint;
-		uint64_t mSessionId{};
+		std::optional<uint64_t> mExpectedSessionId;
 		uint64_t mClientNonce{};
 		uint32_t mRulesetId{};
 		uint32_t mCapabilities{};

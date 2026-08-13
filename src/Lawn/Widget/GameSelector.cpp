@@ -190,11 +190,14 @@ GameSelector::GameSelector(LawnApp* theApp)
 	mAchievementsButton->mVisible = aHasGotyUi;
 
 	mHostLanButton = MakeButton(GameSelector::GameSelector_HostLan, this, "Host LAN");
-	mHostLanButton->Resize(228, 510, 135, 33);
+	mHostLanButton->Resize(193, 515, 130, 33);
 	mHostLanButton->mMouseVisible = false;
 	mJoinLanButton = MakeButton(GameSelector::GameSelector_JoinLan, this, "Join Room");
-	mJoinLanButton->Resize(373, 510, 135, 33);
+	mJoinLanButton->Resize(333, 515, 130, 33);
 	mJoinLanButton->mMouseVisible = false;
+	mAutoSearchLanButton = MakeButton(GameSelector::GameSelector_AutoSearchLan, this, "Auto Search");
+	mAutoSearchLanButton->Resize(473, 515, 130, 33);
+	mAutoSearchLanButton->mMouseVisible = false;
 
 	mZenGardenButton = MakeNewButton(
 		GameSelector::GameSelector_ZenGarden,
@@ -370,6 +373,7 @@ GameSelector::GameSelector(LawnApp* theApp)
 	AddWidget(mAchievementsButton);
 	AddWidget(mHostLanButton);
 	AddWidget(mJoinLanButton);
+	AddWidget(mAutoSearchLanButton);
 	AddWidget(mZombatarButton);
 	AddWidget(mChangeUserButton);
 	AddWidget(mSurvivalButton);
@@ -626,7 +630,7 @@ void GameSelector::Draw(Graphics* g)
 	{
 		g->SetFont(Sexy::FONT_BRIANNETOD16);
 		g->SetColor(Color(48, 30, 16));
-		g->DrawString(mApp->mLanCoordinator->GetStatusText(), 228, 503);
+		g->DrawString(mApp->mLanCoordinator->GetStatusText(), 193, 506);
 	}
 }
 
@@ -872,6 +876,7 @@ void GameSelector::Update()
 			mAchievementsButton->mMouseVisible = true;
 			mHostLanButton->mMouseVisible = true;
 			mJoinLanButton->mMouseVisible = true;
+			mAutoSearchLanButton->mMouseVisible = true;
 
 			if (mApp->mPlayerInfo == nullptr)
 			{
@@ -985,6 +990,9 @@ void GameSelector::Update()
 	mJoinLanButton->SetLabel(
 		aLanMode == PvzMultiplayer::LanMode::SEARCHING || aLanMode == PvzMultiplayer::LanMode::JOINING ||
 		aLanMode == PvzMultiplayer::LanMode::CONNECTED ? "Disconnect" : "Join Room");
+	mAutoSearchLanButton->SetLabel(
+		aLanMode == PvzMultiplayer::LanMode::SEARCHING || aLanMode == PvzMultiplayer::LanMode::JOINING ||
+		aLanMode == PvzMultiplayer::LanMode::CONNECTED ? "Disconnect" : "Auto Search");
 	aSelectorReanim->SetImageOverride("woodsign2", (mChangeUserButton->mIsOver || mChangeUserButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS : nullptr);
 	aSelectorReanim->SetImageOverride("woodsign3", (mZombatarButton->mIsOver || mZombatarButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS : nullptr);
 }
@@ -1232,6 +1240,7 @@ void GameSelector::ClickedAdventure()
 	mAchievementsButton->SetDisabled(true);
 	mHostLanButton->SetDisabled(true);
 	mJoinLanButton->SetDisabled(true);
+	mAutoSearchLanButton->SetDisabled(true);
 
 	Reanimation* aHandReanim = mApp->AddReanimation(-70.0f, 10.0f, 0, ReanimationType::REANIM_ZOMBIE_HAND);
 	aHandReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
@@ -1252,7 +1261,8 @@ void GameSelector::ButtonDepress(int theId)
 	if (mSlideCounter > 0)
 		return;
 	if (PvzMultiplayer::IsLanClientWaitingForHost(mApp->mLanCoordinator->GetMode()) &&
-		theId != GameSelector::GameSelector_JoinLan)
+		theId != GameSelector::GameSelector_JoinLan &&
+		theId != GameSelector::GameSelector_AutoSearchLan)
 		return;
 
 	if (theId == GameSelector::GameSelector_Minigame && mMinigamesLocked)
@@ -1346,6 +1356,18 @@ void GameSelector::ButtonDepress(int theId)
 		}
 		break;
 	case GameSelector::GameSelector_JoinLan:
+		if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::SEARCHING ||
+			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::JOINING ||
+			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::CONNECTED)
+		{
+			mApp->mLanCoordinator->Stop();
+		}
+		else
+		{
+			mApp->DoJoinLanDialog();
+		}
+		break;
+	case GameSelector::GameSelector_AutoSearchLan:
 		if (mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::SEARCHING ||
 			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::JOINING ||
 			mApp->mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::CONNECTED)

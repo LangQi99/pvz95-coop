@@ -14,7 +14,9 @@ namespace PvzMultiplayer
 	bool ClientSession::Start(ClientSessionConfig theConfig)
 	{
 		Stop();
-		if (theConfig.mEndpoint.mPort == 0 || theConfig.mSessionId == 0 || theConfig.mClientNonce == 0 ||
+		if (theConfig.mEndpoint.mPort == 0 ||
+			(theConfig.mExpectedSessionId && *theConfig.mExpectedSessionId == 0) ||
+			theConfig.mClientNonce == 0 ||
 			theConfig.mRulesetId == 0 || !IsValidDisplayName(theConfig.mPlayerName, MAX_PLAYER_NAME_LENGTH))
 		{
 			mLastError = "invalid client session configuration";
@@ -75,7 +77,8 @@ namespace PvzMultiplayer
 			{
 				if (const auto* aWelcome = std::get_if<Welcome>(&aMessage))
 				{
-					WelcomeValidation aValidation = ValidateWelcome(*aWelcome, mConfig.mSessionId, mConfig.mRulesetId);
+					WelcomeValidation aValidation = ValidateWelcome(
+						*aWelcome, mConfig.mExpectedSessionId, mConfig.mRulesetId);
 					if (aValidation != WelcomeValidation::ACCEPTED)
 					{
 						Fail("host welcome did not match the selected room");

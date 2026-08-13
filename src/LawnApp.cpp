@@ -60,6 +60,7 @@
 #include "PvzpLib/PvzpStringFile.h"
 #include "Lawn/Widget/AlmanacDialog.h"
 #include "Lawn/Widget/NewUserDialog.h"
+#include "Lawn/Widget/JoinLanDialog.h"
 #include "Lawn/Widget/ContinueDialog.h"
 #include "Lawn/System/ReanimationLawn.h"
 #include "Lawn/Widget/ChallengeScreen.h"
@@ -1172,6 +1173,48 @@ void LawnApp::FinishCheatDialog(bool isYes)
 		mBoardResult = BoardResult::BOARDRESULT_CHEAT;
 		PreNewGame(mGameMode, false);
 	}
+}
+
+void LawnApp::DoJoinLanDialog()
+{
+	KillDialog(Dialogs::DIALOG_JOIN_LAN);
+
+	JoinLanDialog* aDialog = new JoinLanDialog(this);
+	CenterDialog(aDialog, aDialog->mWidth, aDialog->mHeight);
+	AddDialog(Dialogs::DIALOG_JOIN_LAN, aDialog);
+}
+
+void LawnApp::FinishJoinLanDialog(bool isYes)
+{
+	JoinLanDialog* aDialog = static_cast<JoinLanDialog*>(GetDialog(Dialogs::DIALOG_JOIN_LAN));
+	if (!aDialog)
+		return;
+	if (!isYes)
+	{
+		KillDialog(Dialogs::DIALOG_JOIN_LAN);
+		return;
+	}
+
+	std::string anError;
+	JoinLanField anInvalidField = JoinLanField::NONE;
+	auto anEndpoint = aDialog->GetEndpoint(anError, anInvalidField);
+	if (!anEndpoint)
+	{
+		aDialog->ShowValidationError(std::move(anError), anInvalidField);
+		return;
+	}
+
+	std::string aPlayerName = mPlayerInfo && !mPlayerInfo->mName.empty() ? mPlayerInfo->mName : "Guest";
+	if (!PvzMultiplayer::IsValidDisplayName(aPlayerName, PvzMultiplayer::MAX_PLAYER_NAME_LENGTH))
+		aPlayerName = "Guest";
+	if (!mLanCoordinator->StartDirectJoining(
+		aPlayerName, PvzRules::GetActiveRulesetProtocolId(), *anEndpoint))
+	{
+		aDialog->ShowValidationError(mLanCoordinator->GetStatusText(), JoinLanField::ADDRESS);
+		return;
+	}
+
+	KillDialog(Dialogs::DIALOG_JOIN_LAN);
 }
 
 void LawnApp::FinishTimesUpDialog()
@@ -3393,6 +3436,10 @@ void LawnApp::ButtonDepress(int theId)
 			FinishCheatDialog(true);
 			return;
 
+		case Dialogs::DIALOG_JOIN_LAN:
+			FinishJoinLanDialog(true);
+			return;
+
 		case Dialogs::DIALOG_RESTARTCONFIRM:
 			FinishRestartConfirmDialog();
 			return;
@@ -3443,6 +3490,10 @@ void LawnApp::ButtonDepress(int theId)
 
 		case Dialogs::DIALOG_CHEAT:
 			FinishCheatDialog(false);
+			return;
+
+		case Dialogs::DIALOG_JOIN_LAN:
+			FinishJoinLanDialog(false);
 			return;
 
 		case Dialogs::DIALOG_TIMESUP:
