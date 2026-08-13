@@ -181,6 +181,8 @@ public:
 	bool                            mApplyingLanSessionStart{};
 	bool                            mLanWaitingForBegin{};
 	bool                            mLanSessionBegun{};
+	bool                            mLanSeedChooserCommitPending{};
+	uint64_t                        mLanSeedChooserCommitSignature{};
 	bool                            mLanDesynchronized{};
 	bool                            mAutoHostLan{};
 	bool                            mAutoJoinLan{};
@@ -276,6 +278,13 @@ public:
 	bool                            QueueLocalLanAction(PvzMultiplayer::GameAction theAction);
 	bool                            IsValidLanAction(const PvzMultiplayer::GameAction& theAction) const;
 	bool                            ApplyLanAction(const PvzMultiplayer::GameAction& theAction);
+	bool                            IsLanSeedChooserInputActive() const;
+	bool                            IsLanSeedChooserHost() const;
+	bool                            RequestLanSeedChoice(SeedType theSeedType, bool theAdd,
+		SeedType theImitaterType = SEED_NONE);
+	bool                            BeginLanSeedChooserConfirmation();
+	void                            CancelLanSeedChooserConfirmation();
+	bool                            RequestLanSeedChooserStart();
 	bool                            IsBoardInputAt(int theX, int theY);
 	bool                            BeginLanGame(GameMode theGameMode);
 	bool                            ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart, bool theHost);

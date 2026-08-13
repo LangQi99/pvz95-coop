@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::FIRE_COB_CANNON);
+				theValue <= static_cast<uint8_t>(ActionKind::CONFIRM_SEED_CHOICES);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)

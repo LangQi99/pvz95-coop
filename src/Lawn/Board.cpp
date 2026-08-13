@@ -7546,7 +7546,10 @@ void Board::DrawUITop(Graphics* g)
 		mCursorObject->Draw(g);
 		mCursorObject->EndDraw(g);
 	}
-	mApp->DrawSharedCursors(g, mX, mY);
+	// While choosing seeds, SeedChooserScreen redraws the shared cursors after
+	// its full-screen panel so the panel cannot cover them.
+	if (!mApp->mSeedChooserScreen || !mApp->mSeedChooserScreen->mMouseVisible)
+		mApp->DrawSharedCursors(g, mX, mY);
 
 	mToolTip->Draw(g);
 	DrawDebugText(g);

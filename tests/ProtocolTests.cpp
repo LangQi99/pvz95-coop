@@ -62,6 +62,10 @@ int main()
 	ExpectRoundTrip(Reject{RejectReason::RULESET_MISMATCH, "PvZ95 rules required"});
 	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, true, 3});
 	ExpectRoundTrip(GameAction{4570, 100, 1, 4, 2, 2, ActionKind::PLANT_SEED});
+	ExpectRoundTrip(GameAction{4571, 101, 7, 0, 0, 1, ActionKind::ADD_SEED_CHOICE});
+	ExpectRoundTrip(GameAction{4572, 102, 7, 0, 0, 1, ActionKind::REMOVE_SEED_CHOICE});
+	ExpectRoundTrip(GameAction{4573, 103, 3, 0, 0, 1, ActionKind::CHOOSE_IMITATER});
+	ExpectRoundTrip(GameAction{4574, 104, 0, 0, 0, 0, ActionKind::CONFIRM_SEED_CHOICES});
 	SessionStart aSessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile, aPlayerNames};
 	ExpectRoundTrip(aSessionStart);
 	SessionStart aMaximumNameStart = aSessionStart;
@@ -110,6 +114,9 @@ int main()
 		Fail("invalid cursor held seed index encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1, static_cast<ActionKind>(0)})))
 		Fail("invalid game action kind encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1,
+		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::CONFIRM_SEED_CHOICES) + 1)})))
+		Fail("out-of-range game action kind encoded successfully");
 	SessionStart anInvalidNamesStart = aSessionStart;
 	anInvalidNamesStart.mPlayerNames[0].clear();
 	if (Encode(Message(anInvalidNamesStart)))

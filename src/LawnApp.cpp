@@ -1828,6 +1828,13 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 		return false;
 	if (!mLanSessionBegun)
 		return mLanSessionStart.has_value();
+	if (mSeedChooserScreen && mSeedChooserScreen->mMouseVisible &&
+		mGameScene == GameScenes::SCENE_LEVEL_INTRO)
+	{
+		// SeedChooserScreen converts card changes and confirmation into ordered
+		// LAN actions.  Its local-only buttons still need the normal widget path.
+		return false;
+	}
 	if (mBoard)
 	{
 		int aMenuX = theX - mBoard->mX;
@@ -2036,6 +2043,120 @@ bool LawnApp::QueueLocalLanAction(PvzMultiplayer::GameAction theAction)
 	return false;
 }
 
+bool LawnApp::IsLanSeedChooserInputActive() const
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator || !mLanSessionStart || !mLanSessionBegun || !mSeedChooserScreen ||
+		!mSeedChooserScreen->mMouseVisible || mGameScene != GameScenes::SCENE_LEVEL_INTRO)
+		return false;
+	LanMode aMode = mLanCoordinator->GetMode();
+	return aMode == LanMode::HOSTING || aMode == LanMode::CONNECTED;
+}
+
+bool LawnApp::IsLanSeedChooserHost() const
+{
+	return IsLanSeedChooserInputActive() &&
+		mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING;
+}
+
+bool LawnApp::RequestLanSeedChoice(SeedType theSeedType, bool theAdd, SeedType theImitaterType)
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator)
+		return false;
+	LanMode aMode = mLanCoordinator->GetMode();
+	bool aLanSession = mLanSessionStart.has_value() &&
+		(aMode == LanMode::HOSTING || aMode == LanMode::CONNECTED);
+	if (!aLanSession)
+		return false;
+	if (!IsLanSeedChooserInputActive())
+	{
+		LanTrace("ignored seed chooser request outside active chooser seed=%d imitater=%d\n",
+			static_cast<int>(theSeedType), static_cast<int>(theImitaterType));
+		return true;
+	}
+	if (mLanSeedChooserCommitPending)
+	{
+		LanTrace("ignored seed chooser request while confirmation is pending seed=%d\n",
+			static_cast<int>(theSeedType));
+		return true;
+	}
+
+	ActionKind aKind = theAdd ? ActionKind::ADD_SEED_CHOICE : ActionKind::REMOVE_SEED_CHOICE;
+	uint32_t aParameter = static_cast<uint32_t>(theSeedType);
+	if (theImitaterType != SEED_NONE)
+	{
+		if (theSeedType != SEED_IMITATER)
+			return true;
+		aKind = ActionKind::CHOOSE_IMITATER;
+		aParameter = static_cast<uint32_t>(theImitaterType);
+	}
+	bool aQueued = QueueLocalLanAction({0, 0, aParameter, 0, 0, 0, aKind});
+	LanTrace("seed chooser request seed=%d imitater=%d kind=%u queued=%d\n",
+		static_cast<int>(theSeedType), static_cast<int>(theImitaterType),
+		static_cast<unsigned>(aKind), aQueued ? 1 : 0);
+	return true;
+}
+
+bool LawnApp::RequestLanSeedChooserStart()
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator)
+		return false;
+	LanMode aMode = mLanCoordinator->GetMode();
+	bool aLanSession = mLanSessionStart.has_value() &&
+		(aMode == LanMode::HOSTING || aMode == LanMode::CONNECTED);
+	if (!aLanSession)
+		return false;
+	if (!IsLanSeedChooserInputActive())
+	{
+		LanTrace("ignored seed chooser confirmation outside active chooser\n");
+		return true;
+	}
+	if (aMode != LanMode::HOSTING)
+	{
+		PlaySample(SOUND_BUZZER);
+		LanTrace("blocked client seed chooser confirmation\n");
+		return true;
+	}
+	if (!mLanSeedChooserCommitPending && !BeginLanSeedChooserConfirmation())
+		return true;
+
+	uint64_t aSignature = mLanSeedChooserCommitSignature;
+	bool aQueued = QueueLocalLanAction({0, 0, static_cast<uint32_t>(aSignature),
+		static_cast<uint16_t>(aSignature >> 32U), static_cast<uint16_t>(aSignature >> 48U), 0,
+		ActionKind::CONFIRM_SEED_CHOICES});
+	if (!aQueued)
+		CancelLanSeedChooserConfirmation();
+	LanTrace("seed chooser confirmation queued=%d\n", aQueued ? 1 : 0);
+	return true;
+}
+
+bool LawnApp::BeginLanSeedChooserConfirmation()
+{
+	if (!IsLanSeedChooserHost() || mLanSeedChooserCommitPending || !mSeedChooserScreen)
+		return false;
+	uint64_t aSignature = mSeedChooserScreen->GetLanSeedChoiceSignature();
+	if (aSignature == 0)
+		return false;
+	mLanSeedChooserCommitPending = true;
+	mLanSeedChooserCommitSignature = aSignature;
+	LanTrace("seed chooser confirmation locked signature=%016llx\n",
+		static_cast<unsigned long long>(mLanSeedChooserCommitSignature));
+	return true;
+}
+
+void LawnApp::CancelLanSeedChooserConfirmation()
+{
+	if (mLanSeedChooserCommitPending)
+		LanTrace("seed chooser confirmation unlocked\n");
+	mLanSeedChooserCommitPending = false;
+	mLanSeedChooserCommitSignature = 0;
+}
+
 bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) const
 {
 	using namespace PvzMultiplayer;
@@ -2055,6 +2176,15 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	case ActionKind::FIRE_COB_CANNON:
 		return theAction.mParameter != static_cast<uint32_t>(PlantID::PLANTID_NULL);
+	case ActionKind::ADD_SEED_CHOICE:
+	case ActionKind::REMOVE_SEED_CHOICE:
+		return theAction.mParameter < NUM_SEEDS_IN_CHOOSER &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::CHOOSE_IMITATER:
+		return theAction.mParameter < static_cast<uint32_t>(SEED_GATLINGPEA) &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::CONFIRM_SEED_CHOICES:
+		return true;
 	}
 	return false;
 }
@@ -2118,7 +2248,17 @@ void LawnApp::UpdateLanSession()
 			if (const auto* anInput = std::get_if<GameAction>(&anEvent))
 			{
 				GameAction anAcceptedInput = *anInput;
-				if (!mLanSessionBegun || !IsValidLanAction(anAcceptedInput))
+				bool aSeedChooserAction = anAcceptedInput.mKind == ActionKind::ADD_SEED_CHOICE ||
+					anAcceptedInput.mKind == ActionKind::REMOVE_SEED_CHOICE ||
+					anAcceptedInput.mKind == ActionKind::CHOOSE_IMITATER ||
+					anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
+				bool aClientTriedToConfirm = anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
+				bool aWrongScene = aSeedChooserAction &&
+					(!mSeedChooserScreen || !mBoard || !mBoard->mCutScene ||
+						!mBoard->mCutScene->mSeedChoosing || mGameScene != GameScenes::SCENE_LEVEL_INTRO);
+				bool aChooserLocked = aSeedChooserAction && mLanSeedChooserCommitPending;
+				if (!mLanSessionBegun || !IsValidLanAction(anAcceptedInput) ||
+					aClientTriedToConfirm || aWrongScene || aChooserLocked)
 				{
 					LanTrace("host rejected remote action local=%llu begun=%d seq=%u player=%u kind=%u\n",
 						static_cast<unsigned long long>(mLanSimulationTick), mLanSessionBegun ? 1 : 0,
@@ -2294,6 +2434,25 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 		return mBoard->FireCobCannonById(static_cast<PlantID>(theAction.mParameter),
 			DenormalizeCoordinate(theAction.mTargetX, mBoard->mWidth),
 			DenormalizeCoordinate(theAction.mTargetY, mBoard->mHeight));
+	case ActionKind::ADD_SEED_CHOICE:
+		return !mSeedChooserScreen || mSeedChooserScreen->ApplyLanSeedChoice(
+			static_cast<SeedType>(theAction.mParameter), SEED_NONE, true);
+	case ActionKind::REMOVE_SEED_CHOICE:
+		return !mSeedChooserScreen || mSeedChooserScreen->ApplyLanSeedChoice(
+			static_cast<SeedType>(theAction.mParameter), SEED_NONE, false);
+	case ActionKind::CHOOSE_IMITATER:
+		return !mSeedChooserScreen || mSeedChooserScreen->ApplyLanSeedChoice(
+			SEED_IMITATER, static_cast<SeedType>(theAction.mParameter));
+	case ActionKind::CONFIRM_SEED_CHOICES:
+	{
+		uint64_t aSignature = static_cast<uint64_t>(theAction.mParameter) |
+			(static_cast<uint64_t>(theAction.mTargetX) << 32U) |
+			(static_cast<uint64_t>(theAction.mTargetY) << 48U);
+		bool anApplied = !mSeedChooserScreen ||
+			mSeedChooserScreen->ApplyLanSeedChooserStart(aSignature);
+		CancelLanSeedChooserConfirmation();
+		return anApplied;
+	}
 	}
 	return false;
 }
@@ -2579,6 +2738,8 @@ void LawnApp::ResetLanGameState()
 	mLanTargetTick = 0;
 	mLanWaitingForBegin = false;
 	mLanSessionBegun = false;
+	mLanSeedChooserCommitPending = false;
+	mLanSeedChooserCommitSignature = 0;
 	mLanDesynchronized = false;
 	mLocalLanSeedBankIndex = -1;
 	mLastLanHeldSeedBankIndex = PvzMultiplayer::NO_CURSOR_SEED_BANK_INDEX;

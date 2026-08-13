@@ -172,6 +172,11 @@ void ImitaterDialog::MouseDown(int x, int y, int theClickCount)
 		SeedChooserScreen* aSeedChooser = mApp->mSeedChooserScreen;
 		if (!aSeedChooser->SeedNotAllowedToPick(aSeedType))
 		{
+			if (mApp->RequestLanSeedChoice(SeedType::SEED_IMITATER, true, aSeedType))
+			{
+				mApp->KillDialog(mId);
+				return;
+			}
 			ChosenSeed& aImitater = aSeedChooser->mChosenSeeds[SeedType::SEED_IMITATER];
 			aImitater.mSeedState = ChosenSeedState::SEED_IN_CHOOSER;
 			aImitater.mImitaterType = aSeedType;

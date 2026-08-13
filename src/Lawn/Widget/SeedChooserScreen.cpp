@@ -443,6 +443,13 @@ void SeedChooserScreen::Draw(Graphics* g)
 	aBoardFrameG.mTransY -= mY;
 	mMenuButton->Draw(&aBoardFrameG);
 	mToolTip->Draw(g);
+	if (mMouseVisible)
+	{
+		// Board::DrawUITop is below this full-screen widget in z-order.  Draw the
+		// synchronized cursors here during card selection so names and pointers
+		// remain visible above the chooser artwork.
+		mApp->DrawSharedCursors(g, mX, mY);
+	}
 }
 
 void SeedChooserScreen::UpdateViewLawn()
@@ -623,6 +630,28 @@ bool SeedChooserScreen::CheckSeedUpgrade(SeedType theSeedTypeTo, SeedType theSee
 
 void SeedChooserScreen::OnStartButton()
 {
+	// The shared loadout is committed by the host.  A client may help choose
+	// cards, but its Start button cannot advance only its local cutscene.
+	if (mApp->IsLanSeedChooserInputActive() && !mApp->IsLanSeedChooserHost())
+	{
+		mApp->RequestLanSeedChooserStart();
+		return;
+	}
+	bool aLanHostConfirmation = mApp->IsLanSeedChooserHost();
+	if (aLanHostConfirmation && !mApp->BeginLanSeedChooserConfirmation())
+		return;
+	struct LanConfirmationGuard
+	{
+		LawnApp* mApp;
+		bool mArmed;
+		~LanConfirmationGuard()
+		{
+			if (mArmed)
+				mApp->CancelLanSeedChooserConfirmation();
+		}
+	};
+	LanConfirmationGuard aConfirmationGuard{mApp, aLanHostConfirmation};
+
 	if (mApp->mGameMode == GAMEMODE_CHALLENGE_SEEING_STARS && !PickedPlantType(SEED_STARFRUIT))
 	{
 		if (!DisplayRepickWarningDialog("[SEED_CHOOSER_SEEING_STARS_WARNING]"))
@@ -709,11 +738,21 @@ void SeedChooserScreen::OnStartButton()
 		!CheckSeedUpgrade(SEED_CATTAIL, SEED_LILYPAD))
 		return;
 
-	CloseSeedChooser();
+	if (!mApp->RequestLanSeedChooserStart())
+		CloseSeedChooser();
+	aConfirmationGuard.mArmed = false;
 }
 
 void SeedChooserScreen::PickRandomSeeds()
 {
+	// This is a cheat/debug shortcut backed by the process-local RNG.  Do not
+	// let it create and immediately commit a different loadout on one peer.
+	if (mApp->IsLanSeedChooserInputActive())
+	{
+		mApp->PlaySample(Sexy::SOUND_BUZZER);
+		return;
+	}
+
 	for (int anIndex = mSeedsInBank; anIndex < mBoard->mSeedBank->mNumPackets; anIndex++)
 	{
 		SeedType aSeedType;
@@ -752,6 +791,13 @@ void SeedChooserScreen::ButtonDepress(int theId)
 	}
 	else if (theId == SeedChooserScreen::SeedChooserScreen_Store)
 	{
+		// Purchases alter which cards exist.  Changing that profile on only one
+		// peer while a synchronized chooser is open would invalidate later picks.
+		if (mApp->IsLanSeedChooserInputActive())
+		{
+			mApp->PlaySample(Sexy::SOUND_BUZZER);
+			return;
+		}
 		StoreScreen* aStore = mApp->ShowStoreScreen();
 		aStore->mBackButton->SetLabel("[STORE_BACK_TO_GAME]");
 		aStore->WaitForResult();
@@ -807,6 +853,10 @@ SeedType SeedChooserScreen::FindSeedInBank(int theIndexInBank)
 
 void SeedChooserScreen::EnableStartButton(bool theEnabled)
 {
+	if (mApp->IsLanSeedChooserInputActive() && !mApp->IsLanSeedChooserHost())
+		theEnabled = false;
+	if (mApp->IsLanSeedChooserInputActive())
+		mRandomButton->mDisabled = true;
 	mStartButton->SetDisabled(!theEnabled);
 	if (theEnabled) mStartButton->mColors[GameButton::COLOR_LABEL] = Color::White;
 	else mStartButton->mColors[GameButton::COLOR_LABEL] = Color(64, 64, 64);
@@ -863,6 +913,116 @@ void SeedChooserScreen::ClickedSeedInChooser(ChosenSeed& theChosenSeed)
 	mApp->PlaySample(Sexy::SOUND_TAP);
 	if (mSeedsInBank == mBoard->mSeedBank->mNumPackets)
 		EnableStartButton(true);
+}
+
+bool SeedChooserScreen::ApplyLanSeedChoice(SeedType theSeedType, SeedType theImitaterType, bool theAdd)
+{
+	if (!mBoard->mCutScene->mSeedChoosing)
+		return true;
+
+	// A local click can finish an animation early, while the other peer lets it
+	// run.  Canonical actions first collapse every presentation-only flight so
+	// the state transition starts from the same stable loadout on both sides.
+	for (int i = 0; i < NUM_SEEDS_IN_CHOOSER; i++)
+		LandFlyingSeed(mChosenSeeds[i]);
+
+	if (theSeedType < SEED_PEASHOOTER || theSeedType >= NUM_SEEDS_IN_CHOOSER)
+		return true;
+
+	if (theSeedType == SEED_IMITATER && theImitaterType != SEED_NONE)
+	{
+		mApp->KillDialog(Dialogs::DIALOG_IMITATER);
+		if (theImitaterType < SEED_PEASHOOTER || theImitaterType >= SEED_GATLINGPEA ||
+			!mApp->HasSeedType(SEED_IMITATER) || !mApp->HasSeedType(theImitaterType) ||
+			SeedNotAllowedToPick(theImitaterType) ||
+			mSeedsInBank == mBoard->mSeedBank->mNumPackets)
+			return true;
+
+		ChosenSeed& anImitater = mChosenSeeds[SEED_IMITATER];
+		if (anImitater.mSeedState != SEED_PACKET_HIDDEN)
+			return true;
+		anImitater.mSeedState = SEED_IN_CHOOSER;
+		anImitater.mImitaterType = theImitaterType;
+		anImitater.mX = mImitaterButton->mX;
+		anImitater.mY = mImitaterButton->mY;
+		ClickedSeedInChooser(anImitater);
+		UpdateImitaterButton();
+		return true;
+	}
+
+	if (theImitaterType != SEED_NONE || !mApp->HasSeedType(theSeedType) ||
+		SeedNotAllowedToPick(theSeedType) || SeedNotAllowedDuringTrial(theSeedType))
+		return true;
+
+	ChosenSeed& aChosenSeed = mChosenSeeds[theSeedType];
+	if (!theAdd && aChosenSeed.mSeedState == SEED_IN_BANK)
+	{
+		if (!aChosenSeed.mCrazyDavePicked)
+			ClickedSeedInBank(aChosenSeed);
+	}
+	else if (theAdd && aChosenSeed.mSeedState == SEED_IN_CHOOSER)
+	{
+		ClickedSeedInChooser(aChosenSeed);
+	}
+	return true;
+}
+
+uint64_t SeedChooserScreen::GetLanSeedChoiceSignature() const
+{
+	uint64_t aHash = 1469598103934665603ULL;
+	auto AddByte = [&](uint8_t theValue)
+	{
+		aHash ^= theValue;
+		aHash *= 1099511628211ULL;
+	};
+	AddByte(static_cast<uint8_t>(mBoard->mSeedBank->mNumPackets));
+	AddByte(static_cast<uint8_t>(mSeedsInBank));
+	for (int anIndex = 0; anIndex < mBoard->mSeedBank->mNumPackets; ++anIndex)
+	{
+		SeedType aSeedType = SEED_NONE;
+		for (int aCandidate = SEED_PEASHOOTER; aCandidate < NUM_SEEDS_IN_CHOOSER; ++aCandidate)
+		{
+			const ChosenSeed& aChosenSeed = mChosenSeeds[aCandidate];
+			if (aChosenSeed.mSeedState == SEED_IN_BANK && aChosenSeed.mSeedIndexInBank == anIndex)
+			{
+				aSeedType = static_cast<SeedType>(aCandidate);
+				break;
+			}
+		}
+		if (aSeedType == SEED_NONE)
+			return 0;
+		AddByte(static_cast<uint8_t>(aSeedType));
+		SeedType anImitaterType = aSeedType == SEED_IMITATER ?
+			mChosenSeeds[SEED_IMITATER].mImitaterType : SEED_NONE;
+		AddByte(anImitaterType == SEED_NONE ? UINT8_MAX : static_cast<uint8_t>(anImitaterType));
+	}
+	return aHash;
+}
+
+bool SeedChooserScreen::ApplyLanSeedChooserStart(uint64_t theExpectedSignature)
+{
+	if (!mBoard->mCutScene->mSeedChoosing)
+		return true;
+	mApp->KillDialog(Dialogs::DIALOG_IMITATER);
+	if (mChooseState == CHOOSE_VIEW_LAWN)
+	{
+		mChooseState = CHOOSE_NORMAL;
+		mViewLawnTime = 0;
+		Move(0, 0);
+		mBoard->Move(mApp->mWidth - BOARD_IMAGE_WIDTH_OFFSET, 0);
+		mMenuButton->mDisabled = false;
+		mBoard->ClearAdvice(ADVICE_CLICK_TO_CONTINUE);
+	}
+	for (int i = 0; i < NUM_SEEDS_IN_CHOOSER; i++)
+		LandFlyingSeed(mChosenSeeds[i]);
+
+	// Concurrent clicks can make a formerly valid Start request stale.  It is
+	// a deterministic no-op rather than a desync; the host can confirm again.
+	if (theExpectedSignature == 0 || mSeedsInBank != mBoard->mSeedBank->mNumPackets ||
+		GetLanSeedChoiceSignature() != theExpectedSignature)
+		return true;
+	CloseSeedChooser();
+	return true;
 }
 
 void SeedChooserScreen::ShowToolTip()
@@ -1076,10 +1236,12 @@ void SeedChooserScreen::MouseDown(int x, int y, int theClickCount)
 						mApp->PlaySample(Sexy::SOUND_BUZZER);
 						mToolTip->FlashWarning();
 					}
-					else ClickedSeedInBank(aChosenSeed);
+					else if (!mApp->RequestLanSeedChoice(aSeedType, false)) ClickedSeedInBank(aChosenSeed);
 				}
 				else if (aChosenSeed.mSeedState == SEED_IN_CHOOSER)
-					ClickedSeedInChooser(aChosenSeed);
+				{
+					if (!mApp->RequestLanSeedChoice(aSeedType, true)) ClickedSeedInChooser(aChosenSeed);
+				}
 			}
 		}
 	}

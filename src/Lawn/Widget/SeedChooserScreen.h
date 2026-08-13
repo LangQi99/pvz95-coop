@@ -121,6 +121,9 @@ public:
 	void         EnableStartButton(bool theEnabled);
 	void                    ClickedSeedInBank(ChosenSeed& theChosenSeed);
 	void                    ClickedSeedInChooser(ChosenSeed& theChosenSeed);
+	bool                    ApplyLanSeedChoice(SeedType theSeedType, SeedType theImitaterType, bool theAdd = true);
+	uint64_t                GetLanSeedChoiceSignature() const;
+	bool                    ApplyLanSeedChooserStart(uint64_t theExpectedSignature);
 	void                    ShowToolTip();
 	void         RemoveToolTip();
 	void         CancelLawnView();

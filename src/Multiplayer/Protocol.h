@@ -18,7 +18,7 @@
 
 namespace PvzMultiplayer
 {
-	constexpr uint16_t PROTOCOL_VERSION = 5;
+	constexpr uint16_t PROTOCOL_VERSION = 6;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint8_t MAX_PLAYERS = 4;
 	constexpr size_t MAX_PACKET_SIZE = 1024;
@@ -67,7 +67,11 @@ namespace PvzMultiplayer
 		PLANT_SEED = 1,
 		COLLECT_COIN,
 		SHOVEL_PLANT,
-		FIRE_COB_CANNON
+		FIRE_COB_CANNON,
+		ADD_SEED_CHOICE,
+		REMOVE_SEED_CHOICE,
+		CHOOSE_IMITATER,
+		CONFIRM_SEED_CHOICES
 	};
 
 	enum class CodecError : uint8_t
