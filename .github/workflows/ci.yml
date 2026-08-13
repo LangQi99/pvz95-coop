@@ -53,17 +53,19 @@ jobs:
           dylibbundler -of -b -x "$executable" -d "$libs" -p @executable_path/../Frameworks/
 
           # Homebrew SDL2 is sdl2-compat and links SDL3 using a Homebrew path.
-          # Copy SDL3 into the bundle and rewrite both the dependency and dylib ID.
+          # Newer releases resolve it through @rpath; older ones link it directly.
           sdl2_library="$(find "$libs" -maxdepth 1 -name 'libSDL2*.dylib' -print -quit)"
           sdl3_dependency="$(otool -L "$sdl2_library" | awk '/libSDL3/ { print $1; exit }')"
-          test -n "$sdl3_dependency"
-          install -m 755 "$(brew --prefix sdl3)/lib/libSDL3.dylib" "$libs/libSDL3.dylib"
-          install_name_tool -change "$sdl3_dependency" @loader_path/libSDL3.dylib "$sdl2_library"
-          install_name_tool -id @loader_path/libSDL3.dylib "$libs/libSDL3.dylib"
+          install -m 755 "$(brew --prefix sdl3)/lib/libSDL3.0.dylib" "$libs/libSDL3.0.dylib"
+          if test -n "$sdl3_dependency"; then
+            install_name_tool -change "$sdl3_dependency" @loader_path/libSDL3.0.dylib "$sdl2_library"
+          fi
+          install_name_tool -id @loader_path/libSDL3.0.dylib "$libs/libSDL3.0.dylib"
 
           # A release bundle must never depend on the CI runner's package-manager paths.
           for binary in "$executable" "$libs"/*.dylib; do
-            if otool -L "$binary" | grep -E '^\s+(/opt/homebrew|/usr/local)/'; then
+            if otool -L "$binary" | grep -E '^\s+(/opt/homebrew|/usr/local)/' || \
+               otool -l "$binary" | grep -E '^\s+path (/opt/homebrew|/usr/local)/'; then
               echo "Unbundled dependency found in $binary" >&2
               exit 1
             fi
