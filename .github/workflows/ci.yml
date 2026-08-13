@@ -52,8 +52,22 @@ jobs:
           strip -x "$executable"
           dylibbundler -of -b -x "$executable" -d "$libs" -p @executable_path/../Frameworks/
 
-          # Homebrew SDL2 is sdl2-compat and loads SDL3 dynamically.
+          # Homebrew SDL2 is sdl2-compat and links SDL3 using a Homebrew path.
+          # Copy SDL3 into the bundle and rewrite both the dependency and dylib ID.
+          sdl2_library="$(find "$libs" -maxdepth 1 -name 'libSDL2*.dylib' -print -quit)"
+          sdl3_dependency="$(otool -L "$sdl2_library" | awk '/libSDL3/ { print $1; exit }')"
+          test -n "$sdl3_dependency"
           install -m 755 "$(brew --prefix sdl3)/lib/libSDL3.dylib" "$libs/libSDL3.dylib"
+          install_name_tool -change "$sdl3_dependency" @loader_path/libSDL3.dylib "$sdl2_library"
+          install_name_tool -id @loader_path/libSDL3.dylib "$libs/libSDL3.dylib"
+
+          # A release bundle must never depend on the CI runner's package-manager paths.
+          for binary in "$executable" "$libs"/*.dylib; do
+            if otool -L "$binary" | grep -E '^\s+(/opt/homebrew|/usr/local)/'; then
+              echo "Unbundled dependency found in $binary" >&2
+              exit 1
+            fi
+          done
           codesign --force --deep -s - dist/pvz95-coop.app
 
       - uses: actions/upload-artifact@v7
