@@ -2808,9 +2808,10 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 		if (!aCursorSlot || aCursorSlot->mUpdate.mPlayerId == mSharedInputState.GetLocalPlayerId() ||
 			!aCursorSlot->mUpdate.mVisible || mAppCounter - aCursorSlot->mReceivedAtTick > LAN_CURSOR_TIMEOUT)
 			continue;
+		CursorPosition aPosition = SampleCursorPosition(*aCursorSlot, mAppCounter);
 		DrawPreview(aCursorSlot->mUpdate.mHeldSeedBankIndex,
-			DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedX, mWidth),
-			DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedY, mHeight));
+			DenormalizeCoordinate(aPosition.mNormalizedX, mWidth),
+			DenormalizeCoordinate(aPosition.mNormalizedY, mHeight));
 	}
 }
 
@@ -2856,8 +2857,9 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			!aCursorSlot->mUpdate.mVisible || mAppCounter - aCursorSlot->mReceivedAtTick > LAN_CURSOR_TIMEOUT)
 			continue;
 
-		int aX = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedX, mWidth) - theOriginX;
-		int aY = DenormalizeCoordinate(aCursorSlot->mUpdate.mNormalizedY, mHeight) - theOriginY;
+		CursorPosition aPosition = SampleCursorPosition(*aCursorSlot, mAppCounter);
+		int aX = DenormalizeCoordinate(aPosition.mNormalizedX, mWidth) - theOriginX;
+		int aY = DenormalizeCoordinate(aPosition.mNormalizedY, mHeight) - theOriginY;
 		DrawHeldSeed(aCursorSlot->mUpdate.mHeldSeedBankIndex, aX + theOriginX, aY + theOriginY);
 		Sexy::Point aPointer[] = {
 			{aX, aY}, {aX + 3, aY + 18}, {aX + 8, aY + 13}, {aX + 13, aY + 22},

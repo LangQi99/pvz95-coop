@@ -50,6 +50,39 @@ namespace PvzMultiplayer
 		return static_cast<int32_t>(theSequence - thePreviousSequence) > 0;
 	}
 
+	uint16_t InterpolateCursorCoordinate(uint16_t theStart, uint16_t theTarget,
+		uint64_t theStartTick, uint64_t theCurrentTick, uint64_t theDuration)
+	{
+		if (theDuration == 0 || (theCurrentTick >= theStartTick &&
+			theCurrentTick - theStartTick >= theDuration))
+			return theTarget;
+		if (theCurrentTick <= theStartTick)
+			return theStart;
+
+		uint64_t anElapsed = theCurrentTick - theStartTick;
+		int64_t aStart = static_cast<int64_t>(theStart);
+		int64_t aDelta = static_cast<int64_t>(theTarget) - aStart;
+		int64_t aScaledDelta = aDelta * static_cast<int64_t>(anElapsed);
+		int64_t aHalfDuration = static_cast<int64_t>(theDuration / 2);
+		// Round symmetrically so left/up movement is not biased by truncation.
+		if (aScaledDelta < 0)
+			aScaledDelta -= aHalfDuration;
+		else
+			aScaledDelta += aHalfDuration;
+		int64_t aResult = aStart + aScaledDelta / static_cast<int64_t>(theDuration);
+		return static_cast<uint16_t>(std::clamp<int64_t>(aResult, 0, UINT16_MAX));
+	}
+
+	CursorPosition SampleCursorPosition(const SharedCursor& theCursor, uint64_t theCurrentTick)
+	{
+		return {
+			InterpolateCursorCoordinate(theCursor.mInterpolationStart.mNormalizedX,
+				theCursor.mUpdate.mNormalizedX, theCursor.mInterpolationStartTick, theCurrentTick),
+			InterpolateCursorCoordinate(theCursor.mInterpolationStart.mNormalizedY,
+				theCursor.mUpdate.mNormalizedY, theCursor.mInterpolationStartTick, theCurrentTick)
+		};
+	}
+
 	void SharedInputState::Reset(PlayerId theLocalPlayerId)
 	{
 		mCursors.fill(std::nullopt);
@@ -64,7 +97,42 @@ namespace PvzMultiplayer
 		if (aSlot && !IsSequenceNewer(theCursor.mSequence, aSlot->mUpdate.mSequence))
 			return false;
 
-		aSlot = SharedCursor{theCursor, GetPlayerCursorColor(theCursor.mPlayerId), theReceivedAtTick};
+		CursorPosition aTarget{theCursor.mNormalizedX, theCursor.mNormalizedY};
+		CursorPosition aStart = aTarget;
+		uint64_t anInterpolationStartTick = theReceivedAtTick;
+		if (aSlot && aSlot->mUpdate.mVisible && theCursor.mVisible)
+		{
+			CursorPosition aCurrent = SampleCursorPosition(*aSlot, theReceivedAtTick);
+			uint64_t aReceiveGap = theReceivedAtTick >= aSlot->mReceivedAtTick ?
+				theReceivedAtTick - aSlot->mReceivedAtTick : UINT64_MAX;
+			uint32_t aDistanceX = aCurrent.mNormalizedX > aTarget.mNormalizedX ?
+				aCurrent.mNormalizedX - aTarget.mNormalizedX :
+				aTarget.mNormalizedX - aCurrent.mNormalizedX;
+			uint32_t aDistanceY = aCurrent.mNormalizedY > aTarget.mNormalizedY ?
+				aCurrent.mNormalizedY - aTarget.mNormalizedY :
+				aTarget.mNormalizedY - aCurrent.mNormalizedY;
+			// Multiple snapshots consumed in one Poll are a TCP backlog, not fresh
+			// motion samples.  Snap through that burst so stale packets do not create
+			// a delayed sweep after a network stall.
+			bool aShouldInterpolate = aReceiveGap > 0 &&
+				aReceiveGap <= CURSOR_INTERPOLATION_GAP_TICKS &&
+				aDistanceX <= CURSOR_INTERPOLATION_SNAP_DISTANCE &&
+				aDistanceY <= CURSOR_INTERPOLATION_SNAP_DISTANCE;
+			if (aShouldInterpolate)
+				aStart = aCurrent;
+			// A keepalive with the same target must not restart a completed tween.
+			// Preserve both its source and timeline so a stationary cursor remains
+			// stationary and an in-flight tween keeps the same velocity.
+			if (aShouldInterpolate && aTarget.mNormalizedX == aSlot->mUpdate.mNormalizedX &&
+				aTarget.mNormalizedY == aSlot->mUpdate.mNormalizedY)
+			{
+				aStart = aSlot->mInterpolationStart;
+				anInterpolationStartTick = aSlot->mInterpolationStartTick;
+			}
+		}
+
+		aSlot = SharedCursor{theCursor, GetPlayerCursorColor(theCursor.mPlayerId),
+			theReceivedAtTick, aStart, anInterpolationStartTick};
 		return true;
 	}
 

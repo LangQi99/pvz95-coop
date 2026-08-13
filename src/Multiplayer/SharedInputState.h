@@ -13,11 +13,25 @@
 
 namespace PvzMultiplayer
 {
+	constexpr uint64_t CURSOR_INTERPOLATION_TICKS = 4;
+	constexpr uint64_t CURSOR_INTERPOLATION_GAP_TICKS = 12;
+	constexpr uint16_t CURSOR_INTERPOLATION_SNAP_DISTANCE = UINT16_MAX / 3;
+
+	struct CursorPosition
+	{
+		uint16_t mNormalizedX{};
+		uint16_t mNormalizedY{};
+
+		bool operator==(const CursorPosition&) const = default;
+	};
+
 	struct SharedCursor
 	{
 		CursorUpdate mUpdate;
 		uint32_t mRgb{};
 		uint64_t mReceivedAtTick{};
+		CursorPosition mInterpolationStart;
+		uint64_t mInterpolationStartTick{};
 
 		bool operator==(const SharedCursor&) const = default;
 	};
@@ -26,6 +40,10 @@ namespace PvzMultiplayer
 	int DenormalizeCoordinate(uint16_t theCoordinate, int theExtent);
 	uint32_t GetPlayerCursorColor(PlayerId thePlayerId);
 	bool IsSequenceNewer(uint32_t theSequence, uint32_t thePreviousSequence);
+	uint16_t InterpolateCursorCoordinate(uint16_t theStart, uint16_t theTarget,
+		uint64_t theStartTick, uint64_t theCurrentTick,
+		uint64_t theDuration = CURSOR_INTERPOLATION_TICKS);
+	CursorPosition SampleCursorPosition(const SharedCursor& theCursor, uint64_t theCurrentTick);
 
 	class SharedInputState
 	{
