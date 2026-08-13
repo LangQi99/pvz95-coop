@@ -1,153 +1,149 @@
-name: Bug Report
-description: Report a bug or unexpected behavior in PvZ-Portable
+name: Bug Report / 问题反馈
+description: Report a PvZ 95 Co-op bug / 反馈 PvZ 95 Co-op 的异常行为
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping test PvZ 95 Co-op. Please do not upload copyrighted game data or executables.
+
+        感谢你帮助测试 PvZ 95 Co-op。请勿上传受版权保护的游戏资源或可执行文件。
+
   - type: dropdown
     id: source
     attributes:
-      label: Installation Source
-      description: How did you obtain the PvZ-Portable binary?
+      label: Installation source / 获取方式
       options:
-        - Pre-built binary (from GitHub Releases or GitHub Actions)
-        - Self-compiled from source
+        - GitHub Actions artifact / GitHub Actions 构建产物
+        - Self-compiled from source / 自行编译
+        - Other / 其他
     validations:
       required: true
 
   - type: input
     id: version
     attributes:
-      label: PvZ-Portable Version
-      description: >
-        Version or commit hash of PvZ-Portable you are using.
-        You can find this from the release tag or `git describe --tags`.
+      label: Version or commit / 版本或提交
+      description: Release tag or commit hash, for example the output of `git rev-parse --short HEAD`.
+      placeholder: e.g. 68806f9
     validations:
       required: true
 
   - type: dropdown
     id: platform
     attributes:
-      label: Platform
-      description: Which platform are you running PvZ-Portable on?
+      label: Platform / 平台
       options:
-        - Windows (x64)
+        - Windows x64
         - macOS (Apple Silicon)
-        - macOS (Intel)
-        - Android
-        - iOS/iPadOS
-        - WebAssembly
-        - Haiku
-        - BSD Family
-        - Nintendo Switch
-        - Other
+        - macOS (Intel, self-compiled / 自行编译)
+        - Other Windows/macOS configuration / 其他 Windows 或 macOS 配置
     validations:
       required: true
 
   - type: textarea
     id: os-info
     attributes:
-      label: OS / Environment Info
-      description: >
-        Provide details about your operating system and environment.
-        For Windows: Windows version and GPU driver version.
-        For macOS: macOS version and chip model.
-        For consoles: firmware version, CFW version.
-      placeholder: |
-        e.g.
-        Windows 11 24H2, NVIDIA driver 591.74
+      label: System information / 系统信息
+      description: Include the OS version, CPU/chip, GPU, and graphics-driver version when applicable.
+      placeholder: Windows 11 24H2, x64, NVIDIA ... / macOS 15.x, Apple M...
     validations:
       required: true
 
-  - type: textarea
-    id: build-deps
+  - type: dropdown
+    id: ruleset
     attributes:
-      label: Build Dependencies (self-compiled only)
-      description: >
-        If you compiled from source, list the versions of the key build dependencies.
-        Include at least: compiler (GCC/Clang/MSVC), CMake, SDL2, zlib, libjpeg, libpng,
-        libogg, libvorbis, libopenmpt, mpg123.
-        You can get most of these from your package manager or `pkg-config --modversion`.
+      label: Ruleset / 规则集
+      options:
+        - PvZ 95 (default / 默认)
+        - Original PvZ (`-ruleset original`)
+        - Unknown / 不确定
     validations:
-      required: false
+      required: true
 
   - type: dropdown
-    id: resource-version
+    id: multiplayer-role
     attributes:
-      label: Resource Pack Version
-      description: >
-        Which version of the original PvZ game data are you using?
-        The resource data (main.pak / properties) comes from different releases.
+      label: Game context / 游戏场景
       options:
-        - "1.2.0.1073 (Origin / PopCap GOTY)"
-        - "1.2.0.1096 (Steam GOTY)"
-        - "1.2.0.1093 (German/Spanish/French/Italian GOTY)"
-        - "1.1.0.1056 (Chinese GOTY)"
-        - Extracted / unpacked data
-        - Unknown / Other
+        - Offline single-player / 离线单机
+        - LAN host / 联机房主
+        - Direct-join client / 手动直连客户端
+        - Auto-search client / 自动搜索客户端
+        - Both host and client / 房主和客户端均出现
+    validations:
+      required: true
+
+  - type: input
+    id: game-data
+    attributes:
+      label: Game-data version / 游戏资源版本
+      description: Describe the legal `main.pak` and `properties/` source/version without uploading the files.
+      placeholder: Original retail 1.0 data used by PvZ 95 / newer compatible layout / unknown
     validations:
       required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Bug Description
-      description: A clear and concise description of the bug.
+      label: Bug description / 问题描述
+      description: Clearly describe what went wrong and whether it reproduces consistently.
     validations:
       required: true
-
-  - type: markdown
-    attributes:
-      value: >
-        **Tip:** if the bug happens during gameplay on a **desktop platform**, you can attach a
-        replay of your session. Launch the game with `-record`, reproduce the bug, then quit.
-        The game saves the recording as a `pvzp-*.dmo` file in the current working directory.
-        Keep it short, and check with `-play` that the replay shows the bug. GitHub does not
-        accept `.dmo` attachments, so zip the file before attaching it. See
-        [Recording and Playing Back Gameplay](https://github.com/wszqkzqk/PvZ-Portable#recording-and-playing-back-gameplay)
-        for details.
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to Reproduce
-      description: Step-by-step instructions to reproduce the issue.
+      label: Steps to reproduce / 复现步骤
       placeholder: |
-        1. Launch the game
-        2. Go to '...'
-        3. Click on '...'
-        4. Observe the error
+        1. Launch the game / 启动游戏
+        2. Host or join ... / 主持或加入……
+        3. ...
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected Behavior
-      description: What did you expect to happen?
+      label: Expected behavior / 预期行为
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Actual Behavior
-      description: What actually happened instead?
+      label: Actual behavior / 实际行为
     validations:
       required: true
 
   - type: textarea
+    id: multiplayer-details
+    attributes:
+      label: Multiplayer details / 联机详情
+      description: For LAN bugs, list player count, roles, join method, TCP port, and whether peers diverged. Redact public IPs. / 联机问题请注明人数、角色、加入方式、TCP 端口及是否分歧，并隐去公网 IP。
+    validations:
+      required: false
+
+  - type: textarea
     id: logs
     attributes:
-      label: Logs / Screenshots
-      description: >
-        If applicable, paste any relevant log output or attach screenshots / screen recordings.
-        You can drag-and-drop images here.
+      label: Logs and screenshots / 日志与截图
+      description: Attach screenshots and both peers' `lan-sync.log` for sync bugs. Do not upload game assets or executables. / 同步问题请附两端截图与 `lan-sync.log`。请勿上传游戏资源或可执行文件。
+    validations:
+      required: false
+
+  - type: textarea
+    id: build-deps
+    attributes:
+      label: Build environment / 编译环境（自行编译）
+      description: Include compiler, CMake, SDL2, and dependency versions when relevant.
     validations:
       required: false
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional Context
-      description: Any other information that might be helpful (e.g. workarounds tried, related issues).
+      label: Additional context / 补充信息
+      description: Add workarounds tried, frequency, or related issues.
     validations:
       required: false
