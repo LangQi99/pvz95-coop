@@ -83,6 +83,28 @@ namespace PvzMultiplayer
 		};
 	}
 
+	CursorLabelPosition ResolveCursorLabelPosition(int theCursorX, int theCursorY,
+		int theLabelWidth, int theLabelHeight, int theViewportWidth, int theViewportHeight)
+	{
+		constexpr int VIEWPORT_MARGIN = 3;
+		constexpr int POINTER_WIDTH = 20;
+		constexpr int LABEL_GAP = 4;
+		int aLabelWidth = std::max(theLabelWidth, 0);
+		int aLabelHeight = std::max(theLabelHeight, 0);
+		int aMaxX = std::max(VIEWPORT_MARGIN, theViewportWidth - VIEWPORT_MARGIN - aLabelWidth);
+		int aMaxY = std::max(VIEWPORT_MARGIN, theViewportHeight - VIEWPORT_MARGIN - aLabelHeight);
+
+		int aX = theCursorX + POINTER_WIDTH + LABEL_GAP;
+		if (aX + aLabelWidth > theViewportWidth - VIEWPORT_MARGIN)
+			aX = theCursorX - LABEL_GAP - aLabelWidth;
+		int aY = theCursorY + 2;
+		if (aY + aLabelHeight > theViewportHeight - VIEWPORT_MARGIN)
+			aY = theCursorY - LABEL_GAP - aLabelHeight;
+
+		return {std::clamp(aX, VIEWPORT_MARGIN, aMaxX),
+			std::clamp(aY, VIEWPORT_MARGIN, aMaxY)};
+	}
+
 	void SharedInputState::Reset(PlayerId theLocalPlayerId)
 	{
 		mCursors.fill(std::nullopt);

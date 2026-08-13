@@ -66,7 +66,8 @@ int main()
 	GameplayProfile aProfile;
 	aProfile.mProfileId = 1;
 	aProfile.mAdventureLevel = 8;
-	SessionStart aStart{0, 77, 1234, 0, aProfile};
+	std::array<std::string, MAX_PLAYERS> aPlayerNames{"Host", "Guest", "", ""};
+	SessionStart aStart{0, 77, 1234, 0, aProfile, aPlayerNames};
 	if (!aHost.BroadcastFromHost(aStart))
 		Fail("coordinator failed to broadcast session start");
 	std::vector<Message> aMessages;
@@ -113,7 +114,7 @@ int main()
 	// and must perform a complete second Start -> Ready -> Begin barrier.
 	GameplayProfile aNextProfile = aProfile;
 	aNextProfile.mAdventureLevel = 9;
-	SessionStart aNextStart{0, 78, 5678, 0, aNextProfile};
+	SessionStart aNextStart{0, 78, 5678, 0, aNextProfile, aPlayerNames};
 	if (!aHost.BroadcastFromHost(aNextStart))
 		Fail("coordinator failed to broadcast replacement session start");
 	aMessages.clear();

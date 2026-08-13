@@ -84,6 +84,10 @@ int main()
 	Welcome aReusedSlot = ExpectWelcome(aLobby.HandleHello({13, RULESET_ID, 0, "Player Three"}));
 	if (aReusedSlot.mPlayerId != 1)
 		Fail("empty player slot was not reused");
+	auto aPlayerNames = aLobby.MakePlayerNameSnapshot();
+	if (aPlayerNames[0] != "房主" || aPlayerNames[1] != "Player Three" ||
+		aPlayerNames[2] != "Player Two" || !aPlayerNames[3].empty())
+		Fail("player-name snapshot did not preserve the player ID mapping");
 
 	aLobby.SetSessionStarted(true);
 	if (!aLobby.RemovePlayer(2))

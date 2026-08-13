@@ -14,6 +14,78 @@ namespace PvzMultiplayer
 	namespace
 	{
 		constexpr uint32_t PACKET_MAGIC = 0x43353950; // "P95C" on the wire.
+
+		bool IsContinuationByte(uint8_t theByte)
+		{
+			return (theByte & 0xC0U) == 0x80U;
+		}
+
+		bool IsValidUtf8(std::string_view theText)
+		{
+			for (size_t anIndex = 0; anIndex < theText.size();)
+			{
+				uint8_t aLead = static_cast<uint8_t>(theText[anIndex]);
+				if (aLead <= 0x7F)
+				{
+					++anIndex;
+					continue;
+				}
+
+				size_t aContinuationCount;
+				uint32_t aCodePoint;
+				if ((aLead & 0xE0U) == 0xC0U)
+				{
+					aContinuationCount = 1;
+					aCodePoint = aLead & 0x1FU;
+				}
+				else if ((aLead & 0xF0U) == 0xE0U)
+				{
+					aContinuationCount = 2;
+					aCodePoint = aLead & 0x0FU;
+				}
+				else if ((aLead & 0xF8U) == 0xF0U)
+				{
+					aContinuationCount = 3;
+					aCodePoint = aLead & 0x07U;
+				}
+				else
+				{
+					return false;
+				}
+
+				if (anIndex + aContinuationCount >= theText.size())
+					return false;
+				for (size_t aContinuationIndex = 1; aContinuationIndex <= aContinuationCount; ++aContinuationIndex)
+				{
+					uint8_t aByte = static_cast<uint8_t>(theText[anIndex + aContinuationIndex]);
+					if (!IsContinuationByte(aByte))
+						return false;
+					aCodePoint = (aCodePoint << 6) | (aByte & 0x3FU);
+				}
+
+				if ((aContinuationCount == 1 && aCodePoint < 0x80) ||
+					(aContinuationCount == 2 && aCodePoint < 0x800) ||
+					(aContinuationCount == 3 && aCodePoint < 0x10000) ||
+					aCodePoint > 0x10FFFF || (aCodePoint >= 0xD800 && aCodePoint <= 0xDFFF))
+					return false;
+
+				anIndex += aContinuationCount + 1;
+			}
+			return true;
+		}
+
+		bool IsValidPlayerNames(const std::array<std::string, MAX_PLAYERS>& thePlayerNames)
+		{
+			if (thePlayerNames[0].empty())
+				return false;
+			for (const std::string& aName : thePlayerNames)
+			{
+				if (!aName.empty() && !IsValidDisplayName(aName, MAX_PLAYER_NAME_LENGTH))
+					return false;
+			}
+			return true;
+		}
+
 		class PacketWriter
 		{
 		public:
@@ -275,13 +347,19 @@ namespace PvzMultiplayer
 				else if constexpr (std::is_same_v<Payload, SessionStart>)
 				{
 					if (thePayload.mStartId == 0 || thePayload.mSimulationSeed == 0 ||
-						thePayload.mGameMode > MAX_GAME_MODE_VALUE || !IsValidGameplayProfile(thePayload.mProfile))
+						thePayload.mGameMode > MAX_GAME_MODE_VALUE || !IsValidGameplayProfile(thePayload.mProfile) ||
+						!IsValidPlayerNames(thePayload.mPlayerNames))
 						return false;
 					theWriter.WriteU64(thePayload.mHostTick);
 					theWriter.WriteU64(thePayload.mStartId);
 					theWriter.WriteU32(thePayload.mSimulationSeed);
 					theWriter.WriteU16(thePayload.mGameMode);
 					WriteGameplayProfile(theWriter, thePayload.mProfile);
+					for (const std::string& aName : thePayload.mPlayerNames)
+					{
+						if (!theWriter.WriteString(aName, MAX_PLAYER_NAME_LENGTH))
+							return false;
+					}
 				}
 				else if constexpr (std::is_same_v<Payload, SessionReady>)
 				{
@@ -477,6 +555,13 @@ namespace PvzMultiplayer
 				aMessage.mStartId == 0 || aMessage.mSimulationSeed == 0 ||
 				aMessage.mGameMode > MAX_GAME_MODE_VALUE || !ReadGameplayProfile(aReader, aMessage.mProfile))
 				break;
+			for (std::string& aName : aMessage.mPlayerNames)
+			{
+				if (!aReader.ReadString(aName, MAX_PLAYER_NAME_LENGTH))
+					return {std::nullopt, CodecError::INVALID_PAYLOAD};
+			}
+			if (!IsValidPlayerNames(aMessage.mPlayerNames))
+				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}
 		case MessageKind::SESSION_READY:
@@ -530,5 +615,21 @@ namespace PvzMultiplayer
 		case CodecError::INVALID_PAYLOAD: return "invalid payload";
 		}
 		return "unknown error";
+	}
+
+	bool IsValidDisplayName(std::string_view theName, size_t theMaxBytes)
+	{
+		if (theName.empty() || theName.size() > theMaxBytes || !IsValidUtf8(theName))
+			return false;
+
+		bool aHasNonSpace = false;
+		for (unsigned char aByte : theName)
+		{
+			if (aByte < 0x20 || aByte == 0x7F)
+				return false;
+			if (aByte != ' ')
+				aHasNonSpace = true;
+		}
+		return aHasNonSpace;
 	}
 }

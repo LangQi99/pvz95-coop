@@ -53,6 +53,7 @@ int main()
 	aProfile.mFlags = PROFILE_HAS_UNLOCKED_MINIGAMES | PROFILE_HAS_SEEN_UPSELL;
 	aProfile.mChallengeRecords[7] = 3;
 	aProfile.mPurchases[4] = 1002;
+	std::array<std::string, MAX_PLAYERS> aPlayerNames{"房主", "Guest", "", ""};
 
 	ExpectRoundTrip(DiscoveryQuery{0x1020304050607080ULL});
 	ExpectRoundTrip(DiscoveryOffer{0x8877665544332211ULL, 43096, 2, 4, 0x50563935, "Sunflower Room"});
@@ -61,7 +62,14 @@ int main()
 	ExpectRoundTrip(Reject{RejectReason::RULESET_MISMATCH, "PvZ95 rules required"});
 	ExpectRoundTrip(CursorUpdate{4567, 99, 32768, 16384, 2, true, 3});
 	ExpectRoundTrip(GameAction{4570, 100, 1, 4, 2, 2, ActionKind::PLANT_SEED});
-	ExpectRoundTrip(SessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile});
+	SessionStart aSessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile, aPlayerNames};
+	ExpectRoundTrip(aSessionStart);
+	SessionStart aMaximumNameStart = aSessionStart;
+	for (std::string& aName : aMaximumNameStart.mPlayerNames)
+		aName.assign(MAX_PLAYER_NAME_LENGTH, 'W');
+	auto aSessionPacket = Encode(Message(aMaximumNameStart));
+	if (!aSessionPacket || aSessionPacket->size() > MAX_PACKET_SIZE)
+		Fail("session start with player names exceeds the packet limit");
 	ExpectRoundTrip(SessionReady{0x1020304050607080ULL, 2});
 	ExpectRoundTrip(SessionBegin{4590, 0x1020304050607080ULL});
 	ExpectRoundTrip(TickSync{4595, 0x1020304050607080ULL});
@@ -102,8 +110,20 @@ int main()
 		Fail("invalid cursor held seed index encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1, static_cast<ActionKind>(0)})))
 		Fail("invalid game action kind encoded successfully");
+	SessionStart anInvalidNamesStart = aSessionStart;
+	anInvalidNamesStart.mPlayerNames[0].clear();
+	if (Encode(Message(anInvalidNamesStart)))
+		Fail("session start without a host name encoded successfully");
+	anInvalidNamesStart = aSessionStart;
+	anInvalidNamesStart.mPlayerNames[1] = std::string(MAX_PLAYER_NAME_LENGTH + 1, 'x');
+	if (Encode(Message(anInvalidNamesStart)))
+		Fail("session start with an oversized player name encoded successfully");
+	anInvalidNamesStart = aSessionStart;
+	anInvalidNamesStart.mPlayerNames[1] = std::string("\xC0\xAF", 2);
+	if (Encode(Message(anInvalidNamesStart)))
+		Fail("session start with invalid UTF-8 encoded successfully");
 	aProfile.mFlags = 0x80000000U;
-	if (Encode(Message(SessionStart{1, 1, 1, 0, aProfile})))
+	if (Encode(Message(SessionStart{1, 1, 1, 0, aProfile, aPlayerNames})))
 		Fail("invalid session profile flags encoded successfully");
 	if (Encode(Message(SessionReady{0, 1})))
 		Fail("zero session start ID encoded successfully");

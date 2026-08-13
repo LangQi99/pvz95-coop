@@ -25,6 +25,14 @@ namespace PvzMultiplayer
 		bool operator==(const CursorPosition&) const = default;
 	};
 
+	struct CursorLabelPosition
+	{
+		int mX{};
+		int mY{};
+
+		bool operator==(const CursorLabelPosition&) const = default;
+	};
+
 	struct SharedCursor
 	{
 		CursorUpdate mUpdate;
@@ -44,6 +52,8 @@ namespace PvzMultiplayer
 		uint64_t theStartTick, uint64_t theCurrentTick,
 		uint64_t theDuration = CURSOR_INTERPOLATION_TICKS);
 	CursorPosition SampleCursorPosition(const SharedCursor& theCursor, uint64_t theCurrentTick);
+	CursorLabelPosition ResolveCursorLabelPosition(int theCursorX, int theCursorY,
+		int theLabelWidth, int theLabelHeight, int theViewportWidth, int theViewportHeight);
 
 	class SharedInputState
 	{

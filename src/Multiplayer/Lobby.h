@@ -46,7 +46,6 @@ namespace PvzMultiplayer
 		INVALID_TICK_RATE
 	};
 
-	bool IsValidDisplayName(std::string_view theName, size_t theMaxBytes);
 	WelcomeValidation ValidateWelcome(const Welcome& theWelcome, uint64_t theExpectedSessionId, uint32_t theExpectedRulesetId);
 
 	class HostLobby
@@ -63,6 +62,7 @@ namespace PvzMultiplayer
 		uint8_t GetPlayerCount() const;
 		const HostLobbyConfig& GetConfig() const;
 		const std::array<std::optional<LobbyPlayer>, MAX_PLAYERS>& GetPlayers() const;
+		std::array<std::string, MAX_PLAYERS> MakePlayerNameSnapshot() const;
 		std::optional<DiscoveryOffer> MakeDiscoveryOffer(uint16_t theGamePort) const;
 
 	private:

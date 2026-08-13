@@ -18,7 +18,7 @@
 
 namespace PvzMultiplayer
 {
-	constexpr uint16_t PROTOCOL_VERSION = 4;
+	constexpr uint16_t PROTOCOL_VERSION = 5;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint8_t MAX_PLAYERS = 4;
 	constexpr size_t MAX_PACKET_SIZE = 1024;
@@ -195,6 +195,7 @@ namespace PvzMultiplayer
 		uint32_t mSimulationSeed{};
 		uint16_t mGameMode{};
 		GameplayProfile mProfile;
+		std::array<std::string, MAX_PLAYERS> mPlayerNames;
 
 		bool operator==(const SessionStart&) const = default;
 	};
@@ -247,4 +248,5 @@ namespace PvzMultiplayer
 	std::optional<std::vector<uint8_t>> Encode(const Message& theMessage);
 	DecodeResult Decode(std::span<const uint8_t> thePacket);
 	std::string_view GetCodecErrorName(CodecError theError);
+	bool IsValidDisplayName(std::string_view theName, size_t theMaxBytes);
 }

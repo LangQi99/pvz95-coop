@@ -56,6 +56,7 @@
 #include "PvzpLib/EffectSystem.h"
 #include "PvzpLib/FilterEffect.h"
 #include "graphics/Graphics.h"
+#include "graphics/Font.h"
 #include "PvzpLib/PvzpStringFile.h"
 #include "Lawn/Widget/AlmanacDialog.h"
 #include "Lawn/Widget/NewUserDialog.h"
@@ -2343,6 +2344,7 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 		if (aPlayer)
 			aPlayers[aPlayerCount++] = aPlayer->mPlayerId;
 	}
+	std::array<std::string, MAX_PLAYERS> aPlayerNames = aLobby->MakePlayerNameSnapshot();
 
 	uint64_t aStartId = aLobby->GetConfig().mSessionId ^
 		(static_cast<uint64_t>(mAppCounter) << 32) ^ ++mLanStartSerial;
@@ -2357,7 +2359,8 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 		aStartId,
 		aSimulationSeed,
 		static_cast<uint16_t>(theGameMode),
-		CaptureGameplayProfile()
+		CaptureGameplayProfile(),
+		std::move(aPlayerNames)
 	};
 	LanTrace("host session start requested start=%llu seed=%u mode=%u players=%zu app=%u\n",
 		static_cast<unsigned long long>(aStartId), aSimulationSeed, static_cast<unsigned>(theGameMode),
@@ -2392,8 +2395,13 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 {
 	using namespace PvzMultiplayer;
 
+	PlayerId aLocalPlayerId = mSharedInputState.GetLocalPlayerId();
+	bool aNamesValid = aLocalPlayerId < MAX_PLAYERS &&
+		!theStart.mPlayerNames[0].empty() && !theStart.mPlayerNames[aLocalPlayerId].empty();
+	for (const std::string& aName : theStart.mPlayerNames)
+		aNamesValid = aNamesValid && (aName.empty() || IsValidDisplayName(aName, MAX_PLAYER_NAME_LENGTH));
 	if (theStart.mStartId == 0 || theStart.mSimulationSeed == 0 ||
-		theStart.mGameMode > MAX_GAME_MODE_VALUE || theStart.mProfile.mProfileId == 0)
+		theStart.mGameMode > MAX_GAME_MODE_VALUE || theStart.mProfile.mProfileId == 0 || !aNamesValid)
 		return false;
 	if (mLanSessionStart)
 	{
@@ -2858,9 +2866,12 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			continue;
 
 		CursorPosition aPosition = SampleCursorPosition(*aCursorSlot, mAppCounter);
-		int aX = DenormalizeCoordinate(aPosition.mNormalizedX, mWidth) - theOriginX;
-		int aY = DenormalizeCoordinate(aPosition.mNormalizedY, mHeight) - theOriginY;
+		int anAppX = DenormalizeCoordinate(aPosition.mNormalizedX, mWidth);
+		int anAppY = DenormalizeCoordinate(aPosition.mNormalizedY, mHeight);
+		int aX = anAppX - theOriginX;
+		int aY = anAppY - theOriginY;
 		DrawHeldSeed(aCursorSlot->mUpdate.mHeldSeedBankIndex, aX + theOriginX, aY + theOriginY);
+		Sexy::GraphicsAutoState aState(theGraphics);
 		Sexy::Point aPointer[] = {
 			{aX, aY}, {aX + 3, aY + 18}, {aX + 8, aY + 13}, {aX + 13, aY + 22},
 			{aX + 17, aY + 20}, {aX + 12, aY + 11}, {aX + 20, aY + 9}
@@ -2878,6 +2889,39 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			const Sexy::Point& anEnd = aPointer[(anIndex + 1) % std::size(aPointer)];
 			theGraphics->DrawLineAA(aStart.mX, aStart.mY, anEnd.mX, anEnd.mY);
 		}
+
+		if (!mLanSessionStart)
+			continue;
+		const std::string& aPlayerName =
+			mLanSessionStart->mPlayerNames[aCursorSlot->mUpdate.mPlayerId];
+		if (aPlayerName.empty())
+			continue;
+
+		constexpr int LABEL_HORIZONTAL_PADDING = 5;
+		constexpr int LABEL_VERTICAL_PADDING = 2;
+		// BRIANNETOD12's legacy 95 atlas can resolve dynamic glyph rectangles to
+		// the same source cell.  PICO129 is already used for arbitrary runtime
+		// strings (tooltips/debug text), so player names retain their real glyphs.
+		Sexy::_Font* aFont = Sexy::FONT_PICO129;
+		int aLabelWidth = aFont->StringWidth(aPlayerName) + LABEL_HORIZONTAL_PADDING * 2;
+		int aLabelHeight = aFont->GetHeight() + LABEL_VERTICAL_PADDING * 2;
+		CursorLabelPosition aLabelPosition = ResolveCursorLabelPosition(
+			anAppX, anAppY, aLabelWidth, aLabelHeight, mWidth, mHeight);
+		int aLabelX = aLabelPosition.mX - theOriginX;
+		int aLabelY = aLabelPosition.mY - theOriginY;
+
+		theGraphics->SetColor(Sexy::Color(20, 20, 20, 205));
+		theGraphics->FillRect(aLabelX, aLabelY, aLabelWidth, aLabelHeight);
+		theGraphics->SetColor(Sexy::Color(
+			static_cast<int>((aRgb >> 16) & 0xFFU),
+			static_cast<int>((aRgb >> 8) & 0xFFU),
+			static_cast<int>(aRgb & 0xFFU)));
+		theGraphics->DrawRect(aLabelX, aLabelY, aLabelWidth - 1, aLabelHeight - 1);
+		theGraphics->SetFont(aFont);
+		theGraphics->SetColor(Sexy::Color::White);
+		// Use the raw font path: player names are UTF-8 data, not localization keys.
+		theGraphics->DrawString(aPlayerName, aLabelX + LABEL_HORIZONTAL_PADDING,
+			aLabelY + LABEL_VERTICAL_PADDING + aFont->GetAscent());
 	}
 }
 

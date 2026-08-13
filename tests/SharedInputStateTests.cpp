@@ -24,6 +24,14 @@ namespace
 int main()
 {
 	using namespace PvzMultiplayer;
+	Require(ResolveCursorLabelPosition(100, 100, 80, 20, 800, 600) == CursorLabelPosition{124, 102},
+		"cursor label did not use its preferred right-side position");
+	Require(ResolveCursorLabelPosition(790, 100, 80, 20, 800, 600) == CursorLabelPosition{706, 102},
+		"cursor label did not flip to the left edge");
+	Require(ResolveCursorLabelPosition(100, 595, 80, 20, 800, 600) == CursorLabelPosition{124, 571},
+		"cursor label did not flip above the bottom edge");
+	Require(ResolveCursorLabelPosition(0, 0, 900, 700, 800, 600) == CursorLabelPosition{3, 3},
+		"oversized cursor label did not retain a safe origin");
 
 	Require(NormalizeCoordinate(-10, 800) == 0, "negative coordinate was not clamped");
 	Require(NormalizeCoordinate(799, 800) == UINT16_MAX, "right edge was not normalized");

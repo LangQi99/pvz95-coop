@@ -271,6 +271,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	add_executable(pvz95-lobby-tests
 		tests/LobbyTests.cpp
 		src/Multiplayer/Lobby.cpp
+		src/Multiplayer/Protocol.cpp
 		src/Multiplayer/SharedInputState.cpp
 	)
 	target_include_directories(pvz95-lobby-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
