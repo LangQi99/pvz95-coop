@@ -2757,12 +2757,25 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		static_cast<unsigned long long>(aBoardHash.mGridItems),
 		static_cast<unsigned long long>(aRandHash.Finish()),
 		static_cast<int>(mGameScene), mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney);
-	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d level=%d main=%u update=%u sun=%d plants=%016llx coins=%016llx\n",
+	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d level=%d main=%u update=%u sun=%d "
+		"core=%016llx grid=%016llx fog=%016llx rows=%016llx waves=%016llx seeds=%016llx challenge=%016llx "
+		"plants=%016llx zombies=%016llx projectiles=%016llx coins=%016llx mowers=%016llx items=%016llx\n",
 		static_cast<unsigned long long>(mLanSimulationTick), static_cast<unsigned long long>(aHash),
 		static_cast<unsigned long long>(aRandHash.Finish()), static_cast<int>(mGameScene),
 		mBoard->mLevel, mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney,
+		static_cast<unsigned long long>(aBoardHash.mCore),
+		static_cast<unsigned long long>(aBoardHash.mGrid),
+		static_cast<unsigned long long>(aBoardHash.mFog),
+		static_cast<unsigned long long>(aBoardHash.mRowsAndIce),
+		static_cast<unsigned long long>(aBoardHash.mWaves),
+		static_cast<unsigned long long>(aBoardHash.mSeedBank),
+		static_cast<unsigned long long>(aBoardHash.mChallenge),
 		static_cast<unsigned long long>(aBoardHash.mPlants),
-		static_cast<unsigned long long>(aBoardHash.mCoins));
+		static_cast<unsigned long long>(aBoardHash.mZombies),
+		static_cast<unsigned long long>(aBoardHash.mProjectiles),
+		static_cast<unsigned long long>(aBoardHash.mCoins),
+		static_cast<unsigned long long>(aBoardHash.mMowers),
+		static_cast<unsigned long long>(aBoardHash.mGridItems));
 	if (mLanCoordinator->GetMode() == LanMode::HOSTING)
 	{
 		mLanCoordinator->BroadcastFromHost(StateHash{

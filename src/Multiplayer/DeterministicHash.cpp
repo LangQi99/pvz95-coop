@@ -188,7 +188,7 @@ namespace PvzMultiplayer
 	{
 		BoardStateHashBreakdown aBreakdown;
 		DeterministicHash64 h;
-		h.AddU32(1); // Canonical hash schema version.
+		h.AddU32(2); // Canonical hash schema version.
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameMode));
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameScene));
 		h.AddString(Sexy::GetRandState());
@@ -241,8 +241,11 @@ namespace PvzMultiplayer
 		aBreakdown.mWaves = h.Finish();
 
 		h.AddU32(b.mSeedBank->mNumPackets); h.AddI32(b.mSeedBank->mConveyorBeltCounter);
-		for (const SeedPacket& p : b.mSeedBank->mSeedPackets)
+		// Only live packets affect gameplay.  Hashing the unused tail makes the
+		// checksum depend on stale presentation state from earlier board setups.
+		for (int aPacketIndex = 0; aPacketIndex < b.mSeedBank->mNumPackets; ++aPacketIndex)
 		{
+			const SeedPacket& p = b.mSeedBank->mSeedPackets[aPacketIndex];
 			h.AddI32(p.mRefreshCounter); h.AddI32(p.mRefreshTime); h.AddI32(p.mIndex); h.AddI32(p.mOffsetX);
 			AddEnum(h, p.mPacketType); AddEnum(h, p.mImitaterType); h.AddI32(p.mSlotMachineCountDown);
 			AddEnum(h, p.mSlotMachiningNextSeed); h.AddFloat(p.mSlotMachiningPosition); h.AddBool(p.mActive);

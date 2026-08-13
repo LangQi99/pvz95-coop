@@ -18,7 +18,10 @@
 
 namespace PvzMultiplayer
 {
-	constexpr uint16_t PROTOCOL_VERSION = 6;
+	// Version 7 changes the canonical gameplay checksum (unused seed-bank slots
+	// are no longer hashed).  Older peers must fail the handshake instead of
+	// connecting and reporting a misleading tick-100 desync.
+	constexpr uint16_t PROTOCOL_VERSION = 7;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;

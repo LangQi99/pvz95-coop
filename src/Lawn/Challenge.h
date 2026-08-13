@@ -78,7 +78,10 @@ public:
 	int32_t                 mSlotMachineRollCount;
 	ReanimationID           mReanimChallenge;
 	ReanimationID           mReanimClouds[6];
-	int32_t                 mCloudsCounter[6];
+	// These counters are only populated by storm-related challenge modes.  Keep
+	// them deterministic in every other mode because LAN state hashing observes
+	// them before those modes ever touch the array.
+	int32_t                 mCloudsCounter[6]{};
 	int32_t                 mChallengeGridX;
 	int32_t                 mChallengeGridY;
 	int32_t                 mScaryPotterPots;
