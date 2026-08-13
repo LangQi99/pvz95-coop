@@ -4109,6 +4109,13 @@ std::string LawnApp::GetCrazyDaveText(int theMessageIndex)
 
 bool LawnApp::CanShowAlmanac()
 {
+	// The almanac constructs local-only preview plants and zombies.  Those
+	// objects consume the legacy global RNG, so opening it on one LAN peer can
+	// fork the deterministic gameplay stream even though it is only a UI.
+	// Keep every almanac entry point disabled for the lifetime of a LAN game.
+	if (IsLanGameplayActive())
+		return false;
+
 	if (IsIceDemo())
 		return false;
 

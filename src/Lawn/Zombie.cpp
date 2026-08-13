@@ -64,6 +64,18 @@ constexpr const int JACK_IN_THE_BOX_ZOMBIE_RADIUS = 115;
 constexpr const int JACK_IN_THE_BOX_PLANT_RADIUS = 90;
 constexpr const int BOBSLED_CRASH_TIME = 150;
 constexpr const int ZOMBIE_BACKUP_DANCER_RISE_HEIGHT = -200;
+constexpr const int DANCER_POINT_ANIM_RATE = 24;
+
+int GetLanDancerPointDuration(const Reanimation* theReanimation)
+{
+	if (theReanimation == nullptr || theReanimation->mFrameCount <= 0)
+		return 1;
+
+	// Reanimations run at 100 updates per second.  Use integer arithmetic so
+	// gameplay never depends on the platform's floating-point loop boundary.
+	return (theReanimation->mFrameCount * 100 + DANCER_POINT_ANIM_RATE - 1) /
+		DANCER_POINT_ANIM_RATE;
+}
 constexpr const int BOSS_FLASH_HEALTH_FRACTION = 10;
 constexpr const int TICKS_BETWEEN_EATS = 4;
 constexpr const int DAMAGE_PER_EAT = TICKS_BETWEEN_EATS;
@@ -2995,6 +3007,11 @@ void Zombie::UpdateZombieDancer()
 			{
 				mZombiePhase = ZombiePhase::PHASE_DANCER_SNAPPING_FINGERS_WITH_LIGHT;
 				PlayZombieReanim("anim_point", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 24.0f);
+				if (mApp->IsLanGameplayActive())
+				{
+					mPhaseCounter = GetLanDancerPointDuration(
+						mApp->ReanimationTryToGet(mBodyReanimID));
+				}
 			}
 			else
 			{
@@ -3009,13 +3026,23 @@ void Zombie::UpdateZombieDancer()
 		{
 			mZombiePhase = ZombiePhase::PHASE_DANCER_SNAPPING_FINGERS;
 			PlayZombieReanim("anim_point", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 24.0f);
+			if (mApp->IsLanGameplayActive())
+			{
+				mPhaseCounter = GetLanDancerPointDuration(
+					mApp->ReanimationTryToGet(mBodyReanimID));
+			}
 			PickRandomSpeed();
 		}
 	}
 	else if (mZombiePhase == ZombiePhase::PHASE_DANCER_SNAPPING_FINGERS || mZombiePhase == ZombiePhase::PHASE_DANCER_SNAPPING_FINGERS_WITH_LIGHT)
 	{
 		Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
-		if (aBodyReanim->mLoopCount > 0)
+		// In LAN play, the point animation is presentation only.  Windows and
+		// macOS can cross its floating-point loop boundary one update apart,
+		// which used to spawn all four followers one simulation tick apart.
+		const bool aSummonAnimationFinished = mApp->IsLanGameplayActive() ?
+			mPhaseCounter == 0 : aBodyReanim->mLoopCount > 0;
+		if (aSummonAnimationFinished)
 		{
 			if (mZombiePhase == ZombiePhase::PHASE_DANCER_SNAPPING_FINGERS && mBoard->CountZombiesOnScreen() <= 15)
 			{
@@ -6212,18 +6239,21 @@ int Zombie::GetDancerFrame()
 		aFrameLength = 10;
 	}
 
+	// mAppCounter is a local window/update clock and intentionally differs
+	// while a LAN client catches up.  Dancer phases are gameplay state, so LAN
+	// sessions must derive them from the synchronized board clock instead.
+	if (mBoard && mApp->IsLanGameplayActive())
+	{
+		return (mBoard->mMainCounter % (aFrameLength * aFramesCount)) / aFrameLength;
+	}
+
 #ifdef DO_FIX_BUGS
 	if (mBoard)
 	{
 		return (mBoard->mMainCounter % (aFrameLength * aFramesCount)) / aFrameLength;  // fixes the "maid" cheat
 	}
-	else
-	{
-		return (mApp->mAppCounter % (aFrameLength * aFramesCount)) / aFrameLength;
-	}
-#else
-	return (mApp->mAppCounter % (aFrameLength * aFramesCount)) / aFrameLength;
 #endif
+	return (mApp->mAppCounter % (aFrameLength * aFramesCount)) / aFrameLength;
 }
 
 ZombiePhase Zombie::GetDancerPhase()
