@@ -4099,6 +4099,12 @@ bool Board::ShovelPlantById(PlantID thePlantId)
 	if (!aPlant || aPlant->mDead)
 		return true;
 
+	// In level 4 the tutorial is still in SCENE_LEVEL_INTRO.  LAN shovel
+	// selection is per-player presentation state, so advance the shared tutorial
+	// state atomically with the ordered shovel action.
+	if (mTutorialState == TutorialState::TUTORIAL_SHOVEL_PICKUP)
+		SetTutorialState(TutorialState::TUTORIAL_SHOVEL_DIG);
+
 	mApp->PlayFoley(FoleyType::FOLEY_USE_SHOVEL);
 	mPlantsShoveled++;
 	SeedType aSeedType = aPlant->mSeedType;
@@ -6982,7 +6988,8 @@ void Board::DrawShovel(Graphics* g)
 			Rect aShovelRect = GetShovelButtonRect();
 			g->DrawImage(Sexy::IMAGE_SHOVELBANK, aShovelRect.mX, aShovelRect.mY);
 
-			if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_SHOVEL)
+			if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_SHOVEL &&
+				!mApp->IsLocalLanShovelSelected())
 			{
 				if (mChallenge->mChallengeState == (ChallengeState)15)
 				{
@@ -7772,6 +7779,12 @@ void Board::DoTypingCheck(KeyCode theKey)
 
 void Board::KeyDown(KeyCode theKey)
 {
+	if ((theKey == KeyCode::KEYCODE_RETURN || theKey == KeyCode::KEYCODE_SPACE) &&
+		mApp->HandleLanCrazyDaveAdvanceInput())
+	{
+		return;
+	}
+
 	DoTypingCheck(theKey);
 
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO &&

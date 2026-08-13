@@ -30,6 +30,12 @@ int main()
 		"the second click of a right double-click did not cancel selection");
 	Require(DecodePointerIntent(3) == PointerIntent::NO_ACTION,
 		"middle click unexpectedly became a gameplay action");
+	Require(CanRouteLanBoardAction(true, false),
+		"playing scene did not route LAN board actions");
+	Require(CanRouteLanBoardAction(false, true),
+		"shovel tutorial did not route LAN board actions during the intro scene");
+	Require(!CanRouteLanBoardAction(false, false),
+		"ordinary intro scene unexpectedly routed LAN board actions");
 
 	Sexy::Rect aRetinaViewport(256, 0, 2048, 1536);
 	Sexy::Rect aWindowViewport = Sexy::PresentationRectForWindow(

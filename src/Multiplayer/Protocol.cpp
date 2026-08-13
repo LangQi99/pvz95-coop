@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::CONFIRM_SEED_CHOICES);
+				theValue <= static_cast<uint8_t>(ActionKind::ADVANCE_CRAZY_DAVE_DIALOG);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -225,6 +225,12 @@ namespace PvzMultiplayer
 			if (!IsValidPlayer(theAction.mPlayerId) ||
 				!IsValidActionKind(static_cast<uint8_t>(theAction.mKind)))
 				return false;
+			if (theAction.mKind == ActionKind::ADVANCE_CRAZY_DAVE_DIALOG)
+			{
+				return theAction.mPlayerId == 0 &&
+					theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
+					theAction.mTargetX == 0 && theAction.mTargetY == 0;
+			}
 
 			return true;
 		}

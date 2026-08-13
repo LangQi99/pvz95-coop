@@ -46,13 +46,13 @@ Required tests: Adventure seed chooser, survival repick, Imitater and Random; bo
 
 ### Intro, Crazy Dave and tutorial progression
 
-Mouse clicks that normally reach `CutScene::MouseDown` are consumed by the LAN input layer before play starts, while keyboard input can still advance a cutscene on only one peer. Some Crazy Dave branches also populate challenge state or place a rake.
+Status: implemented in protocol version 8 for level-intro and Scary Potter Crazy Dave dialogue.
 
-Evidence: `LawnApp::LocalMouseButton`, `Board::MouseDown`, `Board::KeyDown`, `CutScene::MouseDown`, `CutScene::KeyDown`, and `Challenge::AdvanceCrazyDaveDialog`.
+Mouse and keyboard progression is now consumed by `LawnApp::HandleLanCrazyDaveAdvanceInput`. Only the host may enqueue `ADVANCE_CRAZY_DAVE_DIALOG`; the message index is carried in the action so repeated clicks on one page become ordered no-ops rather than skipping or failing. `LawnApp::ApplyLanAction` invokes the original `CutScene::AdvanceCrazyDaveDialog` or `Challenge::AdvanceCrazyDaveDialog` on every peer at the same simulation tick, preserving tutorial, challenge-population and rake-placement side effects.
 
-Recommended protocol: host-ordered `ADVANCE_CUTSCENE` and `ADVANCE_DAVE_DIALOG` actions, with a barrier before entering `SCENE_PLAYING`.
+The canonical state hash also includes the current Crazy Dave message, tutorial state/timer, shovel visibility and grave-stone enable flag. Client-authored Dave actions and malformed message indices are rejected by the codec and host.
 
-Required tests: first Adventure intro, multi-page Dave dialogue, tutorials, and Scary Potter dialogue paths 2702/2801.
+Remaining end-to-end matrix: first Adventure intro, multi-page dialogue, conveyor-level intro, shovel/grave tutorials, and Scary Potter paths 2702/2801.
 
 ### Session lifecycle
 

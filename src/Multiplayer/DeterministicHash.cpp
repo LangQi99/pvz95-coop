@@ -188,9 +188,10 @@ namespace PvzMultiplayer
 	{
 		BoardStateHashBreakdown aBreakdown;
 		DeterministicHash64 h;
-		h.AddU32(2); // Canonical hash schema version.
+		h.AddU32(3); // Canonical hash schema version.
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameMode));
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameScene));
+		h.AddI32(b.mApp->mCrazyDaveMessageIndex);
 		h.AddString(Sexy::GetRandState());
 		h.AddBool(b.mPaused); h.AddI32(b.mLevel); h.AddI32(b.mSunMoney); h.AddU32(b.mMainCounter);
 		h.AddU32(b.mEffectCounter); h.AddU32(b.mBoardUpdateCounter); h.AddI32(b.mCurrentWave);
@@ -203,6 +204,8 @@ namespace PvzMultiplayer
 		h.AddBool(b.mDroppedFirstCoin); h.AddI32(b.mFinalWaveSoundCounter); h.AddBool(b.mFinalBossKilled);
 		h.AddI32(b.mTriggeredLawnMowers); h.AddU32(b.mGravesCleared); h.AddU32(b.mPlantsEaten);
 		h.AddU32(b.mPlantsShoveled); h.AddU32(b.mLevelCoinsCollected); h.AddU32(b.mCoinsCollected);
+		AddEnum(h, b.mTutorialState); h.AddI32(b.mTutorialTimer); h.AddBool(b.mShowShovel);
+		h.AddBool(b.mEnableGraveStones);
 		const CutScene& aCutScene = *b.mCutScene;
 		h.AddI32(aCutScene.mCutsceneTime); h.AddI32(aCutScene.mSodTime);
 		h.AddI32(aCutScene.mGraveStoneTime); h.AddI32(aCutScene.mReadySetPlantTime);

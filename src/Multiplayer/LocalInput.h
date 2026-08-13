@@ -26,4 +26,12 @@ constexpr PointerIntent DecodePointerIntent(int theClickCount)
 	return PointerIntent::NO_ACTION;
 }
 
+// The level-4 shovel tutorial deliberately keeps the board in the intro scene
+// while asking the player to use a gameplay tool.  LAN input must keep routing
+// board actions during that tutorial instead of waiting for SCENE_PLAYING.
+constexpr bool CanRouteLanBoardAction(bool theSceneIsPlaying, bool theShovelTutorialIsActive)
+{
+	return theSceneIsPlaying || theShovelTutorialIsActive;
+}
+
 }

@@ -1918,6 +1918,11 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	if (!theDown)
 		return true;
 	PvzMultiplayer::PointerIntent aPointerIntent = PvzMultiplayer::DecodePointerIntent(theClickCount);
+	if (aPointerIntent == PvzMultiplayer::PointerIntent::PRIMARY_ACTION &&
+		HandleLanCrazyDaveAdvanceInput())
+	{
+		return true;
+	}
 	if (aPointerIntent == PvzMultiplayer::PointerIntent::CANCEL_SELECTION)
 	{
 		mLocalLanSeedBankIndex = -1;
@@ -1925,8 +1930,12 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
 		return true;
 	}
+	bool aShovelTutorialIsActive = mBoard && mBoard->mCutScene &&
+		mBoard->mCutScene->IsInShovelTutorial();
+	bool aCanRouteBoardAction = PvzMultiplayer::CanRouteLanBoardAction(
+		mGameScene == GameScenes::SCENE_PLAYING, aShovelTutorialIsActive);
 	if (aPointerIntent != PvzMultiplayer::PointerIntent::PRIMARY_ACTION ||
-		!mBoard || mGameScene != GameScenes::SCENE_PLAYING)
+		!mBoard || !aCanRouteBoardAction)
 		return true;
 
 	int aBoardX = theX - mBoard->mX;
@@ -2108,6 +2117,52 @@ bool LawnApp::QueueLocalLanAction(PvzMultiplayer::GameAction theAction)
 	return false;
 }
 
+bool LawnApp::HandleLanCrazyDaveAdvanceInput()
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator || !mLanSessionStart || !mLanSessionBegun || !mBoard ||
+		mCrazyDaveMessageIndex < 0 ||
+		static_cast<uint32_t>(mCrazyDaveMessageIndex) > MAX_CRAZY_DAVE_MESSAGE_INDEX)
+	{
+		return false;
+	}
+
+	bool anIntroDialog = mGameScene == GameScenes::SCENE_LEVEL_INTRO && mBoard->mCutScene &&
+		mBoard->mCutScene->IsShowingCrazyDave();
+	bool aScaryPotterDialog = mGameScene == GameScenes::SCENE_PLAYING &&
+		mBoard->IsScaryPotterDaveTalking();
+	if (!anIntroDialog && !aScaryPotterDialog)
+		return false;
+
+	LanMode aMode = mLanCoordinator->GetMode();
+	if (aMode != LanMode::HOSTING && aMode != LanMode::CONNECTED)
+		return false;
+
+	if (aMode == LanMode::HOSTING)
+	{
+		bool aQueued = QueueLocalLanAction({0, 0,
+			static_cast<uint32_t>(mCrazyDaveMessageIndex), 0, 0, 0,
+			ActionKind::ADVANCE_CRAZY_DAVE_DIALOG});
+		LanTrace("host Dave advance request sim=%llu message=%d queued=%d\n",
+			static_cast<unsigned long long>(mLanSimulationTick), mCrazyDaveMessageIndex,
+			aQueued ? 1 : 0);
+	}
+	else
+	{
+		// Dialog progression is deliberately host-authoritative.  A client click
+		// is consumed locally and waits for the host's ordered action.
+		LanTrace("client ignored Dave advance request sim=%llu message=%d\n",
+			static_cast<unsigned long long>(mLanSimulationTick), mCrazyDaveMessageIndex);
+	}
+	return true;
+}
+
+bool LawnApp::IsLocalLanShovelSelected() const
+{
+	return mLanSessionStart.has_value() && mLanSessionBegun && mLocalLanShovelSelected;
+}
+
 bool LawnApp::IsLanSeedChooserInputActive() const
 {
 	using namespace PvzMultiplayer;
@@ -2250,6 +2305,10 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	case ActionKind::CONFIRM_SEED_CHOICES:
 		return true;
+	case ActionKind::ADVANCE_CRAZY_DAVE_DIALOG:
+		return theAction.mPlayerId == 0 &&
+			theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	}
 	return false;
 }
@@ -2329,12 +2388,14 @@ void LawnApp::UpdateLanSession()
 					anAcceptedInput.mKind == ActionKind::CHOOSE_IMITATER ||
 					anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
 				bool aClientTriedToConfirm = anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
+				bool aClientTriedToAdvanceDave =
+					anAcceptedInput.mKind == ActionKind::ADVANCE_CRAZY_DAVE_DIALOG;
 				bool aWrongScene = aSeedChooserAction &&
 					(!mSeedChooserScreen || !mBoard || !mBoard->mCutScene ||
 						!mBoard->mCutScene->mSeedChoosing || mGameScene != GameScenes::SCENE_LEVEL_INTRO);
 				bool aChooserLocked = aSeedChooserAction && mLanSeedChooserCommitPending;
 				if (!mLanSessionBegun || !IsValidLanAction(anAcceptedInput) ||
-					aClientTriedToConfirm || aWrongScene || aChooserLocked)
+					aClientTriedToConfirm || aClientTriedToAdvanceDave || aWrongScene || aChooserLocked)
 				{
 					LanTrace("host rejected remote action local=%llu begun=%d seq=%u player=%u kind=%u\n",
 						static_cast<unsigned long long>(mLanSimulationTick), mLanSessionBegun ? 1 : 0,
@@ -2530,6 +2591,26 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 			mSeedChooserScreen->ApplyLanSeedChooserStart(aSignature);
 		CancelLanSeedChooserConfirmation();
 		return anApplied;
+	}
+	case ActionKind::ADVANCE_CRAZY_DAVE_DIALOG:
+	{
+		// Rapid clicks can queue the same page more than once during the input
+		// delay.  Once the first action advances it, identical later actions are
+		// deterministic no-ops on every peer.
+		if (mCrazyDaveMessageIndex != static_cast<int>(theAction.mParameter))
+			return true;
+		if (mGameScene == GameScenes::SCENE_LEVEL_INTRO && mBoard->mCutScene &&
+			mBoard->mCutScene->IsShowingCrazyDave())
+		{
+			mBoard->mCutScene->AdvanceCrazyDaveDialog(false);
+			return true;
+		}
+		if (mGameScene == GameScenes::SCENE_PLAYING && mBoard->IsScaryPotterDaveTalking())
+		{
+			mBoard->mChallenge->AdvanceCrazyDaveDialog();
+			return true;
+		}
+		return false;
 	}
 	}
 	return false;
@@ -3109,6 +3190,12 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
 			static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
 		DrawHeldSeed(aLocalSeed, mLocalLanCursorX, mLocalLanCursorY);
+		if (mLocalLanShovelSelected)
+		{
+			theGraphics->DrawImage(Sexy::IMAGE_SHOVEL,
+				mLocalLanCursorX - theOriginX + 10,
+				mLocalLanCursorY - theOriginY - 30);
+		}
 	}
 
 	for (const auto& aCursorSlot : mSharedInputState.GetCursors())
