@@ -113,6 +113,18 @@ ctest --test-dir build --output-on-failure
 
 省略 `-lan-address` 会使用普通的局域网广播发现。该命令行地址指向 UDP 发现服务；若要直接连接 TCP 地址或互联网隧道，请使用主菜单的 **Join Room**。`-windowed` 会覆盖已保存的显示偏好，使本机两个实例都以独立窗口打开。
 
+### 联机诊断日志
+
+程序会把联机会话、连接状态、权威操作、时钟、状态哈希和不同步检测写入 `lan-sync.log`。日志按大小轮转为当前文件及 `lan-sync.log.1`、`.2`、`.3` 三个备份，每个文件最多 4 MiB，总量约 16 MiB；按正常对局的记录速率可保留远超 30 分钟的诊断信息。重新启动不会清空已有日志。
+
+日志与存档、设置位于同一个可写数据目录。若希望容易找到日志，可使用 `-savedir <path>` 指定目录，例如 Windows PowerShell：
+
+```powershell
+.\pvz95-coop.exe -savedir .\pvz95-data
+```
+
+发生不同步时，请尽快退出双方游戏，并从房主和客户端各自的数据目录收集全部 `lan-sync.log*` 文件。两端日志必须配对，才能可靠定位最后一个一致的游戏时钟与首次状态分歧。
+
 ### 测试
 
 当前原生测试套件覆盖：
@@ -246,6 +258,18 @@ For repeatable local two-instance testing on macOS, use a different save directo
 ```
 
 Omit `-lan-address` to use normal LAN broadcast discovery. This command-line address targets the UDP discovery service; use the main-menu **Join Room** dialog for a direct TCP connection or an Internet tunnel. `-windowed` overrides the saved display preference, so two local test instances open as independent windows.
+
+### Multiplayer diagnostic logs
+
+The game records session lifecycle, connection state, authoritative actions, ticks, state hashes, and desync detection in `lan-sync.log`. It rotates by size into the active file plus `lan-sync.log.1`, `.2`, and `.3`. Each file is capped at 4 MiB (about 16 MiB total), which retains well over 30 minutes at the normal gameplay trace rate. Existing logs are preserved across restarts.
+
+Logs share the writable data directory used by saves and settings. To make them easy to find, select that directory with `-savedir <path>`, for example in Windows PowerShell:
+
+```powershell
+.\pvz95-coop.exe -savedir .\pvz95-data
+```
+
+After a desync, exit both games promptly and collect every `lan-sync.log*` file from both the host and client data directories. The paired logs are needed to identify the last matching game tick and the first state divergence reliably.
 
 ### Tests
 

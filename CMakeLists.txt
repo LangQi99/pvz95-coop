@@ -418,6 +418,15 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	target_compile_definitions(pvz95-deterministic-hash-tests PRIVATE PVZ95_HASH_PRIMITIVES_ONLY)
 	add_test(NAME pvz95-deterministic-hash COMMAND pvz95-deterministic-hash-tests)
 
+	add_executable(pvz95-rolling-log-tests
+		tests/RollingLogTests.cpp
+		src/Multiplayer/RollingLog.cpp
+	)
+	target_include_directories(pvz95-rolling-log-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+	target_compile_features(pvz95-rolling-log-tests PRIVATE cxx_std_20)
+	set_target_properties(pvz95-rolling-log-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-rolling-log COMMAND pvz95-rolling-log-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-encoding-tests PRIVATE /utf-8)
@@ -436,6 +445,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-state-hash-timeline-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-local-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-deterministic-hash-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-rolling-log-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-channel-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-host-session-tests PRIVATE ws2_32)

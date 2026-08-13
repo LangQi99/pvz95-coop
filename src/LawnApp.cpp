@@ -71,12 +71,17 @@
 #include "Multiplayer/DeterministicHash.h"
 #include "Multiplayer/LanCoordinator.h"
 #include "Multiplayer/LocalInput.h"
+#include "Multiplayer/RollingLog.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
 #include <algorithm>
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <ctime>
+#include <filesystem>
 #include <iterator>
+#include <string>
 #include <utility>
 
 #include "widget/Checkbox.h"
@@ -115,27 +120,40 @@ namespace
 	constexpr uint64_t LAN_INPUT_DELAY = 12;
 	constexpr uint64_t LAN_TICK_SYNC_INTERVAL = 1;
 	constexpr const char* LAN_TRACE_FILE = "lan-sync.log";
+	constexpr std::size_t LAN_TRACE_FILE_BYTES = 4U * 1024U * 1024U;
+	constexpr std::size_t LAN_TRACE_BACKUP_COUNT = 3;
+
+	std::string LanTraceTimestamp()
+	{
+		using namespace std::chrono;
+		auto aNow = system_clock::now();
+		auto aTime = system_clock::to_time_t(aNow);
+		std::tm aLocalTime{};
+#ifdef _WIN32
+		localtime_s(&aLocalTime, &aTime);
+#else
+		localtime_r(&aTime, &aLocalTime);
+#endif
+		char aBuffer[32]{};
+		std::strftime(aBuffer, sizeof(aBuffer), "%Y-%m-%d %H:%M:%S", &aLocalTime);
+		auto aMillis = duration_cast<milliseconds>(aNow.time_since_epoch()) % 1000;
+		return Sexy::StrFormat("%s.%03u", aBuffer, static_cast<unsigned>(aMillis.count()));
+	}
 
 	void LanTrace(const char* theFormat, ...)
 	{
-		std::FILE* aFile = std::fopen(Sexy::GetAppDataPath(LAN_TRACE_FILE).c_str(), "ab");
-		if (!aFile)
-			return;
 		va_list anArgs;
 		va_start(anArgs, theFormat);
-		std::vfprintf(aFile, theFormat, anArgs);
+		std::string aMessage = Sexy::VFormat(theFormat, anArgs);
 		va_end(anArgs);
-		std::fflush(aFile);
-		std::fclose(aFile);
-	}
-
-	void ResetLanTrace()
-	{
-		std::FILE* aFile = std::fopen(Sexy::GetAppDataPath(LAN_TRACE_FILE).c_str(), "wb");
-		if (!aFile)
+		if (aMessage.empty())
 			return;
-		std::fputs("LAN trace initialized\n", aFile);
-		std::fclose(aFile);
+		if (aMessage.back() != '\n')
+			aMessage.push_back('\n');
+		std::string aRecord = "[" + LanTraceTimestamp() + "] " + aMessage;
+		PvzMultiplayer::AppendRollingLog(
+			Sexy::PathFromU8(Sexy::GetAppDataPath(LAN_TRACE_FILE)), aRecord,
+			{LAN_TRACE_FILE_BYTES, LAN_TRACE_BACKUP_COUNT});
 	}
 
 	bool IsValidPointerClickCount(int theClickCount)
@@ -1361,7 +1379,11 @@ void LawnApp::Init()
 
 	if (mShutdown) // MakeWindow() failed
 		return;
-	ResetLanTrace();
+	LanTrace("=== application session started version=%s build=%d ruleset=%.*s log=%s "
+		"segmentBytes=%zu backups=%zu ===\n", mProductVersion.c_str(), mBuildNum,
+		static_cast<int>(PvzRules::GetActiveRulesetName().size()),
+		PvzRules::GetActiveRulesetName().data(), Sexy::GetAppDataPath(LAN_TRACE_FILE).c_str(),
+		LAN_TRACE_FILE_BYTES, LAN_TRACE_BACKUP_COUNT);
 
 	if (mRecordingDemoBuffer || mPlayingDemoBuffer)
 		mAppRandSeed = mRandSeed; // demo sessions derive the app-level seed from the recorded one
@@ -2265,7 +2287,9 @@ void LawnApp::UpdateLanSession()
 		mLastLanCursorSendTick = 0;
 		mHasSentLanCursor = false;
 		mLastLanModeValue = aModeValue;
-		LanTrace("mode changed mode=%u localPlayer=%u\n", static_cast<unsigned>(aMode), aLocalPlayerId);
+		LanTrace("mode changed mode=%u localPlayer=%u status=\"%s\"\n",
+			static_cast<unsigned>(aMode), aLocalPlayerId,
+			mLanCoordinator->GetStatusText().c_str());
 	}
 
 	if (aMode == LanMode::HOSTING)
@@ -2273,8 +2297,17 @@ void LawnApp::UpdateLanSession()
 		mLanCoordinator->SetSessionStarted(mBoard != nullptr || mLanSessionStart.has_value());
 		for (HostSessionEvent& anEvent : mLanCoordinator->TakeHostEvents())
 		{
+			if (const auto* aPlayerJoined = std::get_if<PlayerJoined>(&anEvent))
+			{
+				LanTrace("player joined id=%u name=\"%s\" count=%u\n",
+					aPlayerJoined->mPlayer.mPlayerId, aPlayerJoined->mPlayer.mName.c_str(),
+					mLanCoordinator->GetHostSession().GetLobby().GetPlayerCount());
+				continue;
+			}
 			if (const auto* aPlayerLeft = std::get_if<PlayerLeft>(&anEvent))
 			{
+				LanTrace("player left id=%u count=%u\n", aPlayerLeft->mPlayerId,
+					mLanCoordinator->GetHostSession().GetLobby().GetPlayerCount());
 				mSharedInputState.RemovePlayer(aPlayerLeft->mPlayerId);
 				mLanSessionBarrier.RemovePlayer(aPlayerLeft->mPlayerId);
 				MaybeBeginLanSession();
@@ -2323,7 +2356,9 @@ void LawnApp::UpdateLanSession()
 			}
 			if (const auto* aReady = std::get_if<SessionReady>(&anEvent))
 			{
-				mLanSessionBarrier.MarkReady(*aReady);
+				bool aMarkedReady = mLanSessionBarrier.MarkReady(*aReady);
+				LanTrace("player ready id=%u start=%llu accepted=%d\n", aReady->mPlayerId,
+					static_cast<unsigned long long>(aReady->mStartId), aMarkedReady ? 1 : 0);
 				MaybeBeginLanSession();
 			}
 		}
