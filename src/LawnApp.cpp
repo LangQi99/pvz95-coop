@@ -75,6 +75,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <iterator>
+#include <utility>
 
 #include "widget/Checkbox.h"
 #include "widget/Dialog.h"
@@ -734,6 +735,11 @@ void LawnApp::KillSeedChooserScreen()
 
 void LawnApp::EndLevel()
 {
+	// ZombieWonClick can also reach this method directly.  Keep every restart
+	// path behind the same host-authoritative LAN transition.
+	if (RequestLanLevelRestart())
+		return;
+
 	KillBoard();
 	if (IsAdventureMode())
 	{
@@ -2064,6 +2070,14 @@ void LawnApp::UpdateLanSession()
 		ResetLanGameState();
 		if (aLanGameWasActive && aMode != LanMode::HOSTING && aMode != LanMode::CONNECTED)
 		{
+			FinishModelessDialogs();
+			KillDialog(Dialogs::DIALOG_GAME_OVER);
+			KillDialog(Dialogs::DIALOG_LEVEL_COMPLETE);
+			KillDialog(Dialogs::DIALOG_CONTINUE);
+			KillDialog(Dialogs::DIALOG_RESTARTCONFIRM);
+			KillAwardScreen();
+			KillChallengeScreen();
+			KillCreditScreen();
 			KillBoard();
 			if (!mGameSelector)
 				ShowGameSelector();
@@ -2302,28 +2316,35 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 	using namespace PvzMultiplayer;
 
 	LanMode aMode = mLanCoordinator->GetMode();
-	if (aMode == LanMode::CONNECTED)
+	const HostLobby* aLobby = aMode == LanMode::HOSTING ?
+		&mLanCoordinator->GetHostSession().GetLobby() : nullptr;
+	size_t aPlayerCount = aLobby ? aLobby->GetPlayerCount() : 0;
+	switch (ResolveLanLifecycleDecision(aMode, aPlayerCount, mLanWaitingForBegin))
+	{
+	case LanLifecycleDecision::CLIENT_FOLLOW:
+	case LanLifecycleDecision::HOST_PENDING:
+		// The client follows SessionStart, and repeated host activation while a
+		// barrier is pending must not create a competing start ID.
 		return true;
-	if (aMode != LanMode::HOSTING)
+	case LanLifecycleDecision::LOCAL:
+		// A departed final guest turns this into a local game.  Clear the old
+		// deterministic session before allowing the normal local fallback.
+		if (aMode == LanMode::HOSTING && mLanSessionStart)
+			ResetLanGameState();
 		return false;
-	// Restarting or advancing creates a fresh deterministic session.  The
-	// applying flag bypasses this path while constructing that session's board.
-	if (mLanSessionStart)
-		ResetLanGameState();
-
-	const HostLobby& aLobby = mLanCoordinator->GetHostSession().GetLobby();
-	if (aLobby.GetPlayerCount() <= 1)
-		return false;
+	case LanLifecycleDecision::HOST_START:
+		break;
+	}
 
 	std::array<PlayerId, MAX_PLAYERS> aPlayers{};
-	size_t aPlayerCount = 0;
-	for (const auto& aPlayer : aLobby.GetPlayers())
+	aPlayerCount = 0;
+	for (const auto& aPlayer : aLobby->GetPlayers())
 	{
 		if (aPlayer)
 			aPlayers[aPlayerCount++] = aPlayer->mPlayerId;
 	}
 
-	uint64_t aStartId = aLobby.GetConfig().mSessionId ^
+	uint64_t aStartId = aLobby->GetConfig().mSessionId ^
 		(static_cast<uint64_t>(mAppCounter) << 32) ^ ++mLanStartSerial;
 	if (aStartId == 0)
 		aStartId = ++mLanStartSerial;
@@ -2341,20 +2362,28 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 	LanTrace("host session start requested start=%llu seed=%u mode=%u players=%zu app=%u\n",
 		static_cast<unsigned long long>(aStartId), aSimulationSeed, static_cast<unsigned>(theGameMode),
 		aPlayerCount, mAppCounter);
-	if (!mLanSessionBarrier.Start(aStartId, std::span<const PlayerId>(aPlayers.data(), aPlayerCount)) ||
+	// Stage the new barrier separately.  The current session must remain intact
+	// until SESSION_START has actually been queued for every connected peer.
+	SessionBarrier aPendingBarrier;
+	if (!aPendingBarrier.Start(aStartId, std::span<const PlayerId>(aPlayers.data(), aPlayerCount)) ||
 		!mLanCoordinator->BroadcastFromHost(aStart))
 	{
 		LanTrace("host session start broadcast failed start=%llu\n",
 			static_cast<unsigned long long>(aStartId));
-		mLanSessionBarrier.Reset();
-		return false;
+		// Broadcast queues are flushed only by Poll.  Abort immediately so a
+		// partially queued transition cannot reach just part of the room.
+		AbortLanSession("Could not synchronize the next LAN game.");
+		return true;
 	}
 
 	if (!ApplyLanSessionStart(aStart, true))
 	{
-		mLanSessionBarrier.Reset();
-		return false;
+		LanTrace("host session start apply failed start=%llu\n",
+			static_cast<unsigned long long>(aStartId));
+		AbortLanSession("The host could not apply the next LAN game.");
+		return true;
 	}
+	mLanSessionBarrier = std::move(aPendingBarrier);
 	MaybeBeginLanSession();
 	return true;
 }
@@ -2386,6 +2415,17 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 
 	if (!theHost)
 		InstallLanGameplayProfile(theStart.mProfile);
+
+	// SESSION_START is the authoritative root-screen transition.  Remove every
+	// terminal overlay before constructing the replacement board so clients do
+	// not need to click through a stale game-over/award screen themselves.
+	FinishModelessDialogs();
+	KillDialog(Dialogs::DIALOG_GAME_OVER);
+	KillDialog(Dialogs::DIALOG_LEVEL_COMPLETE);
+	KillDialog(Dialogs::DIALOG_CONTINUE);
+	KillDialog(Dialogs::DIALOG_RESTARTCONFIRM);
+	KillAwardScreen();
+	KillChallengeScreen();
 	KillGameSelector();
 	mAppRandSeed = static_cast<int>(theStart.mSimulationSeed);
 	mRandSeed = theStart.mSimulationSeed;
@@ -2415,6 +2455,7 @@ void LawnApp::MaybeBeginLanSession()
 		LanTrace("host begin broadcast failed start=%llu tick=%llu\n",
 			static_cast<unsigned long long>(aBegin.mStartId),
 			static_cast<unsigned long long>(aBegin.mHostTick));
+		AbortLanSession("Could not begin the synchronized LAN game.");
 		return;
 	}
 	mLanTargetTick = aBegin.mHostTick;
@@ -2627,6 +2668,71 @@ bool LawnApp::ShouldAdvanceLanBoard() const
 bool LawnApp::IsLanGameplayActive() const
 {
 	return mLanSessionStart.has_value();
+}
+
+bool LawnApp::ShouldBlockLanLifecycleInput() const
+{
+	return mLanCoordinator &&
+		PvzMultiplayer::IsLanClientWaitingForHost(mLanCoordinator->GetMode());
+}
+
+bool LawnApp::RequestLanGameStart(GameMode theGameMode)
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator)
+		return false;
+	LanMode aMode = mLanCoordinator->GetMode();
+	const HostLobby* aLobby = aMode == LanMode::HOSTING ?
+		&mLanCoordinator->GetHostSession().GetLobby() : nullptr;
+	size_t aPlayerCount = aLobby ? aLobby->GetPlayerCount() : 0;
+	switch (ResolveLanLifecycleDecision(aMode, aPlayerCount, mLanWaitingForBegin))
+	{
+	case LanLifecycleDecision::CLIENT_FOLLOW:
+		LanTrace("blocked client lifecycle start mode=%u gameMode=%u\n",
+			static_cast<unsigned>(aMode), static_cast<unsigned>(theGameMode));
+		return true;
+	case LanLifecycleDecision::HOST_PENDING:
+		LanTrace("ignored duplicate host lifecycle start gameMode=%u\n",
+			static_cast<unsigned>(theGameMode));
+		return true;
+	case LanLifecycleDecision::HOST_START:
+		LanTrace("host lifecycle start requested gameMode=%u\n",
+			static_cast<unsigned>(theGameMode));
+		PreNewGame(theGameMode, false);
+		return true;
+	case LanLifecycleDecision::LOCAL:
+		if (aMode == LanMode::HOSTING && mLanSessionStart)
+			ResetLanGameState();
+		return false;
+	}
+	return false;
+}
+
+bool LawnApp::RequestLanLevelRestart()
+{
+	LanTrace("host lifecycle restart requested mode=%u gameMode=%u\n",
+		mLanCoordinator ? static_cast<unsigned>(mLanCoordinator->GetMode()) : 0U,
+		static_cast<unsigned>(mGameMode));
+	return RequestLanGameStart(mGameMode);
+}
+
+bool LawnApp::StartGameFromAward(GameMode theGameMode)
+{
+	if (RequestLanGameStart(theGameMode))
+		return !ShouldBlockLanLifecycleInput() && mBoard && mGameMode == theGameMode;
+
+	KillAwardScreen();
+	PreNewGame(theGameMode, false);
+	return mBoard && mGameMode == theGameMode;
+}
+
+void LawnApp::AbortLanSession(const std::string& theReason)
+{
+	LanTrace("LAN session aborted: %s\n", theReason.c_str());
+	mLanDesynchronized = true;
+	if (mLanCoordinator)
+		mLanCoordinator->AbortWithError(theReason);
 }
 
 void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const

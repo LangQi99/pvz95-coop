@@ -32,6 +32,15 @@ int main()
 		!IsLanClientWaitingForHost(LanMode::CONNECTED) ||
 		IsLanClientWaitingForHost(LanMode::FAILED))
 		Fail("client waiting-mode classification is incorrect");
+	if (ResolveLanLifecycleDecision(LanMode::OFFLINE, 0, false) != LanLifecycleDecision::LOCAL ||
+		ResolveLanLifecycleDecision(LanMode::FAILED, 0, false) != LanLifecycleDecision::LOCAL ||
+		ResolveLanLifecycleDecision(LanMode::HOSTING, 1, false) != LanLifecycleDecision::LOCAL ||
+		ResolveLanLifecycleDecision(LanMode::SEARCHING, 0, false) != LanLifecycleDecision::CLIENT_FOLLOW ||
+		ResolveLanLifecycleDecision(LanMode::JOINING, 0, false) != LanLifecycleDecision::CLIENT_FOLLOW ||
+		ResolveLanLifecycleDecision(LanMode::CONNECTED, 2, false) != LanLifecycleDecision::CLIENT_FOLLOW ||
+		ResolveLanLifecycleDecision(LanMode::HOSTING, 2, false) != LanLifecycleDecision::HOST_START ||
+		ResolveLanLifecycleDecision(LanMode::HOSTING, 2, true) != LanLifecycleDecision::HOST_PENDING)
+		Fail("LAN lifecycle authority classification is incorrect");
 
 	LanCoordinator aHost;
 	if (!aHost.StartHosting("Test Garden", "Host", 0x50563935))
@@ -99,6 +108,54 @@ int main()
 	}
 	if (aMessages.size() != 1 || aMessages.front() != Message{aBegin})
 		Fail("coordinator client did not receive session begin");
+
+	// A terminal restart/next-level transition reuses the same connected room
+	// and must perform a complete second Start -> Ready -> Begin barrier.
+	GameplayProfile aNextProfile = aProfile;
+	aNextProfile.mAdventureLevel = 9;
+	SessionStart aNextStart{0, 78, 5678, 0, aNextProfile};
+	if (!aHost.BroadcastFromHost(aNextStart))
+		Fail("coordinator failed to broadcast replacement session start");
+	aMessages.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{aNextStart})
+		Fail("coordinator client did not follow replacement session start");
+	if (!aClient.SendReady({aNextStart.mStartId, 99}))
+		Fail("coordinator client failed to ready replacement session");
+	anEvents.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && anEvents.empty())
+	{
+		aClient.Poll();
+		aHost.Poll();
+		anEvents = aHost.TakeHostEvents();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (anEvents.size() != 1 || !std::holds_alternative<SessionReady>(anEvents.front()) ||
+		std::get<SessionReady>(anEvents.front()).mStartId != aNextStart.mStartId ||
+		std::get<SessionReady>(anEvents.front()).mPlayerId != 1)
+		Fail("coordinator did not bind replacement ready response");
+	SessionBegin aNextBegin{0, aNextStart.mStartId};
+	if (!aHost.BroadcastFromHost(aNextBegin))
+		Fail("coordinator failed to broadcast replacement session begin");
+	aMessages.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{aNextBegin})
+		Fail("coordinator client did not receive replacement session begin");
 
 	CursorUpdate aCursor{10, 1, 12345, 54321, 99, true};
 	if (!aClient.SendCursor(aCursor))

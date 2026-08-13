@@ -289,6 +289,11 @@ public:
 	PvzMultiplayer::GameplayProfile CaptureGameplayProfile() const;
 	bool                            ShouldAdvanceLanBoard() const;
 	bool                            IsLanGameplayActive() const;
+	bool                            ShouldBlockLanLifecycleInput() const;
+	bool                            RequestLanGameStart(GameMode theGameMode);
+	bool                            RequestLanLevelRestart();
+	bool                            StartGameFromAward(GameMode theGameMode);
+	void                            AbortLanSession(const std::string& theReason);
 	bool							UpdateAppStep(bool* updated) override;
 	bool							UpdateApp() override;
 	bool					IsAdventureMode();

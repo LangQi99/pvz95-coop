@@ -497,6 +497,11 @@ void GameOverDialog::KeyDown(KeyCode theKey)
 
 void GameOverDialog::ButtonDepress(int theId)
 {
+	// Terminal lifecycle is host-authoritative during LAN play.  A client click
+	// must not dismiss its dialog or rebuild a board locally.
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (theId == 1)
 	{
 		mApp->KillDialog(Dialogs::DIALOG_GAME_OVER);
@@ -520,6 +525,8 @@ void GameOverDialog::ButtonDepress(int theId)
 	}
 	else if (theId == Dialog::ID_FOOTER)
 	{
+		if (mApp->RequestLanLevelRestart())
+			return;
 		mApp->KillDialog(Dialogs::DIALOG_GAME_OVER);
 		mApp->EndLevel();
 	}

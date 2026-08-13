@@ -449,13 +449,19 @@ void AwardScreen::Update()
 	mStartButton->Update();
 	mMenuButton->Update();
 	mContinueButton->Update();
-	mApp->SetCursor(mStartButton->IsMouseOver() || mMenuButton->IsMouseOver() || mContinueButton->IsMouseOver() ? CURSOR_HAND : CURSOR_POINTER);
+	bool aLifecycleInputBlocked = mApp->ShouldBlockLanLifecycleInput();
+	mApp->SetCursor(!aLifecycleInputBlocked &&
+		(mStartButton->IsMouseOver() || mMenuButton->IsMouseOver() || mContinueButton->IsMouseOver()) ?
+		CURSOR_HAND : CURSOR_POINTER);
 	MarkDirty();
 	if (mFadeInCounter > 0) mFadeInCounter--;
 }
 
 void AwardScreen::KeyDown(KeyCode theKey)
 {
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (theKey == KeyCode::KEYCODE_SPACE || theKey == KeyCode::KEYCODE_RETURN)
 	{
 		StartButtonPressed();
@@ -478,6 +484,9 @@ void AwardScreen::KeyDown(KeyCode theKey)
 
 void AwardScreen::StartButtonPressed()
 {
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (mApp->GetDialog(DIALOG_STORE))
 		return;
 
@@ -511,14 +520,14 @@ void AwardScreen::StartButtonPressed()
 		int aLevel = mApp->mPlayerInfo->GetLevel();
 		if (aLevel == 1)
 		{
-			mApp->KillAwardScreen();
 			if (mApp->HasFinishedAdventure())
 			{
+				mApp->KillAwardScreen();
 				mApp->ShowAwardScreen(AWARD_CREDITS_ZOMBIENOTE, false);
 			}
 			else
 			{
-				mApp->PreNewGame(GAMEMODE_ADVENTURE, false);
+				mApp->StartGameFromAward(GAMEMODE_ADVENTURE);
 			}
 		}
 		else
@@ -541,8 +550,8 @@ void AwardScreen::StartButtonPressed()
 				}
 				if (mApp->IsTrialStageLocked())
 				{
-					mApp->KillAwardScreen();
-					mApp->PreNewGame(GAMEMODE_UPSELL, false);
+					if (!mApp->StartGameFromAward(GAMEMODE_UPSELL))
+						return;
 					if (!mApp->mPlayerInfo->mHasSeenUpsell)
 					{
 						mApp->mBoard->mStoreButton->mBtnNoDraw = true;
@@ -565,14 +574,13 @@ void AwardScreen::StartButtonPressed()
 			}
 			else if (aLevel == 45)
 			{
-				mApp->KillAwardScreen();
-				mApp->PreNewGame(GAMEMODE_CHALLENGE_ZEN_GARDEN, false);
+				if (!mApp->StartGameFromAward(GAMEMODE_CHALLENGE_ZEN_GARDEN))
+					return;
 				mApp->mZenGarden->SetupForZenTutorial();
 				return;
 			}
 
-			mApp->KillAwardScreen();
-			mApp->PreNewGame(GAMEMODE_ADVENTURE, false);
+			mApp->StartGameFromAward(GAMEMODE_ADVENTURE);
 		}
 	}
 }
@@ -580,6 +588,9 @@ void AwardScreen::StartButtonPressed()
 void AwardScreen::MouseDown(int x, int y, int theClickCount)
 {
 	(void)x;(void)y;
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (theClickCount == 1) {
 		if (mStartButton->IsMouseOver() || mMenuButton->IsMouseOver() || mContinueButton->IsMouseOver())
 			mApp->PlaySample(Sexy::SOUND_TAP);
@@ -589,6 +600,9 @@ void AwardScreen::MouseDown(int x, int y, int theClickCount)
 void AwardScreen::MouseUp(int x, int y, int theClickCount)
 {
 	(void)x;(void)y;
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (theClickCount == 1)
 	{
 		if (mStartButton->IsMouseOver())
@@ -631,18 +645,23 @@ void AwardScreen::DrawAchievements(Graphics* g) {
 }
 
 void AwardScreen::AchievementsContinuePressed() {
+	if (mApp->ShouldBlockLanLifecycleInput())
+		return;
+
 	if (mAwardType == AWARD_ACHIEVEMENTONLY) {
-		mApp->KillAwardScreen();
 		if (mApp->IsAdventureMode()) {
-			mApp->PreNewGame(mApp->mGameMode, false);
+			mApp->StartGameFromAward(mApp->mGameMode);
 		}
 		else if (mApp->IsSurvivalMode()) {
+			mApp->KillAwardScreen();
 			mApp->ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_SURVIVAL);
 		}
 		else if (mApp->IsPuzzleMode()) {
+			mApp->KillAwardScreen();
 			mApp->ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_PUZZLE);
 		}
 		else {
+			mApp->KillAwardScreen();
 			mApp->ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_CHALLENGE);
 		}
 	}

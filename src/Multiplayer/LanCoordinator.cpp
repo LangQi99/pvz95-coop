@@ -195,6 +195,11 @@ namespace PvzMultiplayer
 			mHostSession.SetSessionStarted(theStarted);
 	}
 
+	void LanCoordinator::AbortWithError(std::string theError)
+	{
+		SetError(std::move(theError));
+	}
+
 	LanMode LanCoordinator::GetMode() const
 	{
 		return mMode;

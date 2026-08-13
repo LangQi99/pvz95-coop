@@ -11,6 +11,7 @@
 #include "LanDiscovery.h"
 
 #include <chrono>
+#include <cstddef>
 #include <optional>
 
 namespace PvzMultiplayer
@@ -31,6 +32,25 @@ namespace PvzMultiplayer
 			theMode == LanMode::CONNECTED;
 	}
 
+	enum class LanLifecycleDecision : uint8_t
+	{
+		LOCAL,
+		CLIENT_FOLLOW,
+		HOST_START,
+		HOST_PENDING
+	};
+
+	constexpr LanLifecycleDecision ResolveLanLifecycleDecision(
+		LanMode theMode, std::size_t thePlayerCount, bool theWaitingForBegin)
+	{
+		if (IsLanClientWaitingForHost(theMode))
+			return LanLifecycleDecision::CLIENT_FOLLOW;
+		if (theMode != LanMode::HOSTING || thePlayerCount <= 1)
+			return LanLifecycleDecision::LOCAL;
+		return theWaitingForBegin ? LanLifecycleDecision::HOST_PENDING :
+			LanLifecycleDecision::HOST_START;
+	}
+
 	class LanCoordinator
 	{
 	public:
@@ -44,6 +64,7 @@ namespace PvzMultiplayer
 		bool SendReady(SessionReady theReady);
 		bool BroadcastFromHost(const Message& theMessage);
 		void SetSessionStarted(bool theStarted);
+		void AbortWithError(std::string theError);
 
 		LanMode GetMode() const;
 		const std::string& GetStatusText() const;
