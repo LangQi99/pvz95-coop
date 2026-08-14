@@ -8,7 +8,7 @@
         android:shortcutLongLabel="@string/shortcut_manage_data_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="io.github.wszqkzqk.pvzportable"
+            android:targetPackage="io.github.langqi99.pvz95coop"
             android:targetClass="io.github.wszqkzqk.pvzportable.ResourceImportActivity" />
     </shortcut>
 </shortcuts>

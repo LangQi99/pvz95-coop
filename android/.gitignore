@@ -5,6 +5,7 @@
 .DS_Store
 /build
 /app/build
+/app/src/main/jniLibs
 /captures
 .externalNativeBuild
 *.keystore

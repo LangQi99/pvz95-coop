@@ -18,9 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 10 makes the forced Crazy Dave packet-slot purchase host-authoritative.
-	// Older peers must fail the handshake instead of resolving the modal locally.
-	constexpr uint16_t PROTOCOL_VERSION = 10;
+	// Version 11 adds an ordered Scary Potter vase-smash action.  Older peers must
+	// fail the handshake instead of consuming vase clicks without opening them.
+	constexpr uint16_t PROTOCOL_VERSION = 11;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -34,6 +34,8 @@ namespace PvzMultiplayer
 	constexpr uint16_t MAX_GAME_MODE_VALUE = 72;
 	constexpr uint16_t MAX_ADVENTURE_LEVEL = 50;
 	constexpr uint32_t MAX_CRAZY_DAVE_MESSAGE_INDEX = 9999;
+	constexpr uint16_t MAX_SCARY_POT_GRID_X = 8;
+	constexpr uint16_t MAX_SCARY_POT_GRID_Y = 5;
 	constexpr size_t GAMEPLAY_CHALLENGE_RECORD_COUNT = 100;
 	constexpr size_t GAMEPLAY_PURCHASE_COUNT = 80;
 
@@ -78,7 +80,8 @@ namespace PvzMultiplayer
 		CONFIRM_SEED_CHOICES,
 		ADVANCE_CRAZY_DAVE_DIALOG,
 		WHACK_ZOMBIE,
-		RESOLVE_PACKET_UPGRADE
+		RESOLVE_PACKET_UPGRADE,
+		SMASH_SCARY_POT
 	};
 
 	enum class CodecError : uint8_t

@@ -2051,6 +2051,15 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	}
 	if (QueueHitCoin())
 		return true;
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SCARY_POT)
+	{
+		GridItem* aScaryPot = static_cast<GridItem*>(aHitResult.mObject);
+		QueueLocalLanAction({0, 0, 0,
+			static_cast<uint16_t>(aScaryPot->mGridX),
+			static_cast<uint16_t>(aScaryPot->mGridY), 0,
+			PvzMultiplayer::ActionKind::SMASH_SCARY_POT});
+		return true;
+	}
 	if (IsWhackAZombieLevel() &&
 		mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_HAMMER &&
 		aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_NONE)
@@ -2347,6 +2356,9 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 		return theAction.mPlayerId == 0 &&
 			(theAction.mParameter == 1503 || theAction.mParameter == 1553) &&
 			theAction.mTargetX <= 1 && theAction.mTargetY == 0;
+	case ActionKind::SMASH_SCARY_POT:
+		return theAction.mParameter == 0 &&
+			theAction.mTargetX < MAX_GRID_SIZE_X && theAction.mTargetY < MAX_GRID_SIZE_Y;
 	}
 	return false;
 }
@@ -2673,6 +2685,24 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 			return false;
 		return mBoard->mCutScene->ApplyPacketUpgradeResolution(
 			static_cast<int>(theAction.mParameter), theAction.mTargetX == 1, false);
+	case ActionKind::SMASH_SCARY_POT:
+	{
+		// A second click can already be in flight when another player's mallet
+		// starts, or when both players target the same vase.  Such stale actions
+		// are deterministic no-ops rather than desyncs.
+		if (!IsScaryPotterLevel() || mGameScene != GameScenes::SCENE_PLAYING ||
+			mBoard->HasLevelAwardDropped() ||
+			mBoard->mChallenge->mChallengeState != ChallengeState::STATECHALLENGE_NORMAL)
+		{
+			return true;
+		}
+		GridItem* aScaryPot = mBoard->GetScaryPotAt(
+			static_cast<int>(theAction.mTargetX), static_cast<int>(theAction.mTargetY));
+		if (!aScaryPot || aScaryPot->mDead)
+			return true;
+		mBoard->mChallenge->ScaryPotterMalletPot(aScaryPot);
+		return true;
+	}
 	}
 	return false;
 }

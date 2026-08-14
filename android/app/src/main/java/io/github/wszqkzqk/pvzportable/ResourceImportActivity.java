@@ -122,7 +122,7 @@ public class ResourceImportActivity extends AppCompatActivity {
             dirPicker.launch(null)
         );
         btnExportSave.setOnClickListener(v ->
-            saveExporter.launch("pvz-portable-savedata.zip")
+            saveExporter.launch("pvz95-coop-savedata.zip")
         );
         btnImportSaveZip.setOnClickListener(v ->
             saveZipImporter.launch(new String[]{"application/zip", "application/x-zip-compressed"})
@@ -181,7 +181,7 @@ public class ResourceImportActivity extends AppCompatActivity {
                     String name = stripCommonPrefix(entry.getName());
                     if (name == null) { zis.closeEntry(); continue; }
 
-                    File outFile = new File(gameDir, name);
+                    File outFile = safeZipOutputFile(gameDir, name);
                     File parent = outFile.getParentFile();
                     if (parent != null && !parent.exists()) parent.mkdirs();
 
@@ -232,6 +232,21 @@ public class ResourceImportActivity extends AppCompatActivity {
                name.startsWith("images/") || name.startsWith("particles/") ||
                name.startsWith("reanim/") || name.startsWith("sounds/") ||
                name.startsWith("compiled/");
+    }
+
+    /**
+     * Resolves an archive entry inside the app-owned game directory.  ZIPs are
+     * selected by the user, so reject absolute and parent-traversal paths before
+     * creating any files.
+     */
+    private File safeZipOutputFile(File destinationRoot, String relativePath) throws IOException {
+        File root = destinationRoot.getCanonicalFile();
+        File output = new File(root, relativePath).getCanonicalFile();
+        String rootPrefix = root.getPath() + File.separator;
+        if (!output.getPath().startsWith(rootPrefix)) {
+            throw new IOException("Unsafe ZIP entry: " + relativePath);
+        }
+        return output;
     }
 
     private void importFromDirectory(Uri treeUri) {
@@ -385,9 +400,10 @@ public class ResourceImportActivity extends AppCompatActivity {
                 ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
                     if (entry.isDirectory()) { zis.closeEntry(); continue; }
-                    String name = entry.getName();
-                    if (!name.startsWith("userdata/")) name = "userdata/" + name;
-                    File outFile = new File(gameDir, name);
+                    String name = entry.getName().replace('\\', '/').replaceAll("^/+", "");
+                    if (name.startsWith("userdata/")) name = name.substring("userdata/".length());
+                    if (name.isEmpty()) { zis.closeEntry(); continue; }
+                    File outFile = safeZipOutputFile(new File(gameDir, "userdata"), name);
                     File parent = outFile.getParentFile();
                     if (parent != null && !parent.exists()) parent.mkdirs();
                     try (OutputStream os = new BufferedOutputStream(new FileOutputStream(outFile), BUFFER_SIZE)) {

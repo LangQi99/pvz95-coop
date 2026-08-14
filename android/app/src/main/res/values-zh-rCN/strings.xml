@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">植物大战僵尸95版联机</string>
+    <string name="status_ready">已找到游戏资源，可以启动！</string>
+    <string name="status_missing">未找到游戏资源。\n请导入 main.pak 和 properties/ 后继续。</string>
+    <string name="section_import_resources">导入游戏资源</string>
+    <string name="import_help">请选择包含合法取得的 main.pak 和 properties/ 目录的 ZIP 或文件夹。</string>
+    <string name="btn_pick_zip">选择 ZIP 文件</string>
+    <string name="btn_pick_dir">选择资源文件夹</string>
+    <string name="section_save_data">导入/导出存档（可选）</string>
+    <string name="btn_export_save">导出存档</string>
+    <string name="btn_import_save_zip">导入存档 ZIP</string>
+    <string name="btn_import_save_dir">导入存档文件夹</string>
+    <string name="btn_launch_game">启动游戏</string>
+    <string name="import_success">导入成功！</string>
+    <string name="import_failed">导入失败：%1$s</string>
+    <string name="export_success">存档导出成功！</string>
+    <string name="export_failed">导出失败：%1$s</string>
+    <string name="no_save_data">没有找到可导出的存档。</string>
+    <string name="shortcut_manage_data">管理数据</string>
+    <string name="shortcut_manage_data_long">管理资源与存档</string>
+</resources>

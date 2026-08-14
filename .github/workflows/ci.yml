@@ -1,9 +1,9 @@
-name: Windows and macOS CI
+name: Windows, macOS, and Android CI
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["v*", "[0-9]*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -133,4 +133,136 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: pvz95-coop-windows-x64
+          path: dist/
+
+  android-arm64:
+    name: Android (arm64-v8a)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ANDROID_API: "24"
+      SDL2_VERSION: "2.32.10"
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Select Android NDK
+        run: |
+          if test -n "$ANDROID_NDK_LATEST_HOME" && test -d "$ANDROID_NDK_LATEST_HOME"; then
+            ndk_dir="$ANDROID_NDK_LATEST_HOME"
+          else
+            ndk_dir="$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          fi
+          test -n "$ndk_dir" && test -d "$ndk_dir"
+          echo "ANDROID_NDK=$ndk_dir" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ndk_dir" >> "$GITHUB_ENV"
+
+      - name: Download SDL2 source
+        run: |
+          curl -fL --retry 3 \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-${SDL2_VERSION}.tar.gz" \
+            -o sdl2.tar.gz
+          tar xf sdl2.tar.gz
+          mv "SDL2-${SDL2_VERSION}" sdl2-src
+
+      - uses: actions/cache@v6
+        with:
+          path: vcpkg-cache
+          key: vcpkg-android-arm64-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+
+      - uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: vcpkg.json
+
+      - name: Build shared SDL2
+        run: |
+          cmake -B build-sdl2 \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-$ANDROID_API \
+            -DSDL_SHARED=ON \
+            -DSDL_STATIC=OFF \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/sdl2-android" \
+            -DCMAKE_BUILD_TYPE=Release \
+            sdl2-src
+          cmake --build build-sdl2 -j"$(nproc)"
+          cmake --install build-sdl2
+
+      - name: Build native game library
+        run: |
+          build_dir=build-android-arm64-v8a
+          cmake -B "$build_dir" \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=arm64-android \
+            -DVCPKG_CMAKE_SYSTEM_VERSION=$ANDROID_API \
+            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-$ANDROID_API \
+            -DSDL2_DIR="$GITHUB_WORKSPACE/sdl2-android/lib/cmake/SDL2" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$build_dir" -j"$(nproc)"
+
+          jni_dir=android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p "$jni_dir"
+          cp -L "$build_dir/libmain.so" "$jni_dir/"
+          cp -L "$GITHUB_WORKSPACE/sdl2-android/lib/libSDL2.so" "$jni_dir/"
+          find "$build_dir/vcpkg_installed/arm64-android/lib" -maxdepth 1 -name '*.so' \
+            -exec cp -L {} "$jni_dir/" \; 2>/dev/null || true
+          strip_tool="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          for library in "$jni_dir"/*.so; do
+            "$strip_tool" --strip-unneeded "$library"
+          done
+          ls -lh "$jni_dir"
+
+      - name: Configure release signing
+        env:
+          PVZP_KEYSTORE_BASE64: ${{ secrets.PVZP_KEYSTORE_BASE64 }}
+          PVZP_KEYSTORE_PASSWORD: ${{ secrets.PVZP_KEYSTORE_PASSWORD }}
+          PVZP_KEY_ALIAS: ${{ secrets.PVZP_KEY_ALIAS }}
+          PVZP_KEY_PASSWORD: ${{ secrets.PVZP_KEY_PASSWORD }}
+        run: |
+          if test -n "$PVZP_KEYSTORE_BASE64" && test -n "$PVZP_KEYSTORE_PASSWORD" && \
+             test -n "$PVZP_KEY_ALIAS" && test -n "$PVZP_KEY_PASSWORD"; then
+            echo "$PVZP_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/pvz95-coop-release.keystore"
+            echo "PVZP_KEYSTORE_FILE=$RUNNER_TEMP/pvz95-coop-release.keystore" >> "$GITHUB_ENV"
+          fi
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: false
+
+      - name: Build APK
+        env:
+          PVZP_KEYSTORE_PASSWORD: ${{ secrets.PVZP_KEYSTORE_PASSWORD }}
+          PVZP_KEY_ALIAS: ${{ secrets.PVZP_KEY_ALIAS }}
+          PVZP_KEY_PASSWORD: ${{ secrets.PVZP_KEY_PASSWORD }}
+        run: |
+          cd android
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          gradle wrapper
+          ./gradlew assembleRelease -PusePrebuiltLibs=true --no-daemon
+
+      - name: Verify and package APK
+        run: |
+          apk="$(find android -name '*.apk' -path '*/release/*' -print -quit)"
+          test -n "$apk"
+          build_tools="$(dirname "$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)")"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          "$build_tools/zipalign" -c -P 16 4 "$apk"
+          unzip -l "$apk" | grep -E 'lib/arm64-v8a/(libmain|libSDL2)\.so'
+          mkdir -p dist
+          cp "$apk" dist/pvz95-coop-android-arm64-v8a.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pvz95-coop-android-arm64-v8a
           path: dist/

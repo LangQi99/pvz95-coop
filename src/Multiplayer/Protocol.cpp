@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::RESOLVE_PACKET_UPGRADE);
+				theValue <= static_cast<uint8_t>(ActionKind::SMASH_SCARY_POT);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -238,6 +238,12 @@ namespace PvzMultiplayer
 				return theAction.mPlayerId == 0 &&
 					(theAction.mParameter == 1503 || theAction.mParameter == 1553) &&
 					theAction.mTargetX <= 1 && theAction.mTargetY == 0;
+			}
+			if (theAction.mKind == ActionKind::SMASH_SCARY_POT)
+			{
+				return theAction.mParameter == 0 &&
+					theAction.mTargetX <= MAX_SCARY_POT_GRID_X &&
+					theAction.mTargetY <= MAX_SCARY_POT_GRID_Y;
 			}
 
 			return true;

@@ -40,7 +40,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId "io.github.wszqkzqk.pvzportable"
+        applicationId "io.github.langqi99.pvz95coop"
         minSdk 24
         targetSdk 36
         versionCode gitVersionCode

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PvZ Portable</string>
+    <string name="app_name">PvZ 95 Co-op</string>
 
     <!-- ResourceImportActivity -->
     <string name="status_ready">Game resources found. Ready to play!</string>
