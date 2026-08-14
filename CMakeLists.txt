@@ -214,6 +214,11 @@ if(WIN32)
 	add_executable(pvz95-report WIN32
 		src/Report/ReportMain.cpp
 		src/Report/ZipWriter.cpp
+		src/Report/ReportIcon.rc
+	)
+	set_source_files_properties(src/Report/ReportIcon.rc PROPERTIES
+		COMPILE_DEFINITIONS "REPORT_ICON_PATH=\"${PROJECT_SOURCE_DIR}/src/Report/report.ico\""
+		OBJECT_DEPENDS "${PROJECT_SOURCE_DIR}/src/Report/report.ico"
 	)
 	target_include_directories(pvz95-report PRIVATE
 		${PROJECT_BINARY_DIR}
