@@ -163,6 +163,21 @@ int main()
 	if (aMessages.size() != 1 || aMessages.front() != Message{aNextBegin})
 		Fail("coordinator client did not receive replacement session begin");
 
+	SessionEnd anEnd{aNextStart.mStartId};
+	if (!aHost.BroadcastFromHost(anEnd))
+		Fail("coordinator failed to broadcast session end");
+	aMessages.clear();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline && aMessages.empty())
+	{
+		aHost.Poll();
+		aClient.Poll();
+		aMessages = aClient.TakeClientMessages();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aMessages.size() != 1 || aMessages.front() != Message{anEnd})
+		Fail("coordinator client did not follow session end");
+
 	CursorUpdate aCursor{10, 1, 12345, 54321, 99, true};
 	if (!aClient.SendCursor(aCursor))
 		Fail("coordinator failed to send cursor");

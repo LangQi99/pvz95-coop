@@ -100,10 +100,11 @@ NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) :
 	}
 	if (mApp->IsLanGameplayActive())
 	{
-		// Until these actions have host-authoritative session commands, keep the
-		// ESC overlay strictly local and non-destructive.
-		mRestartButton->SetVisible(false);
-		mBackToMainButton->SetVisible(false);
+		// Clients follow host lifecycle commands.  The host keeps both controls
+		// and broadcasts the selected transition to every connected peer.
+		bool aClient = mApp->ShouldBlockLanLifecycleInput();
+		mRestartButton->SetVisible(!aClient);
+		mBackToMainButton->SetVisible(!aClient);
 	}
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO && !mApp->mBoard->mCutScene->IsSurvivalRepick())
 	{
@@ -353,6 +354,8 @@ void NewOptionsDialog::ButtonDepress(int theId)
 		}
 		else
 		{
+			if (mApp->RequestLanReturnToMenu())
+				break;
 			mApp->mBoardResult = BoardResult::BOARDRESULT_QUIT;
 			mApp->DoBackToMain();
 		}
@@ -397,6 +400,8 @@ void NewOptionsDialog::ButtonDepress(int theId)
 				mApp->KillNewOptionsDialog();
 				mApp->mBoardResult = BoardResult::BOARDRESULT_RESTART;
 				mApp->mSawYeti = mApp->mBoard->mKilledYeti;
+				if (mApp->RequestLanLevelRestart())
+					break;
 				mApp->PreNewGame(mApp->mGameMode, false);
 			}
 		}

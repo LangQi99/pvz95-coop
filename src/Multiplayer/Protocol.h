@@ -18,9 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 11 adds an ordered Scary Potter vase-smash action.  Older peers must
-	// fail the handshake instead of consuming vase clicks without opening them.
-	constexpr uint16_t PROTOCOL_VERSION = 11;
+	// Version 12 adds a host-authoritative session-end message so every peer can
+	// return to the lobby together.  Older peers must fail the handshake.
+	constexpr uint16_t PROTOCOL_VERSION = 12;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -54,7 +54,8 @@ namespace PvzMultiplayer
 		SESSION_READY,
 		SESSION_BEGIN,
 		TICK_SYNC,
-		STATE_HASH
+		STATE_HASH,
+		SESSION_END
 	};
 
 	enum class RejectReason : uint8_t
@@ -230,6 +231,13 @@ namespace PvzMultiplayer
 		bool operator==(const SessionBegin&) const = default;
 	};
 
+	struct SessionEnd
+	{
+		uint64_t mStartId{};
+
+		bool operator==(const SessionEnd&) const = default;
+	};
+
 	struct TickSync
 	{
 		uint64_t mHostTick{};
@@ -248,7 +256,7 @@ namespace PvzMultiplayer
 	};
 
 	using Message = std::variant<DiscoveryQuery, DiscoveryOffer, Hello, Welcome, Reject, CursorUpdate,
-		GameAction, SessionStart, SessionReady, SessionBegin, TickSync, StateHash>;
+		GameAction, SessionStart, SessionReady, SessionBegin, TickSync, StateHash, SessionEnd>;
 
 	struct DecodeResult
 	{

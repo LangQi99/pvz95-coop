@@ -82,6 +82,7 @@ int main()
 	ExpectRoundTrip(SessionBegin{4590, 0x1020304050607080ULL});
 	ExpectRoundTrip(TickSync{4595, 0x1020304050607080ULL});
 	ExpectRoundTrip(StateHash{4600, 0x1020304050607080ULL, 0xDEADBEEFCAFEBABEULL});
+	ExpectRoundTrip(SessionEnd{0x1020304050607080ULL});
 
 	ExpectDecodeError({}, CodecError::PACKET_TOO_SHORT);
 
@@ -163,6 +164,8 @@ int main()
 		Fail("invalid session profile flags encoded successfully");
 	if (Encode(Message(SessionReady{0, 1})))
 		Fail("zero session start ID encoded successfully");
+	if (Encode(Message(SessionEnd{0})))
+		Fail("zero session end ID encoded successfully");
 
 	std::cout << "PvZ 95 multiplayer protocol tests passed\n";
 	return 0;

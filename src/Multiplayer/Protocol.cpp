@@ -195,7 +195,7 @@ namespace PvzMultiplayer
 		bool IsValidMessageKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(MessageKind::DISCOVERY_QUERY) &&
-				theValue <= static_cast<uint8_t>(MessageKind::STATE_HASH);
+				theValue <= static_cast<uint8_t>(MessageKind::SESSION_END);
 		}
 
 		bool IsValidRejectReason(uint8_t theValue)
@@ -410,6 +410,12 @@ namespace PvzMultiplayer
 					theWriter.WriteU64(thePayload.mStartId);
 					theWriter.WriteU64(thePayload.mHash);
 				}
+				else if constexpr (std::is_same_v<Payload, SessionEnd>)
+				{
+					if (thePayload.mStartId == 0)
+						return false;
+					theWriter.WriteU64(thePayload.mStartId);
+				}
 				return true;
 			}, theMessage);
 		}
@@ -439,7 +445,8 @@ namespace PvzMultiplayer
 			if constexpr (std::is_same_v<Payload, SessionReady>) return MessageKind::SESSION_READY;
 			if constexpr (std::is_same_v<Payload, SessionBegin>) return MessageKind::SESSION_BEGIN;
 			if constexpr (std::is_same_v<Payload, TickSync>) return MessageKind::TICK_SYNC;
-			return MessageKind::STATE_HASH;
+			if constexpr (std::is_same_v<Payload, StateHash>) return MessageKind::STATE_HASH;
+			return MessageKind::SESSION_END;
 		}, theMessage);
 	}
 
@@ -613,6 +620,13 @@ namespace PvzMultiplayer
 			StateHash aMessage;
 			if (!aReader.ReadU64(aMessage.mHostTick) || !aReader.ReadU64(aMessage.mStartId) ||
 				!aReader.ReadU64(aMessage.mHash) || aMessage.mStartId == 0)
+				break;
+			return FinishDecode(aReader, std::move(aMessage));
+		}
+		case MessageKind::SESSION_END:
+		{
+			SessionEnd aMessage;
+			if (!aReader.ReadU64(aMessage.mStartId) || aMessage.mStartId == 0)
 				break;
 			return FinishDecode(aReader, std::move(aMessage));
 		}

@@ -2545,6 +2545,21 @@ void LawnApp::UpdateLanSession()
 					HandleLanStateHashResult(mLanStateHashTimeline.ObserveRemote(
 						aHash->mHostTick, aHash->mHash, mLanSimulationTick));
 			}
+			else if (const auto* anEnd = std::get_if<SessionEnd>(&aMessage))
+			{
+				if (mLanSessionStart && anEnd->mStartId == mLanSessionStart->mStartId)
+				{
+					LanTrace("client followed session end start=%llu\n",
+						static_cast<unsigned long long>(anEnd->mStartId));
+					ResetLanGameState();
+					DoBackToMain();
+				}
+				else
+				{
+					LanTrace("client ignored stale session end start=%llu\n",
+						static_cast<unsigned long long>(anEnd->mStartId));
+				}
+			}
 		}
 	}
 
@@ -3149,6 +3164,41 @@ bool LawnApp::RequestLanLevelRestart()
 	return RequestLanGameStart(mGameMode);
 }
 
+bool LawnApp::RequestLanReturnToMenu()
+{
+	using namespace PvzMultiplayer;
+
+	if (!mLanCoordinator || !mLanSessionStart)
+		return false;
+	LanMode aMode = mLanCoordinator->GetMode();
+	if (IsLanClientWaitingForHost(aMode))
+	{
+		LanTrace("blocked client lifecycle return-to-menu mode=%u\n", static_cast<unsigned>(aMode));
+		return true;
+	}
+	if (aMode != LanMode::HOSTING)
+		return false;
+
+	const HostLobby& aLobby = mLanCoordinator->GetHostSession().GetLobby();
+	if (aLobby.GetPlayerCount() <= 1)
+	{
+		ResetLanGameState();
+		return false;
+	}
+
+	SessionEnd anEnd{mLanSessionStart->mStartId};
+	if (!mLanCoordinator->BroadcastFromHost(anEnd))
+	{
+		AbortLanSession("Could not synchronize returning to the main menu.");
+		return true;
+	}
+	LanTrace("host lifecycle return-to-menu start=%llu\n",
+		static_cast<unsigned long long>(anEnd.mStartId));
+	ResetLanGameState();
+	DoBackToMain();
+	return true;
+}
+
 bool LawnApp::StartGameFromAward(GameMode theGameMode)
 {
 	if (RequestLanGameStart(theGameMode))
@@ -3634,6 +3684,8 @@ void LawnApp::ButtonDepress(int theId)
 			KillDialog(Dialogs::DIALOG_CONFIRM_BACK_TO_MAIN);
 			mBoardResult = BoardResult::BOARDRESULT_QUIT;
 			mBoard->TryToSaveGame();
+			if (RequestLanReturnToMenu())
+				return;
 			DoBackToMain();
 			return;
 

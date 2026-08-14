@@ -308,6 +308,7 @@ public:
 	bool                            ShouldBlockLanLifecycleInput() const;
 	bool                            RequestLanGameStart(GameMode theGameMode);
 	bool                            RequestLanLevelRestart();
+	bool                            RequestLanReturnToMenu();
 	bool                            StartGameFromAward(GameMode theGameMode);
 	void                            AbortLanSession(const std::string& theReason);
 	bool							UpdateAppStep(bool* updated) override;
