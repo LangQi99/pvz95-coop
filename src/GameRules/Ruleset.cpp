@@ -15,7 +15,7 @@ namespace PvzRules
 	namespace
 	{
 		constexpr uint32_t RULESET_PROTOCOL_ORIGINAL = 0x4F524947; // ORIG
-		constexpr uint32_t RULESET_PROTOCOL_PVZ95 = 0x50563935;    // PV95
+		constexpr uint32_t RULESET_PROTOCOL_PVZ95 = 0x50393532;    // P952
 
 		RulesetId gActiveRuleset = RulesetId::PVZ95;
 
@@ -371,15 +371,15 @@ namespace PvzRules
 		return theProjectileAge >= aStarMotionLifetime ? ProjectileMotion::MOTION_STRAIGHT : theMotionType;
 	}
 
-	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX)
+	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theSpikeHitCounter)
 	{
 		if (gActiveRuleset == RulesetId::PVZ95 &&
-			theProjectileType == ProjectileType::PROJECTILE_SPIKE && theProjectileX < 64)
+			theProjectileType == ProjectileType::PROJECTILE_SPIKE && theSpikeHitCounter < 63)
 		{
-			return {false, theProjectileX + 1};
+			return {false, theSpikeHitCounter + 1};
 		}
 
-		return {true, theProjectileX};
+		return {true, theSpikeHitCounter};
 	}
 
 	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue)

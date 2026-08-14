@@ -62,7 +62,7 @@ public:
 	ProjectileMotion        mMotionType;
 	ProjectileType          mProjectileType;
 	int32_t                 mProjectileAge;
-	int32_t                 mClickBackoffCounter;
+	int32_t                 mPvZ95SpikeHitCounter;
 	float                   mRotation;
 	float                   mRotationSpeed;
 	bool                    mOnHighGround;

@@ -125,7 +125,7 @@ namespace PvzRules
 	struct ProjectileDeathState
 	{
 		bool mDead;
-		int mX;
+		int mSpikeHitCounter;
 	};
 
 	enum class TorchwoodConversion : uint8_t
@@ -180,7 +180,7 @@ namespace PvzRules
 	bool UsesHomingTargetOnlyCollision(ProjectileMotion theMotionType);
 	ProjectileMotion ResolveProjectileMotionBeforeUpdate(ProjectileMotion theMotionType,
 		BackgroundType theBackground, int theProjectileAge);
-	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theProjectileX);
+	ProjectileDeathState ResolveProjectileDeath(ProjectileType theProjectileType, int theSpikeHitCounter);
 	ProjectileType ResolveTorchwoodSnowPeaType(ProjectileType theOriginalValue);
 	bool ResolveZombieTargetPlantNotOnGround(bool theAirborneSquash, bool theScaredyShroomScared,
 		bool theSquished, bool theDead, bool theOriginalValue);

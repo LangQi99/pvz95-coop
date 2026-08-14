@@ -221,6 +221,7 @@ int main()
 	ExpectEqual("maximum special seed immediate", static_cast<int>(SEED_ZOMBIE_IMP), 74);
 
 	SetActiveRuleset(RulesetId::ORIGINAL);
+	ExpectEqual("original ruleset protocol", static_cast<int>(GetActiveRulesetProtocolId()), 0x4F524947);
 	ExpectStringEqual("original application title passthrough",
 		ResolveApplicationTitle("PvZ 95 Co-op"), "PvZ 95 Co-op");
 	for (bool anOriginalValue : {false, true})
@@ -339,7 +340,7 @@ int main()
 		MOTION_STAR, BACKGROUND_3_POOL, 56), MOTION_STAR);
 	const ProjectileDeathState anOriginalSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 63);
 	ExpectEqual("original spike dies", anOriginalSpikeDeath.mDead, true);
-	ExpectEqual("original spike death x", anOriginalSpikeDeath.mX, 63);
+	ExpectEqual("original spike preserves hit counter", anOriginalSpikeDeath.mSpikeHitCounter, 63);
 	ExpectEqual("original torchwood snow pea", ResolveTorchwoodSnowPeaType(PROJECTILE_PEA), PROJECTILE_PEA);
 	const FutureModeMusic anOriginalFutureMusic = ResolveFutureModeMusic(static_cast<MusicTune>(1));
 	ExpectEqual("original Future does not change music", anOriginalFutureMusic.mShouldChangeTune, false);
@@ -462,6 +463,7 @@ int main()
 
 	if (!SetActiveRuleset("pvz95"))
 		return 1;
+	ExpectEqual("PvZ 95 ruleset protocol", static_cast<int>(GetActiveRulesetProtocolId()), 0x50393532);
 	ExpectStringEqual("PvZ 95 application title",
 		ResolveApplicationTitle("PvZ 95 Co-op"), "PlantsVsZombies Plus Version 95");
 	ExpectEqual("PvZ 95 application title byte length",
@@ -951,13 +953,20 @@ int main()
 		MOTION_STAR, BACKGROUND_1_DAY, 64), MOTION_STRAIGHT);
 	ExpectEqual("PvZ 95 non-star motion unchanged", ResolveProjectileMotionBeforeUpdate(
 		MOTION_HOMING, BACKGROUND_3_POOL, 99), MOTION_HOMING);
-	const ProjectileDeathState aPvZ95YoungSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 63);
-	ExpectEqual("PvZ 95 young spike survives", aPvZ95YoungSpikeDeath.mDead, false);
-	ExpectEqual("PvZ 95 young spike x increment", aPvZ95YoungSpikeDeath.mX, 64);
-	const ProjectileDeathState aPvZ95OldSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, 64);
-	ExpectEqual("PvZ 95 spike at boundary dies", aPvZ95OldSpikeDeath.mDead, true);
+	int aSpikeHitCounter = 0;
+	for (int aHit = 1; aHit <= 63; aHit++)
+	{
+		const ProjectileDeathState aPvZ95PiercingSpike = ResolveProjectileDeath(PROJECTILE_SPIKE, aSpikeHitCounter);
+		ExpectEqual("PvZ 95 spike survives first 63 impacts", aPvZ95PiercingSpike.mDead, false);
+		ExpectEqual("PvZ 95 spike counts each surviving impact", aPvZ95PiercingSpike.mSpikeHitCounter, aHit);
+		aSpikeHitCounter = aPvZ95PiercingSpike.mSpikeHitCounter;
+	}
+	const ProjectileDeathState aPvZ95SpentSpikeDeath = ResolveProjectileDeath(PROJECTILE_SPIKE, aSpikeHitCounter);
+	ExpectEqual("PvZ 95 spike dies on impact 64", aPvZ95SpentSpikeDeath.mDead, true);
+	ExpectEqual("PvZ 95 spent spike preserves hit counter", aPvZ95SpentSpikeDeath.mSpikeHitCounter, 63);
 	const ProjectileDeathState aPvZ95PeaDeath = ResolveProjectileDeath(PROJECTILE_PEA, 10);
 	ExpectEqual("PvZ 95 pea still dies", aPvZ95PeaDeath.mDead, true);
+	ExpectEqual("PvZ 95 pea preserves spike hit counter", aPvZ95PeaDeath.mSpikeHitCounter, 10);
 	ExpectEqual("PvZ 95 torchwood snow pea remains snow", ResolveTorchwoodSnowPeaType(PROJECTILE_PEA), PROJECTILE_SNOWPEA);
 
 	if (SetActiveRuleset("not-a-ruleset"))

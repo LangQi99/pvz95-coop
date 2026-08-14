@@ -95,7 +95,7 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mWidth = 40;
 	mHeight = 40;
 	mProjectileAge = 0;
-	mClickBackoffCounter = 0;
+	mPvZ95SpikeHitCounter = 0;
 	mAnimTicksPerFrame = 0;
 
 	switch (mProjectileType)
@@ -962,10 +962,6 @@ void Projectile::Update()
 		mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PROJECTILE, mRow, 0);
 	}
 
-	if (mClickBackoffCounter > 0)
-	{
-		mClickBackoffCounter--;
-	}
 	mRotation += mRotationSpeed;
 
 	UpdateMotion();
@@ -1151,9 +1147,10 @@ void Projectile::DrawShadow(Graphics* g)
 
 void Projectile::Die()
 {
-	const PvzRules::ProjectileDeathState aDeathState = PvzRules::ResolveProjectileDeath(mProjectileType, mX);
+	const PvzRules::ProjectileDeathState aDeathState =
+		PvzRules::ResolveProjectileDeath(mProjectileType, mPvZ95SpikeHitCounter);
 	mDead = aDeathState.mDead;
-	mX = aDeathState.mX;
+	mPvZ95SpikeHitCounter = aDeathState.mSpikeHitCounter;
 
 	if (mProjectileType == ProjectileType::PROJECTILE_PUFF || mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
 	{

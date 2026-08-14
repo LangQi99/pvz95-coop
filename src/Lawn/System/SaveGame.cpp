@@ -933,7 +933,7 @@ static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projecti
 	SyncEnum32(theContext, theProjectile.mMotionType);
 	SyncEnum32(theContext, theProjectile.mProjectileType);
 	theContext.SyncInt32(theProjectile.mProjectileAge);
-	theContext.SyncInt32(theProjectile.mClickBackoffCounter);
+	theContext.SyncInt32(theProjectile.mPvZ95SpikeHitCounter);
 	theContext.SyncFloat(theProjectile.mRotation);
 	theContext.SyncFloat(theProjectile.mRotationSpeed);
 	theContext.SyncBool(theProjectile.mOnHighGround);

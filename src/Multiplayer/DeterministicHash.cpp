@@ -147,7 +147,7 @@ namespace PvzMultiplayer
 			h.AddFloat(p.mPosY); h.AddFloat(p.mPosZ); h.AddFloat(p.mVelX); h.AddFloat(p.mVelY); h.AddFloat(p.mVelZ);
 			h.AddFloat(p.mAccZ); h.AddFloat(p.mShadowY); h.AddBool(p.mDead); h.AddI32(p.mAnimTicksPerFrame);
 			AddEnum(h, p.mMotionType); AddEnum(h, p.mProjectileType); h.AddI32(p.mProjectileAge);
-			h.AddI32(p.mClickBackoffCounter); h.AddFloat(p.mRotation); h.AddFloat(p.mRotationSpeed);
+			h.AddI32(p.mPvZ95SpikeHitCounter); h.AddFloat(p.mRotation); h.AddFloat(p.mRotationSpeed);
 			h.AddBool(p.mOnHighGround); h.AddI32(p.mDamageRangeFlags); h.AddI32(p.mHitTorchwoodGridX);
 			h.AddFloat(p.mCobTargetX); h.AddI32(p.mCobTargetRow); h.AddU32(p.mTargetZombieID); h.AddI32(p.mLastPortalX);
 		}
