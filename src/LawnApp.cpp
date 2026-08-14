@@ -2191,6 +2191,27 @@ bool LawnApp::IsLanSeedChooserHost() const
 		mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING;
 }
 
+bool LawnApp::IsLanGameplayHost() const
+{
+	return mLanCoordinator && mLanSessionStart && mLanSessionBegun &&
+		mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING;
+}
+
+bool LawnApp::RequestLanPacketUpgradeResolution(int theMessageIndex, bool theAccepted)
+{
+	using namespace PvzMultiplayer;
+
+	if (!IsLanGameplayHost() || (theMessageIndex != 1503 && theMessageIndex != 1553))
+		return false;
+	bool aQueued = QueueLocalLanAction({0, 0, static_cast<uint32_t>(theMessageIndex),
+		static_cast<uint16_t>(theAccepted ? 1 : 0), 0, 0,
+		ActionKind::RESOLVE_PACKET_UPGRADE});
+	LanTrace("host packet upgrade resolution sim=%llu message=%d accepted=%d queued=%d\n",
+		static_cast<unsigned long long>(mLanSimulationTick), theMessageIndex,
+		theAccepted ? 1 : 0, aQueued ? 1 : 0);
+	return aQueued;
+}
+
 bool LawnApp::RequestLanSeedChoice(SeedType theSeedType, bool theAdd, SeedType theImitaterType)
 {
 	using namespace PvzMultiplayer;
@@ -2322,6 +2343,10 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	case ActionKind::WHACK_ZOMBIE:
 		return theAction.mParameter == 0;
+	case ActionKind::RESOLVE_PACKET_UPGRADE:
+		return theAction.mPlayerId == 0 &&
+			(theAction.mParameter == 1503 || theAction.mParameter == 1553) &&
+			theAction.mTargetX <= 1 && theAction.mTargetY == 0;
 	}
 	return false;
 }
@@ -2638,6 +2663,16 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 			DenormalizeCoordinate(theAction.mTargetX, mBoard->mWidth),
 			DenormalizeCoordinate(theAction.mTargetY, mBoard->mHeight));
 		return true;
+	case ActionKind::RESOLVE_PACKET_UPGRADE:
+		// The prompt is shown only on the host.  Its result is replayed at this
+		// ordered tick so coins, packet count and Dave's next line change together.
+		if (mCrazyDaveMessageIndex != static_cast<int>(theAction.mParameter))
+			return true;
+		if (mGameScene != GameScenes::SCENE_LEVEL_INTRO || !mBoard->mCutScene ||
+			!mBoard->mCutScene->IsShowingCrazyDave())
+			return false;
+		return mBoard->mCutScene->ApplyPacketUpgradeResolution(
+			static_cast<int>(theAction.mParameter), theAction.mTargetX == 1, false);
 	}
 	return false;
 }

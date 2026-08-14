@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::WHACK_ZOMBIE);
+				theValue <= static_cast<uint8_t>(ActionKind::RESOLVE_PACKET_UPGRADE);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -233,6 +233,12 @@ namespace PvzMultiplayer
 			}
 			if (theAction.mKind == ActionKind::WHACK_ZOMBIE)
 				return theAction.mParameter == 0;
+			if (theAction.mKind == ActionKind::RESOLVE_PACKET_UPGRADE)
+			{
+				return theAction.mPlayerId == 0 &&
+					(theAction.mParameter == 1503 || theAction.mParameter == 1553) &&
+					theAction.mTargetX <= 1 && theAction.mTargetY == 0;
+			}
 
 			return true;
 		}

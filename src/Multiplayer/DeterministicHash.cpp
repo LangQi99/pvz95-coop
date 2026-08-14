@@ -188,10 +188,15 @@ namespace PvzMultiplayer
 	{
 		BoardStateHashBreakdown aBreakdown;
 		DeterministicHash64 h;
-		h.AddU32(3); // Canonical hash schema version.
+		h.AddU32(4); // Canonical hash schema version.
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameMode));
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameScene));
 		h.AddI32(b.mApp->mCrazyDaveMessageIndex);
+		// The forced packet-slot purchase mutates profile-backed gameplay state.
+		// Include it directly so any future regression is detected at its first tick.
+		h.AddI32(b.mApp->mPlayerInfo->mCoins);
+		h.AddI32(b.mApp->mPlayerInfo->mPurchases[STORE_ITEM_PACKET_UPGRADE]);
+		h.AddI32(b.mApp->mPlayerInfo->mDidntPurchasePacketUpgrade);
 		h.AddString(Sexy::GetRandState());
 		h.AddBool(b.mPaused); h.AddI32(b.mLevel); h.AddI32(b.mSunMoney); h.AddU32(b.mMainCounter);
 		h.AddU32(b.mEffectCounter); h.AddU32(b.mBoardUpdateCounter); h.AddI32(b.mCurrentWave);

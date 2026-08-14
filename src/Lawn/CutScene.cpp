@@ -1610,6 +1610,11 @@ void CutScene::AdvanceCrazyDaveDialog(bool theJustSkipping)
 	// (seed slot pitch) "How does that sound?"
 	if ((aMessageIndex == 1503 || aMessageIndex == 1553) && !theJustSkipping)
 	{
+		// A client must never open or resolve this modal independently.  The host
+		// chooses once and broadcasts the decision as an ordered game action.
+		if (mApp->IsLanGameplayActive() && !mApp->IsLanGameplayHost())
+			return;
+
 		int aCost = StoreScreen::GetItemCost(StoreItem::STORE_ITEM_PACKET_UPGRADE);
 		int aNumPackets = mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PACKET_UPGRADE];
 		std::string aBodyString = PvzpReplaceNumberString("[UPGRADE_DIALOG_BODY]", "{SLOTS}", aNumPackets + 7);
@@ -1620,34 +1625,14 @@ void CutScene::AdvanceCrazyDaveDialog(bool theJustSkipping)
 		aDialog->mY += 130;
 		mBoard->ShowCoinBank(100);
 		int aResult = aDialog->WaitForResult();
-		if (aResult == Dialog::ID_YES)
+		bool anAccepted = aResult == Dialog::ID_YES;
+		if (mApp->IsLanGameplayActive())
 		{
-			mApp->mPlayerInfo->AddCoins(-aCost);
-			mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PACKET_UPGRADE]++;
-			mApp->WriteCurrentUserConfig();
-			mBoard->mSeedBank->UpdateWidth();
-
-			if (aMessageIndex == 1503)
-			{
-				mApp->CrazyDaveTalkIndex(1510);
-			}
-			else if (aMessageIndex == 1553)
-			{
-				mApp->CrazyDaveTalkIndex(1560);
-			}
+			if (!mApp->RequestLanPacketUpgradeResolution(aMessageIndex, anAccepted))
+				mApp->AbortLanSession("Could not synchronize the packet-slot purchase.");
+			return;
 		}
-		else
-		{
-			mApp->mPlayerInfo->mDidntPurchasePacketUpgrade++;
-			if (aMessageIndex == 1503)
-			{
-				mApp->CrazyDaveTalkIndex(1520);
-			}
-			else if (aMessageIndex == 1553)
-			{
-				mApp->CrazyDaveTalkIndex(1570);
-			}
-		}
+		ApplyPacketUpgradeResolution(aMessageIndex, anAccepted, true);
 	}
 	// "Of course it wasn't me, it was you!"
 	if (aMessageIndex == 406)
@@ -1655,6 +1640,30 @@ void CutScene::AdvanceCrazyDaveDialog(bool theJustSkipping)
 		mBoard->mEnableGraveStones = true;
 		AddGraveStoneParticles();
 	}
+}
+
+bool CutScene::ApplyPacketUpgradeResolution(int theMessageIndex, bool theAccepted, bool thePersist)
+{
+	if ((theMessageIndex != 1503 && theMessageIndex != 1553) ||
+		mApp->mCrazyDaveMessageIndex != theMessageIndex)
+		return false;
+
+	if (theAccepted)
+	{
+		int aCost = StoreScreen::GetItemCost(StoreItem::STORE_ITEM_PACKET_UPGRADE);
+		mApp->mPlayerInfo->AddCoins(-aCost);
+		mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PACKET_UPGRADE]++;
+		if (thePersist)
+			mApp->WriteCurrentUserConfig();
+		mBoard->mSeedBank->UpdateWidth();
+		mApp->CrazyDaveTalkIndex(theMessageIndex == 1503 ? 1510 : 1560);
+	}
+	else
+	{
+		mApp->mPlayerInfo->mDidntPurchasePacketUpgrade++;
+		mApp->CrazyDaveTalkIndex(theMessageIndex == 1503 ? 1520 : 1570);
+	}
+	return true;
 }
 
 void CutScene::MouseDown(int theX, int theY)

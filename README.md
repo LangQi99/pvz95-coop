@@ -134,6 +134,8 @@ ctest --test-dir build --output-on-failure
 
 发生不同步时，请尽快退出双方游戏，并从房主和客户端各自的数据目录收集全部 `lan-sync.log*` 文件。两端日志必须配对，才能可靠定位最后一个一致的游戏时钟与首次状态分歧。
 
+Windows 构建同时提供 `report.exe`。把它与游戏放在一起并双击，即可自动查找默认数据目录中的轮转日志，在同目录生成 `pvz95-report-日期-时间.zip` 并打开文件所在位置；随后可以直接把 ZIP 发到交流群。若使用过自定义 `-savedir`，请把该存档目录或 `lan-sync.log*` 文件拖到 `report.exe` 上。报告只包含联机日志、游戏版本与基础平台信息，不包含存档；日志本身可能含玩家名和网络地址。
+
 ### 测试
 
 当前原生测试套件覆盖：
@@ -288,6 +290,8 @@ Logs share the writable data directory used by saves and settings. To make them 
 ```
 
 After a desync, exit both games promptly and collect every `lan-sync.log*` file from both the host and client data directories. The paired logs are needed to identify the last matching game tick and the first state divergence reliably.
+
+Windows builds also include `report.exe`. Keep it beside the game and double-click it to find rotated logs in the default data directory, create `pvz95-report-date-time.zip`, and reveal the result in Explorer. The ZIP can then be shared directly. If you used a custom `-savedir`, drag that directory or the `lan-sync.log*` files onto `report.exe`. Reports contain only LAN logs, the game version, and basic platform information—not save data. LAN logs can contain player names and network addresses.
 
 ### Tests
 

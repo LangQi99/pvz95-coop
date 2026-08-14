@@ -18,9 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 9 adds an ordered Whack-a-Zombie action.  Older peers must fail the
-	// handshake instead of accepting a session in which hammer clicks disappear.
-	constexpr uint16_t PROTOCOL_VERSION = 9;
+	// Version 10 makes the forced Crazy Dave packet-slot purchase host-authoritative.
+	// Older peers must fail the handshake instead of resolving the modal locally.
+	constexpr uint16_t PROTOCOL_VERSION = 10;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -77,7 +77,8 @@ namespace PvzMultiplayer
 		CHOOSE_IMITATER,
 		CONFIRM_SEED_CHOICES,
 		ADVANCE_CRAZY_DAVE_DIALOG,
-		WHACK_ZOMBIE
+		WHACK_ZOMBIE,
+		RESOLVE_PACKET_UPGRADE
 	};
 
 	enum class CodecError : uint8_t

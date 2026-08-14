@@ -68,6 +68,7 @@ int main()
 	ExpectRoundTrip(GameAction{4574, 104, 0, 0, 0, 0, ActionKind::CONFIRM_SEED_CHOICES});
 	ExpectRoundTrip(GameAction{4575, 105, 2406, 0, 0, 0, ActionKind::ADVANCE_CRAZY_DAVE_DIALOG});
 	ExpectRoundTrip(GameAction{4576, 106, 0, 32768, 49151, 2, ActionKind::WHACK_ZOMBIE});
+	ExpectRoundTrip(GameAction{4577, 107, 1503, 1, 0, 0, ActionKind::RESOLVE_PACKET_UPGRADE});
 	SessionStart aSessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile, aPlayerNames};
 	ExpectRoundTrip(aSessionStart);
 	SessionStart aMaximumNameStart = aSessionStart;
@@ -117,7 +118,7 @@ int main()
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1, static_cast<ActionKind>(0)})))
 		Fail("invalid game action kind encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1,
-		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::WHACK_ZOMBIE) + 1)})))
+		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::RESOLVE_PACKET_UPGRADE) + 1)})))
 		Fail("out-of-range game action kind encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 2406, 0, 0, 1, ActionKind::ADVANCE_CRAZY_DAVE_DIALOG})))
 		Fail("client-owned Crazy Dave action encoded successfully");
@@ -128,6 +129,14 @@ int main()
 		Fail("Crazy Dave action with coordinates encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 1, 32768, 49151, 0, ActionKind::WHACK_ZOMBIE})))
 		Fail("Whack-a-Zombie action with a nonzero parameter encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 1503, 1, 0, 1, ActionKind::RESOLVE_PACKET_UPGRADE})))
+		Fail("client-owned packet upgrade resolution encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 1504, 1, 0, 0, ActionKind::RESOLVE_PACKET_UPGRADE})))
+		Fail("packet upgrade resolution with an invalid prompt encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 1553, 2, 0, 0, ActionKind::RESOLVE_PACKET_UPGRADE})))
+		Fail("packet upgrade resolution with an invalid choice encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 1553, 0, 1, 0, ActionKind::RESOLVE_PACKET_UPGRADE})))
+		Fail("packet upgrade resolution with an invalid coordinate encoded successfully");
 	SessionStart anInvalidNamesStart = aSessionStart;
 	anInvalidNamesStart.mPlayerNames[0].clear();
 	if (Encode(Message(anInvalidNamesStart)))

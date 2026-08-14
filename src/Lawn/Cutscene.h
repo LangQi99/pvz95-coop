@@ -82,6 +82,7 @@ public:
 	void                        MouseDown(int theX, int theY);
 	void                        KeyDown(KeyCode theKey);
 	void             AdvanceCrazyDaveDialog(bool theJustSkipping);
+	bool             ApplyPacketUpgradeResolution(int theMessageIndex, bool theAccepted, bool thePersist);
 	void                        ShowShovel();
 	bool                        CanGetPacketUpgrade();
 	bool                        CanGetPacketUpgrade(int theIndex);

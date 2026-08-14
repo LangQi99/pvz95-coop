@@ -209,6 +209,23 @@ set_target_properties(pvz-portable PROPERTIES
 	CXX_EXTENSIONS OFF
 	OUTPUT_NAME pvz95-coop
 )
+
+if(WIN32)
+	add_executable(pvz95-report WIN32
+		src/Report/ReportMain.cpp
+		src/Report/ZipWriter.cpp
+	)
+	target_include_directories(pvz95-report PRIVATE
+		${PROJECT_BINARY_DIR}
+		${PROJECT_SOURCE_DIR}/src/Report
+	)
+	target_compile_features(pvz95-report PRIVATE cxx_std_20)
+	target_link_libraries(pvz95-report PRIVATE ZLIB::ZLIB shell32)
+	set_target_properties(pvz95-report PROPERTIES CXX_EXTENSIONS OFF OUTPUT_NAME report)
+	if(MSVC)
+		target_compile_options(pvz95-report PRIVATE /utf-8)
+	endif()
+endif()
 if(APPLE AND NOT IOS)
 	set_target_properties(pvz-portable PROPERTIES
 		MACOSX_BUNDLE_BUNDLE_NAME "PvZ 95 Co-op"
@@ -427,6 +444,16 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	set_target_properties(pvz95-rolling-log-tests PROPERTIES CXX_EXTENSIONS OFF)
 	add_test(NAME pvz95-rolling-log COMMAND pvz95-rolling-log-tests)
 
+	add_executable(pvz95-report-zip-tests
+		tests/ReportZipTests.cpp
+		src/Report/ZipWriter.cpp
+	)
+	target_include_directories(pvz95-report-zip-tests PRIVATE ${PROJECT_SOURCE_DIR}/src/Report)
+	target_compile_features(pvz95-report-zip-tests PRIVATE cxx_std_20)
+	target_link_libraries(pvz95-report-zip-tests PRIVATE ZLIB::ZLIB)
+	set_target_properties(pvz95-report-zip-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-report-zip COMMAND pvz95-report-zip-tests)
+
 	if(MSVC)
 		target_compile_options(pvz95-rules-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-encoding-tests PRIVATE /utf-8)
@@ -446,6 +473,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 		target_compile_options(pvz95-local-input-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-deterministic-hash-tests PRIVATE /utf-8)
 		target_compile_options(pvz95-rolling-log-tests PRIVATE /utf-8)
+		target_compile_options(pvz95-report-zip-tests PRIVATE /utf-8)
 		target_link_libraries(pvz95-tcp-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-channel-tests PRIVATE ws2_32)
 		target_link_libraries(pvz95-host-session-tests PRIVATE ws2_32)

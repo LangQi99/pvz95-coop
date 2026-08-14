@@ -285,6 +285,8 @@ public:
 	bool                            ApplyLanAction(const PvzMultiplayer::GameAction& theAction);
 	bool                            IsLanSeedChooserInputActive() const;
 	bool                            IsLanSeedChooserHost() const;
+	bool                            IsLanGameplayHost() const;
+	bool                            RequestLanPacketUpgradeResolution(int theMessageIndex, bool theAccepted);
 	bool                            RequestLanSeedChoice(SeedType theSeedType, bool theAdd,
 		SeedType theImitaterType = SEED_NONE);
 	bool                            BeginLanSeedChooserConfirmation();
