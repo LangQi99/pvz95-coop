@@ -1926,6 +1926,13 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	}
 	if (aPointerIntent == PvzMultiplayer::PointerIntent::CANCEL_SELECTION)
 	{
+		PvzMultiplayer::PlayerId aLocalPlayerId = mSharedInputState.GetLocalPlayerId();
+		CoinID aHeldUsableSeed = mLanHeldUsableSeedCoinIds[aLocalPlayerId];
+		if (aHeldUsableSeed != CoinID::COINID_NULL)
+		{
+			QueueLocalLanAction({0, 0, static_cast<uint32_t>(aHeldUsableSeed), 0, 0, 0,
+				PvzMultiplayer::ActionKind::DROP_USABLE_SEED});
+		}
 		mLocalLanSeedBankIndex = -1;
 		mLocalLanShovelSelected = false;
 		mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
@@ -1953,6 +1960,15 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 		if (aHitResult.mObjectType != GameObjectType::OBJECT_TYPE_COIN)
 			return false;
 		Coin* aCoin = static_cast<Coin*>(aHitResult.mObject);
+		if (aCoin->mType == CoinType::COIN_USABLE_SEED_PACKET &&
+			(mLocalLanSeedBankIndex >= 0 || mLocalLanShovelSelected ||
+			mLocalLanCobCannonPlantId != PlantID::PLANTID_NULL ||
+			mLanHeldUsableSeedCoinIds[mSharedInputState.GetLocalPlayerId()] != CoinID::COINID_NULL))
+		{
+			// Single-player hides other usable cards while a plant/tool is held.
+			// The LAN cursor is presentation-only, so preserve that rule explicitly.
+			return false;
+		}
 		LanTrace("mouse coin sim=%llu id=%u\n", static_cast<unsigned long long>(mLanSimulationTick),
 			static_cast<unsigned>(mBoard->mCoins.DataArrayGetID(aCoin)));
 		QueueLocalLanAction({0, 0,
@@ -1960,6 +1976,42 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 			PvzMultiplayer::ActionKind::COLLECT_COIN});
 		return true;
 	};
+	PvzMultiplayer::PlayerId aLocalPlayerId = mSharedInputState.GetLocalPlayerId();
+	CoinID aHeldUsableSeedId = mLanHeldUsableSeedCoinIds[aLocalPlayerId];
+	if (aHeldUsableSeedId != CoinID::COINID_NULL)
+	{
+		Coin* aHeldCoin = mBoard->mCoins.DataArrayTryToGet(aHeldUsableSeedId);
+		if (!aHeldCoin || aHeldCoin->mDead ||
+			aHeldCoin->mType != CoinType::COIN_USABLE_SEED_PACKET)
+		{
+			// Clear stale ownership through the timeline as well, preserving the
+			// same per-player ownership table on every peer.
+			QueueLocalLanAction({0, 0, static_cast<uint32_t>(aHeldUsableSeedId), 0, 0, 0,
+				PvzMultiplayer::ActionKind::DROP_USABLE_SEED});
+			return true;
+		}
+
+		SeedType aSeedType = aHeldCoin->mUsableSeedType;
+		int aGridX = mBoard->PlantingPixelToGridX(aBoardX, aBoardY, aSeedType);
+		int aGridY = mBoard->PlantingPixelToGridY(aBoardX, aBoardY, aSeedType);
+		if (aGridX < 0 || aGridX >= MAX_GRID_SIZE_X || aGridY < 0 || aGridY >= MAX_GRID_SIZE_Y)
+		{
+			QueueLocalLanAction({0, 0, static_cast<uint32_t>(aHeldUsableSeedId), 0, 0, 0,
+				PvzMultiplayer::ActionKind::DROP_USABLE_SEED});
+			return true;
+		}
+		PlantingReason aReason = mBoard->CanPlantAt(aGridX, aGridY, aSeedType);
+		if (aReason != PlantingReason::PLANTING_OK)
+		{
+			if (!QueueHitCoin())
+				PlayFoley(FoleyType::FOLEY_DROP);
+			return true;
+		}
+		QueueLocalLanAction({0, 0, static_cast<uint32_t>(aHeldUsableSeedId),
+			static_cast<uint16_t>(aGridX), static_cast<uint16_t>(aGridY), 0,
+			PvzMultiplayer::ActionKind::PLANT_USABLE_SEED});
+		return true;
+	}
 	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SEEDPACKET)
 	{
 		SeedPacket* aPacket = static_cast<SeedPacket*>(aHitResult.mObject);
@@ -2359,6 +2411,12 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 	case ActionKind::SMASH_SCARY_POT:
 		return theAction.mParameter == 0 &&
 			theAction.mTargetX < MAX_GRID_SIZE_X && theAction.mTargetY < MAX_GRID_SIZE_Y;
+	case ActionKind::PLANT_USABLE_SEED:
+		return theAction.mParameter != static_cast<uint32_t>(CoinID::COINID_NULL) &&
+			theAction.mTargetX < MAX_GRID_SIZE_X && theAction.mTargetY < MAX_GRID_SIZE_Y;
+	case ActionKind::DROP_USABLE_SEED:
+		return theAction.mParameter != static_cast<uint32_t>(CoinID::COINID_NULL) &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	}
 	return false;
 }
@@ -2628,8 +2686,61 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 	case ActionKind::COLLECT_COIN:
 	{
 		Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(static_cast<CoinID>(theAction.mParameter));
-		if (aCoin)
+		if (!aCoin || aCoin->mDead)
+			return true;
+		if (aCoin->mType == CoinType::COIN_USABLE_SEED_PACKET)
+		{
+			// Usable vase cards cannot live in Board's single global cursor during
+			// co-op.  Record ownership by player while keeping the coin state shared.
+			if (aCoin->mIsBeingCollected)
+				return true;
+			CoinID& aHeldCoinId = mLanHeldUsableSeedCoinIds[theAction.mPlayerId];
+			if (aHeldCoinId != CoinID::COINID_NULL)
+			{
+				Coin* aPreviouslyHeldCoin = mBoard->mCoins.DataArrayTryToGet(aHeldCoinId);
+				if (aPreviouslyHeldCoin && !aPreviouslyHeldCoin->mDead)
+					aPreviouslyHeldCoin->DroppedUsableSeed();
+			}
 			aCoin->MouseDown(0, 0, 1);
+			if (aCoin->mIsBeingCollected)
+			{
+				mBoard->ClearCursor();
+				aHeldCoinId = static_cast<CoinID>(theAction.mParameter);
+				if (theAction.mPlayerId == mSharedInputState.GetLocalPlayerId())
+				{
+					mLocalLanSeedBankIndex = -1;
+					mLocalLanShovelSelected = false;
+					mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
+				}
+			}
+			return true;
+		}
+		aCoin->MouseDown(0, 0, 1);
+		return true;
+	}
+	case ActionKind::PLANT_USABLE_SEED:
+	{
+		CoinID aCoinId = static_cast<CoinID>(theAction.mParameter);
+		CoinID& aHeldCoinId = mLanHeldUsableSeedCoinIds[theAction.mPlayerId];
+		if (aHeldCoinId != aCoinId)
+			return true;
+		bool anApplied = mBoard->PlantUsableSeedByCoinId(aCoinId,
+			static_cast<int>(theAction.mTargetX), static_cast<int>(theAction.mTargetY));
+		Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(aCoinId);
+		if (!aCoin || aCoin->mDead)
+			aHeldCoinId = CoinID::COINID_NULL;
+		return anApplied;
+	}
+	case ActionKind::DROP_USABLE_SEED:
+	{
+		CoinID aCoinId = static_cast<CoinID>(theAction.mParameter);
+		CoinID& aHeldCoinId = mLanHeldUsableSeedCoinIds[theAction.mPlayerId];
+		if (aHeldCoinId != aCoinId)
+			return true;
+		Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(aCoinId);
+		if (aCoin && !aCoin->mDead && aCoin->mType == CoinType::COIN_USABLE_SEED_PACKET)
+			aCoin->DroppedUsableSeed();
+		aHeldCoinId = CoinID::COINID_NULL;
 		return true;
 	}
 	case ActionKind::SHOVEL_PLANT:
@@ -2918,7 +3029,14 @@ void LawnApp::PublishOrVerifyLanStateHash()
 
 	if (!mBoard || !mLanSessionStart || mLanSimulationTick % 100 != 0)
 		return;
-	uint64_t aHash = ComputeBoardStateHash(*mBoard);
+	uint64_t aBoardHashValue = ComputeBoardStateHash(*mBoard);
+	// Unlike ordinary seed-bank selection, usable vase cards are shared objects
+	// with replicated per-player ownership, so ownership is part of game state.
+	DeterministicHash64 aSessionHash;
+	aSessionHash.AddU64(aBoardHashValue);
+	for (CoinID aHeldCoinId : mLanHeldUsableSeedCoinIds)
+		aSessionHash.AddU32(static_cast<uint32_t>(aHeldCoinId));
+	uint64_t aHash = aSessionHash.Finish();
 	PvzMultiplayer::BoardStateHashBreakdown aBoardHash =
 		PvzMultiplayer::ComputeBoardStateHashBreakdown(*mBoard);
 	PvzMultiplayer::DeterministicHash64 aRandHash;
@@ -3020,6 +3138,7 @@ void LawnApp::ResetLanGameState()
 	mLanSeedChooserCommitSignature = 0;
 	mLanDesynchronized = false;
 	mLocalLanSeedBankIndex = -1;
+	mLanHeldUsableSeedCoinIds.fill(CoinID::COINID_NULL);
 	mLastLanHeldSeedBankIndex = PvzMultiplayer::NO_CURSOR_SEED_BANK_INDEX;
 	mLocalLanShovelSelected = false;
 	mLocalLanCobCannonPlantId = PlantID::PLANTID_NULL;
@@ -3225,17 +3344,30 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 		mGameScene != GameScenes::SCENE_PLAYING)
 		return;
 
-	auto DrawPreview = [&](uint8_t theSeedBankIndex, int theAppX, int theAppY)
+	auto DrawPreview = [&](uint8_t theSeedBankIndex, CoinID theUsableSeedCoinId,
+		int theAppX, int theAppY)
 	{
-		if (theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
-			theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+		SeedType aPacketType = SeedType::SEED_NONE;
+		SeedType anImitaterType = SeedType::SEED_NONE;
+		if (theUsableSeedCoinId != CoinID::COINID_NULL)
+		{
+			Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(theUsableSeedCoinId);
+			if (!aCoin || aCoin->mDead || aCoin->mType != CoinType::COIN_USABLE_SEED_PACKET)
+				return;
+			aPacketType = aCoin->mUsableSeedType;
+		}
+		else
+		{
+			if (theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
+				theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+				return;
+			const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
+			aPacketType = aPacket.mPacketType;
+			anImitaterType = aPacket.mImitaterType;
+		}
+		if (aPacketType == SeedType::SEED_NONE)
 			return;
-
-		const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
-		if (aPacket.mPacketType == SeedType::SEED_NONE)
-			return;
-		SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
-			aPacket.mImitaterType : aPacket.mPacketType;
+		SeedType aSeedType = aPacketType == SeedType::SEED_IMITATER ? anImitaterType : aPacketType;
 		int aBoardX = theAppX - mBoard->mX;
 		int aBoardY = theAppY - mBoard->mY;
 		int aGridX = mBoard->PlantingPixelToGridX(aBoardX, aBoardY, aSeedType);
@@ -3261,7 +3393,7 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 		{
 			aPreviewY += PlantDrawHeightOffset(mBoard, nullptr, aSeedType, aGridX, aGridY);
 		}
-		Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+		Plant::DrawSeedType(theGraphics, aPacketType, anImitaterType,
 			DrawVariation::VARIATION_NORMAL, aPreviewX, aPreviewY);
 
 		if (mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN)
@@ -3272,7 +3404,7 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 					continue;
 				float aRowY = static_cast<float>(mBoard->GridToPixelY(aGridX, aRow)) +
 					PlantDrawHeightOffset(mBoard, nullptr, aSeedType, aGridX, aRow);
-				Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+				Plant::DrawSeedType(theGraphics, aPacketType, anImitaterType,
 					DrawVariation::VARIATION_NORMAL, aPreviewX, aRowY);
 			}
 		}
@@ -3283,7 +3415,9 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 		uint8_t aLocalSeed = mLocalLanSeedBankIndex >= 0 &&
 			mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
 			static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
-		DrawPreview(aLocalSeed, mLocalLanCursorX, mLocalLanCursorY);
+		PlayerId aLocalPlayerId = mSharedInputState.GetLocalPlayerId();
+		DrawPreview(aLocalSeed, mLanHeldUsableSeedCoinIds[aLocalPlayerId],
+			mLocalLanCursorX, mLocalLanCursorY);
 	}
 	for (const auto& aCursorSlot : mSharedInputState.GetCursors())
 	{
@@ -3292,6 +3426,7 @@ void LawnApp::DrawLanCursorPreviews(Sexy::Graphics* theGraphics) const
 			continue;
 		CursorPosition aPosition = SampleCursorPosition(*aCursorSlot, mAppCounter);
 		DrawPreview(aCursorSlot->mUpdate.mHeldSeedBankIndex,
+			mLanHeldUsableSeedCoinIds[aCursorSlot->mUpdate.mPlayerId],
 			DenormalizeCoordinate(aPosition.mNormalizedX, mWidth),
 			DenormalizeCoordinate(aPosition.mNormalizedY, mHeight));
 	}
@@ -3301,16 +3436,32 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 {
 	using namespace PvzMultiplayer;
 
-	auto DrawHeldSeed = [&](uint8_t theSeedBankIndex, int theAppX, int theAppY)
+	auto DrawHeldSeed = [&](uint8_t theSeedBankIndex, CoinID theUsableSeedCoinId,
+		int theAppX, int theAppY)
 	{
-		if (!mBoard || theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
-			theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+		if (!mBoard)
 			return;
-		const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
-		if (aPacket.mPacketType == SeedType::SEED_NONE)
+		SeedType aPacketType = SeedType::SEED_NONE;
+		SeedType anImitaterType = SeedType::SEED_NONE;
+		if (theUsableSeedCoinId != CoinID::COINID_NULL)
+		{
+			Coin* aCoin = mBoard->mCoins.DataArrayTryToGet(theUsableSeedCoinId);
+			if (!aCoin || aCoin->mDead || aCoin->mType != CoinType::COIN_USABLE_SEED_PACKET)
+				return;
+			aPacketType = aCoin->mUsableSeedType;
+		}
+		else
+		{
+			if (theSeedBankIndex == NO_CURSOR_SEED_BANK_INDEX ||
+				theSeedBankIndex >= mBoard->mSeedBank->mNumPackets)
+				return;
+			const SeedPacket& aPacket = mBoard->mSeedBank->mSeedPackets[theSeedBankIndex];
+			aPacketType = aPacket.mPacketType;
+			anImitaterType = aPacket.mImitaterType;
+		}
+		if (aPacketType == SeedType::SEED_NONE)
 			return;
-		SeedType aSeedType = aPacket.mPacketType == SeedType::SEED_IMITATER ?
-			aPacket.mImitaterType : aPacket.mPacketType;
+		SeedType aSeedType = aPacketType == SeedType::SEED_IMITATER ? anImitaterType : aPacketType;
 		float aX = static_cast<float>(theAppX - theOriginX - 35);
 		float aY = static_cast<float>(theAppY - theOriginY) +
 			PlantDrawHeightOffset(mBoard, nullptr, aSeedType, -1, -1) - 60.0f;
@@ -3321,7 +3472,7 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 			aX -= 55.0f;
 			aY -= 70.0f;
 		}
-		Plant::DrawSeedType(theGraphics, aPacket.mPacketType, aPacket.mImitaterType,
+		Plant::DrawSeedType(theGraphics, aPacketType, anImitaterType,
 			DrawVariation::VARIATION_NORMAL, aX, aY);
 	};
 
@@ -3330,7 +3481,9 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 		uint8_t aLocalSeed = mLocalLanSeedBankIndex >= 0 &&
 			mLocalLanSeedBankIndex <= MAX_CURSOR_SEED_BANK_INDEX ?
 			static_cast<uint8_t>(mLocalLanSeedBankIndex) : NO_CURSOR_SEED_BANK_INDEX;
-		DrawHeldSeed(aLocalSeed, mLocalLanCursorX, mLocalLanCursorY);
+		PlayerId aLocalPlayerId = mSharedInputState.GetLocalPlayerId();
+		DrawHeldSeed(aLocalSeed, mLanHeldUsableSeedCoinIds[aLocalPlayerId],
+			mLocalLanCursorX, mLocalLanCursorY);
 		if (mLocalLanShovelSelected)
 		{
 			theGraphics->DrawImage(Sexy::IMAGE_SHOVEL,
@@ -3350,7 +3503,9 @@ void LawnApp::DrawSharedCursors(Sexy::Graphics* theGraphics, int theOriginX, int
 		int anAppY = DenormalizeCoordinate(aPosition.mNormalizedY, mHeight);
 		int aX = anAppX - theOriginX;
 		int aY = anAppY - theOriginY;
-		DrawHeldSeed(aCursorSlot->mUpdate.mHeldSeedBankIndex, aX + theOriginX, aY + theOriginY);
+		DrawHeldSeed(aCursorSlot->mUpdate.mHeldSeedBankIndex,
+			mLanHeldUsableSeedCoinIds[aCursorSlot->mUpdate.mPlayerId],
+			aX + theOriginX, aY + theOriginY);
 		Sexy::GraphicsAutoState aState(theGraphics);
 		Sexy::Point aPointer[] = {
 			{aX, aY}, {aX + 3, aY + 18}, {aX + 8, aY + 13}, {aX + 13, aY + 22},

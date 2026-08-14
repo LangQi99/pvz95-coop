@@ -32,6 +32,7 @@
 
 #include <optional>
 #include <memory>
+#include <array>
 
 class Board;
 class GameSelector;
@@ -174,6 +175,7 @@ public:
 	int                             mLocalLanCursorX{};
 	int                             mLocalLanCursorY{};
 	int                             mLocalLanSeedBankIndex{-1};
+	std::array<CoinID, PvzMultiplayer::MAX_PLAYERS> mLanHeldUsableSeedCoinIds{};
 	PlantID                         mLocalLanCobCannonPlantId{PlantID::PLANTID_NULL};
 	bool                            mLocalLanCursorVisible{};
 	bool                            mLastLanCursorVisible{};

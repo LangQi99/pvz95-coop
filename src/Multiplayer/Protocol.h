@@ -18,9 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 12 adds a host-authoritative session-end message so every peer can
-	// return to the lobby together.  Older peers must fail the handshake.
-	constexpr uint16_t PROTOCOL_VERSION = 12;
+	// Version 13 adds atomic plant/drop actions for usable Vasebreaker seed cards.
+	// Older peers must fail the handshake instead of interpreting those actions.
+	constexpr uint16_t PROTOCOL_VERSION = 13;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -82,7 +82,9 @@ namespace PvzMultiplayer
 		ADVANCE_CRAZY_DAVE_DIALOG,
 		WHACK_ZOMBIE,
 		RESOLVE_PACKET_UPGRADE,
-		SMASH_SCARY_POT
+		SMASH_SCARY_POT,
+		PLANT_USABLE_SEED,
+		DROP_USABLE_SEED
 	};
 
 	enum class CodecError : uint8_t

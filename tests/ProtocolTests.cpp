@@ -70,6 +70,8 @@ int main()
 	ExpectRoundTrip(GameAction{4576, 106, 0, 32768, 49151, 2, ActionKind::WHACK_ZOMBIE});
 	ExpectRoundTrip(GameAction{4577, 107, 1503, 1, 0, 0, ActionKind::RESOLVE_PACKET_UPGRADE});
 	ExpectRoundTrip(GameAction{4578, 108, 0, 7, 4, 2, ActionKind::SMASH_SCARY_POT});
+	ExpectRoundTrip(GameAction{4579, 109, 42, 5, 3, 1, ActionKind::PLANT_USABLE_SEED});
+	ExpectRoundTrip(GameAction{4580, 110, 42, 0, 0, 1, ActionKind::DROP_USABLE_SEED});
 	SessionStart aSessionStart{4580, 0x1020304050607080ULL, 0x12345678, 0, aProfile, aPlayerNames};
 	ExpectRoundTrip(aSessionStart);
 	SessionStart aMaximumNameStart = aSessionStart;
@@ -120,7 +122,7 @@ int main()
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1, static_cast<ActionKind>(0)})))
 		Fail("invalid game action kind encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1,
-		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::SMASH_SCARY_POT) + 1)})))
+		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::DROP_USABLE_SEED) + 1)})))
 		Fail("out-of-range game action kind encoded successfully");
 	if (Encode(Message(GameAction{1, 1, 2406, 0, 0, 1, ActionKind::ADVANCE_CRAZY_DAVE_DIALOG})))
 		Fail("client-owned Crazy Dave action encoded successfully");
@@ -147,6 +149,18 @@ int main()
 	if (Encode(Message(GameAction{1, 1, 0, 4, MAX_SCARY_POT_GRID_Y + 1, 0,
 		ActionKind::SMASH_SCARY_POT})))
 		Fail("vase-smash action with an invalid row encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 0, 4, 2, 0, ActionKind::PLANT_USABLE_SEED})))
+		Fail("usable-seed action without a coin id encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 42, MAX_SCARY_POT_GRID_X + 1, 2, 0,
+		ActionKind::PLANT_USABLE_SEED})))
+		Fail("usable-seed action with an invalid column encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 42, 4, MAX_SCARY_POT_GRID_Y + 1, 0,
+		ActionKind::PLANT_USABLE_SEED})))
+		Fail("usable-seed action with an invalid row encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 0, ActionKind::DROP_USABLE_SEED})))
+		Fail("usable-seed drop without a coin id encoded successfully");
+	if (Encode(Message(GameAction{1, 1, 42, 1, 0, 0, ActionKind::DROP_USABLE_SEED})))
+		Fail("usable-seed drop with coordinates encoded successfully");
 	SessionStart anInvalidNamesStart = aSessionStart;
 	anInvalidNamesStart.mPlayerNames[0].clear();
 	if (Encode(Message(anInvalidNamesStart)))

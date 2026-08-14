@@ -4093,6 +4093,32 @@ bool Board::PlantSeedFromBank(int theSeedBankIndex, int theGridX, int theGridY)
 	return true;
 }
 
+bool Board::PlantUsableSeedByCoinId(CoinID theCoinId, int theGridX, int theGridY)
+{
+	if (theCoinId == CoinID::COINID_NULL ||
+		theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
+		return false;
+
+	Coin* aCoin = mCoins.DataArrayTryToGet(theCoinId);
+	// Two delayed clicks can target the same vase card.  Once the first one has
+	// consumed it, the second is a deterministic stale no-op rather than a desync.
+	if (!aCoin || aCoin->mDead || aCoin->mType != CoinType::COIN_USABLE_SEED_PACKET)
+		return true;
+	if (CanPlantAt(theGridX, theGridY, aCoin->mUsableSeedType) != PlantingReason::PLANTING_OK)
+		return true;
+
+	// Reuse the original planting path so effects, counters, challenge hooks and
+	// special plant replacement rules stay identical to single-player Vasebreaker.
+	ClearCursor();
+	mCursorObject->mType = aCoin->mUsableSeedType;
+	mCursorObject->mCursorType = CursorType::CURSOR_TYPE_PLANT_FROM_USABLE_COIN;
+	mCursorObject->mCoinID = theCoinId;
+	MouseDownWithPlant(GridToPixelX(theGridX, theGridY) + 40,
+		GridToPixelY(theGridX, theGridY) + 40, 1);
+	ClearCursor();
+	return true;
+}
+
 bool Board::ShovelPlantById(PlantID thePlantId)
 {
 	Plant* aPlant = mPlants.DataArrayTryToGet(thePlantId);
