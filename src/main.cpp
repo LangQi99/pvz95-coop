@@ -20,6 +20,7 @@
  */
 
 #include "LawnApp.h"
+#include "CrashDump.h"
 #include "Resources.h"
 #include "PvzpLib/PvzpStringFile.h"
 #include <cstdlib>
@@ -84,6 +85,7 @@ static void BuildUtf8ArgsFromWin32(int& argc, char**& argv)
 
 int main(int argc, char** argv)
 {
+	InstallCrashDumpHandler();
 #ifdef __SWITCH__
 	consoleDebugInit(debugDevice_SVC);
 #endif

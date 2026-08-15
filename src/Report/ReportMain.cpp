@@ -1,13 +1,11 @@
 /*
  * Copyright (C) 2026 LangQi99
- *
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shellapi.h>
-#include <shlobj.h>
 
 #include "ProjectVersion.h"
 #include "ZipWriter.h"
@@ -23,10 +21,24 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace
 {
+	constexpr uintmax_t MAX_DUMP_BYTES = 128ULL * 1024ULL * 1024ULL;
+	constexpr uintmax_t MAX_ALL_DUMP_BYTES = 256ULL * 1024ULL * 1024ULL;
+	constexpr size_t MAX_DUMP_COUNT = 8;
+	constexpr auto MAX_DUMP_AGE = std::chrono::hours(24 * 30);
+
+	struct DumpFile
+	{
+		std::filesystem::path mPath;
+		std::filesystem::file_time_type mModified;
+		uintmax_t mSize{};
+	};
+
 	std::filesystem::path GetExecutableDirectory()
 	{
 		std::wstring aPath(32768, L'\0');
@@ -49,10 +61,16 @@ namespace
 		return aValue;
 	}
 
+	std::wstring Lower(std::wstring theValue)
+	{
+		std::transform(theValue.begin(), theValue.end(), theValue.begin(),
+			[](wchar_t theCharacter) { return static_cast<wchar_t>(towlower(theCharacter)); });
+		return theValue;
+	}
+
 	bool IsLanLog(const std::filesystem::path& thePath)
 	{
-		std::wstring aName = thePath.filename().wstring();
-		std::transform(aName.begin(), aName.end(), aName.begin(), towlower);
+		std::wstring aName = Lower(thePath.filename().wstring());
 		if (aName == L"lan-sync.log")
 			return true;
 		constexpr std::wstring_view aPrefix = L"lan-sync.log.";
@@ -62,30 +80,149 @@ namespace
 			aName.end(), [](wchar_t theCharacter) { return iswdigit(theCharacter) != 0; });
 	}
 
-	void CollectPath(const std::filesystem::path& thePath,
+	bool IsDumpExtension(const std::filesystem::path& thePath)
+	{
+		std::wstring anExtension = Lower(thePath.extension().wstring());
+		return anExtension == L".dmp" || anExtension == L".mdmp" || anExtension == L".hdmp";
+	}
+
+	bool LooksLikePvzDump(const std::filesystem::path& thePath)
+	{
+		std::wstring aPath = Lower(thePath.wstring());
+		return aPath.find(L"pvz95") != std::wstring::npos ||
+			aPath.find(L"pvzportable") != std::wstring::npos ||
+			aPath.find(L"plantsvszombies") != std::wstring::npos;
+	}
+
+	void AddLog(const std::filesystem::path& thePath,
 		std::vector<std::filesystem::path>& theLogs, std::set<std::wstring>& theSeen)
+	{
+		std::error_code anError;
+		auto aCanonical = std::filesystem::weakly_canonical(thePath, anError);
+		if (!anError && theSeen.insert(L"log:" + Lower(aCanonical.wstring())).second)
+			theLogs.push_back(std::move(aCanonical));
+	}
+
+	void AddDump(const std::filesystem::path& thePath, bool theAllowAnyDump,
+		std::vector<DumpFile>& theDumps, std::set<std::wstring>& theSeen)
+	{
+		if (!IsDumpExtension(thePath) || (!theAllowAnyDump && !LooksLikePvzDump(thePath)))
+			return;
+		std::error_code anError;
+		auto aCanonical = std::filesystem::weakly_canonical(thePath, anError);
+		if (anError || !theSeen.insert(L"dump:" + Lower(aCanonical.wstring())).second)
+			return;
+		auto aSize = std::filesystem::file_size(aCanonical, anError);
+		if (anError || aSize == 0 || aSize > MAX_DUMP_BYTES)
+			return;
+		auto aModified = std::filesystem::last_write_time(aCanonical, anError);
+		if (anError || std::filesystem::file_time_type::clock::now() - aModified > MAX_DUMP_AGE)
+			return;
+		theDumps.push_back({std::move(aCanonical), aModified, aSize});
+	}
+
+	void CollectPath(const std::filesystem::path& thePath, bool theRecursive, bool theAllowAnyDump,
+		std::vector<std::filesystem::path>& theLogs, std::vector<DumpFile>& theDumps,
+		std::set<std::wstring>& theSeen)
 	{
 		std::error_code anError;
 		if (std::filesystem::is_regular_file(thePath, anError))
 		{
 			if (!anError && IsLanLog(thePath))
-			{
-				auto aCanonical = std::filesystem::weakly_canonical(thePath, anError);
-				if (!anError && theSeen.insert(aCanonical.wstring()).second)
-					theLogs.push_back(aCanonical);
-			}
+				AddLog(thePath, theLogs, theSeen);
+			else if (!anError)
+				AddDump(thePath, theAllowAnyDump, theDumps, theSeen);
 			return;
 		}
 		if (!std::filesystem::is_directory(thePath, anError) || anError)
 			return;
-		for (const auto& anEntry : std::filesystem::directory_iterator(thePath,
-			std::filesystem::directory_options::skip_permission_denied, anError))
+
+		if (!theRecursive)
+		{
+			for (const auto& anEntry : std::filesystem::directory_iterator(thePath,
+				std::filesystem::directory_options::skip_permission_denied, anError))
+			{
+				if (anError)
+					break;
+				if (!anEntry.is_regular_file(anError) || anError)
+					continue;
+				if (IsLanLog(anEntry.path()))
+					AddLog(anEntry.path(), theLogs, theSeen);
+				else
+					AddDump(anEntry.path(), theAllowAnyDump, theDumps, theSeen);
+			}
+			return;
+		}
+
+		for (std::filesystem::recursive_directory_iterator anIterator(thePath,
+			std::filesystem::directory_options::skip_permission_denied, anError), anEnd;
+			anIterator != anEnd; anIterator.increment(anError))
 		{
 			if (anError)
-				break;
-			if (anEntry.is_regular_file(anError) && !anError && IsLanLog(anEntry.path()))
-				CollectPath(anEntry.path(), theLogs, theSeen);
+			{
+				anError.clear();
+				continue;
+			}
+			if (!anIterator->is_regular_file(anError) || anError)
+				continue;
+			if (IsLanLog(anIterator->path()))
+				AddLog(anIterator->path(), theLogs, theSeen);
+			else
+				AddDump(anIterator->path(), theAllowAnyDump, theDumps, theSeen);
 		}
+	}
+
+	void KeepNewestDumps(std::vector<DumpFile>& theDumps)
+	{
+		std::sort(theDumps.begin(), theDumps.end(), [](const DumpFile& theLeft, const DumpFile& theRight)
+			{ return theLeft.mModified > theRight.mModified; });
+		uintmax_t aTotal = 0;
+		size_t aKeepCount = 0;
+		for (; aKeepCount < theDumps.size() && aKeepCount < MAX_DUMP_COUNT; ++aKeepCount)
+		{
+			if (aTotal + theDumps[aKeepCount].mSize > MAX_ALL_DUMP_BYTES)
+				break;
+			aTotal += theDumps[aKeepCount].mSize;
+		}
+		theDumps.resize(aKeepCount);
+	}
+
+	std::filesystem::path GetManagedDumpDirectory()
+	{
+		auto aLocalAppData = GetEnvironmentPath(L"LOCALAPPDATA");
+		if (aLocalAppData.empty())
+			aLocalAppData = GetEnvironmentPath(L"APPDATA");
+		return aLocalAppData.empty() ? std::filesystem::path{} :
+			aLocalAppData / "io.github.wszqkzqk" / "PvZPortable" / "crash-dumps";
+	}
+
+	bool EnableFutureWerDumps(const std::filesystem::path& theDumpDirectory)
+	{
+		if (theDumpDirectory.empty())
+			return false;
+		std::error_code anError;
+		std::filesystem::create_directories(theDumpDirectory, anError);
+		if (anError)
+			return false;
+
+		HKEY aKey = nullptr;
+		constexpr wchar_t aKeyName[] =
+			L"Software\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\pvz95-coop.exe";
+		if (RegCreateKeyExW(HKEY_CURRENT_USER, aKeyName, 0, nullptr, 0, KEY_SET_VALUE,
+			nullptr, &aKey, nullptr) != ERROR_SUCCESS)
+			return false;
+		std::wstring aFolder = theDumpDirectory.wstring();
+		DWORD aDumpType = 1;
+		DWORD aDumpCount = 5;
+		bool aSuccess = RegSetValueExW(aKey, L"DumpFolder", 0, REG_SZ,
+			reinterpret_cast<const BYTE*>(aFolder.c_str()),
+			static_cast<DWORD>((aFolder.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS &&
+			RegSetValueExW(aKey, L"DumpType", 0, REG_DWORD,
+				reinterpret_cast<const BYTE*>(&aDumpType), sizeof(aDumpType)) == ERROR_SUCCESS &&
+			RegSetValueExW(aKey, L"DumpCount", 0, REG_DWORD,
+				reinterpret_cast<const BYTE*>(&aDumpCount), sizeof(aDumpCount)) == ERROR_SUCCESS;
+		RegCloseKey(aKey);
+		return aSuccess;
 	}
 
 	std::string Timestamp(bool theFileName)
@@ -115,7 +252,8 @@ namespace
 		return aBase;
 	}
 
-	std::filesystem::path MakeManifest(const std::vector<std::filesystem::path>& theLogs)
+	std::filesystem::path MakeManifest(const std::vector<std::filesystem::path>& theLogs,
+		const std::vector<DumpFile>& theDumps, bool theFutureDumpsEnabled)
 	{
 		std::filesystem::path aTemp = GetEnvironmentPath(L"TEMP");
 		if (aTemp.empty())
@@ -123,12 +261,21 @@ namespace
 		aTemp /= "pvz95-report-info-" + std::to_string(GetCurrentProcessId()) + ".txt";
 		std::ofstream aFile(aTemp, std::ios::binary | std::ios::trunc);
 		aFile << "PvZ 95 Co-op diagnostic report\r\n"
-			<< "Game version: " << PVZP_VERSION << "\r\n"
+			<< "Game/report version: " << PVZP_VERSION << "\r\n"
 			<< "Report created: " << Timestamp(false) << "\r\n"
 			<< "Platform: Windows " << (sizeof(void*) == 8 ? "x64" : "x86") << "\r\n"
-			<< "Log files: " << theLogs.size() << "\r\n\r\n"
-			<< "The archive intentionally contains only LAN logs and this manifest.\r\n"
-			<< "LAN logs can contain player names and network addresses.\r\n";
+			<< "Log files: " << theLogs.size() << "\r\n"
+			<< "Crash dumps: " << theDumps.size() << "\r\n"
+			<< "Future Windows crash dumps enabled: " << (theFutureDumpsEnabled ? "yes" : "no") << "\r\n";
+		if (!theDumps.empty())
+		{
+			aFile << "\r\nIncluded crash dumps:\r\n";
+			for (const auto& aDump : theDumps)
+				aFile << "- " << aDump.mPath.filename().string() << " (" << aDump.mSize << " bytes)\r\n";
+		}
+		aFile << "\r\nThe archive contains PvZ 95 Co-op LAN logs and relevant recent crash dumps only.\r\n"
+			<< "LAN logs can contain player names and network addresses. Crash dumps may contain\r\n"
+			<< "fragments of process memory; share this archive only with trusted maintainers.\r\n";
 		return aFile ? aTemp : std::filesystem::path{};
 	}
 
@@ -141,56 +288,69 @@ namespace
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 {
 	std::filesystem::path anExeDirectory = GetExecutableDirectory();
-	std::vector<std::filesystem::path> aSearchPaths;
+	// path, recursive, accept any dump (the latter is only true for user-supplied paths).
+	std::vector<std::tuple<std::filesystem::path, bool, bool>> aSearchPaths;
 
 	int anArgumentCount = 0;
 	LPWSTR* anArguments = CommandLineToArgvW(GetCommandLineW(), &anArgumentCount);
 	for (int anIndex = 1; anArguments && anIndex < anArgumentCount; ++anIndex)
-		aSearchPaths.emplace_back(anArguments[anIndex]);
+		aSearchPaths.emplace_back(std::filesystem::path(anArguments[anIndex]), true, true);
 	if (anArguments)
 		LocalFree(anArguments);
 
+	std::filesystem::path aManagedDumpDirectory = GetManagedDumpDirectory();
+	bool aFutureDumpsEnabled = EnableFutureWerDumps(aManagedDumpDirectory);
 	if (aSearchPaths.empty())
 	{
-		aSearchPaths.push_back(anExeDirectory);
-		aSearchPaths.push_back(anExeDirectory / "savedata");
-		aSearchPaths.push_back(std::filesystem::current_path());
-		aSearchPaths.push_back(std::filesystem::current_path() / "pvz95-data");
+		aSearchPaths.emplace_back(anExeDirectory, false, false);
+		aSearchPaths.emplace_back(anExeDirectory / "savedata", false, false);
+		aSearchPaths.emplace_back(std::filesystem::current_path(), false, false);
+		aSearchPaths.emplace_back(std::filesystem::current_path() / "pvz95-data", false, false);
 		std::filesystem::path anAppData = GetEnvironmentPath(L"APPDATA");
 		if (!anAppData.empty())
-			aSearchPaths.push_back(anAppData / "io.github.wszqkzqk" / "PvZPortable");
+			aSearchPaths.emplace_back(anAppData / "io.github.wszqkzqk" / "PvZPortable", false, false);
+		if (!aManagedDumpDirectory.empty())
+			aSearchPaths.emplace_back(aManagedDumpDirectory, false, false);
+		std::filesystem::path aLocalAppData = GetEnvironmentPath(L"LOCALAPPDATA");
+		if (!aLocalAppData.empty())
+		{
+			aSearchPaths.emplace_back(aLocalAppData / "CrashDumps", false, false);
+			aSearchPaths.emplace_back(aLocalAppData / "Microsoft" / "Windows" / "WER" / "ReportArchive", true, false);
+			aSearchPaths.emplace_back(aLocalAppData / "Microsoft" / "Windows" / "WER" / "ReportQueue", true, false);
+		}
 	}
 
 	std::vector<std::filesystem::path> aLogs;
+	std::vector<DumpFile> aDumps;
 	std::set<std::wstring> aSeen;
-	for (const auto& aPath : aSearchPaths)
-		CollectPath(aPath, aLogs, aSeen);
+	for (const auto& [aPath, aRecursive, anExplicit] : aSearchPaths)
+		CollectPath(aPath, aRecursive, anExplicit, aLogs, aDumps, aSeen);
 	std::sort(aLogs.begin(), aLogs.end());
-	if (aLogs.empty())
+	KeepNewestDumps(aDumps);
+	if (aLogs.empty() && aDumps.empty())
 	{
-		ShowError(L"没有找到 lan-sync.log。\n\n请把日志文件或包含日志的存档目录拖到 report.exe 上重试。");
+		ShowError(L"没有找到联机日志或崩溃转储。\n\n已启用后续崩溃转储；请复现一次闪退，"
+			L"然后再次运行 report.exe。也可以把日志或 .dmp 文件拖到它上面。");
 		return 1;
 	}
 
-	std::filesystem::path aManifest = MakeManifest(aLogs);
+	std::filesystem::path aManifest = MakeManifest(aLogs, aDumps, aFutureDumpsEnabled);
 	if (aManifest.empty())
 	{
 		ShowError(L"无法创建报告信息文件。");
 		return 1;
 	}
 
-	std::vector<PvzReport::ZipSource> aSources;
+	std::vector<PvzReport::ZipSource> aSources{{aManifest, "report-info.txt"}};
 	std::map<std::wstring, size_t> aLogSets;
-	for (size_t anIndex = 0; anIndex < aLogs.size(); ++anIndex)
+	for (const auto& aLog : aLogs)
 	{
-		auto [aSet, anInserted] = aLogSets.emplace(aLogs[anIndex].parent_path().wstring(),
-			aLogSets.size() + 1);
-		aSources.push_back({aLogs[anIndex], "logs/set-" + std::to_string(aSet->second) + "/" +
-			aLogs[anIndex].filename().string()});
+		auto [aSet, anInserted] = aLogSets.emplace(aLog.parent_path().wstring(), aLogSets.size() + 1);
+		aSources.push_back({aLog, "logs/set-" + std::to_string(aSet->second) + "/" + aLog.filename().string()});
 	}
-	// Put the human-readable summary first when the ZIP is opened.
-	// Insertion here is harmless because WriteZipArchive preserves entry order.
-	aSources.insert(aSources.begin(), {aManifest, "report-info.txt"});
+	for (size_t anIndex = 0; anIndex < aDumps.size(); ++anIndex)
+		aSources.push_back({aDumps[anIndex].mPath, "crash-dumps/" + std::to_string(anIndex + 1) + "-" +
+			aDumps[anIndex].mPath.filename().string()});
 
 	std::filesystem::path anOutput = UniqueOutputPath(anExeDirectory);
 	std::string anError;
@@ -210,12 +370,16 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
 	if (!aSuccess)
 	{
 		std::wstring aWideError(anError.begin(), anError.end());
-		ShowError(L"日志打包失败：\n" + aWideError);
+		ShowError(L"诊断报告打包失败：\n" + aWideError);
 		return 1;
 	}
 
-	std::wstring aMessage = L"日志已打包完成，共 " + std::to_wstring(aLogs.size()) +
-		L" 个文件：\n\n" + anOutput.wstring() + L"\n\n可以直接把这个 ZIP 发到交流群。";
+	std::wstring aMessage = L"诊断报告已打包：" + std::to_wstring(aLogs.size()) + L" 个日志，" +
+		std::to_wstring(aDumps.size()) + L" 个崩溃转储。\n\n" + anOutput.wstring();
+	if (aDumps.empty())
+		aMessage += L"\n\n本次没有找到旧转储；已经为下一次闪退启用自动转储。请复现后再运行一次。";
+	else
+		aMessage += L"\n\n转储可能包含进程内存片段，请只发给可信的维护者。";
 	MessageBoxW(nullptr, aMessage.c_str(), L"PvZ 95 Co-op Report", MB_OK | MB_ICONINFORMATION);
 	std::wstring aParameter = L"/select,\"" + anOutput.wstring() + L"\"";
 	ShellExecuteW(nullptr, L"open", L"explorer.exe", aParameter.c_str(), nullptr, SW_SHOWNORMAL);
