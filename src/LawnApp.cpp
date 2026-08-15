@@ -3599,8 +3599,18 @@ void LawnApp::LoadingThreadProc()
 	if (!PvzpLoadResources("LoaderBar"))
 		return;
 
-	PvzpStringListLoad("Properties/LawnStrings.txt");
-	PvzpStringListReadFile("Properties/ZombatarTOS.txt");
+	// Retail PvZ 95 keeps the string table outside main.pak to compensate for
+	// the archive entry being misspelled as "qroperties/LawnStrings.txt".
+	// Android resource imports may contain only the archive, so accept that
+	// legacy entry as a fallback while preferring the canonical external file.
+	if (!PvzpStringListReadFile("properties/LawnStrings.txt") &&
+		!PvzpStringListReadFile("qroperties/LawnStrings.txt"))
+	{
+		PvzpErrorMessageBox(
+			"Failed to load string list file 'properties/LawnStrings.txt'",
+			"Error");
+	}
+	PvzpStringListReadFile("properties/ZombatarTOS.txt");
 
 	// Load localized properties AFTER LawnStrings so they can override string values
 	LoadProperties("properties/default.xml", false, false);

@@ -209,21 +209,35 @@ public class ResourceImportActivity extends AppCompatActivity {
     }
 
     /**
-     * Strips a single wrapper directory from zip entry paths when the entry
-     * doesn't start with a known top-level name (e.g. "PvZ/main.pak" -> "main.pak").
+     * Strips wrapper directories from ZIP entries until a known game-data
+     * root is found. Some PvZ 95 archives have several nested Chinese-named
+     * folders before main.pak and properties/.
      */
     private String stripCommonPrefix(String name) {
         name = name.replace('\\', '/').replaceAll("^/+", "");
 
-        if (isKnownTopLevel(name)) return name;
+        String candidate = name;
+        String oneLevelStripped = name;
+        boolean strippedOneLevel = false;
+        while (!candidate.isEmpty()) {
+            if (isKnownTopLevel(candidate)) {
+                if (candidate.startsWith("Properties/")) {
+                    return "properties/" + candidate.substring("Properties/".length());
+                }
+                return candidate;
+            }
 
-        // Strip one leading directory component
-        int slash = name.indexOf('/');
-        if (slash > 0 && slash < name.length() - 1) {
-            return name.substring(slash + 1);
+            int slash = candidate.indexOf('/');
+            if (slash <= 0 || slash >= candidate.length() - 1) break;
+            candidate = candidate.substring(slash + 1);
+            if (!strippedOneLevel) {
+                oneLevelStripped = candidate;
+                strippedOneLevel = true;
+            }
         }
 
-        return name;
+        // Preserve the former one-wrapper behavior for unrelated optional files.
+        return oneLevelStripped;
     }
 
     private static boolean isKnownTopLevel(String name) {
