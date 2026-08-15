@@ -428,7 +428,9 @@ void StoreScreen::DrawItem(Graphics* g, int theItemPosition, StoreItem theItemTy
 	{
 		g->DrawImage(Sexy::IMAGE_STORE_PRICETAG, aPosX - 3, aPosY + 70);
 		std::string aCostString = LawnApp::GetMoneyString(GetItemCost(theItemType));
-		PvzpDrawString(g, aCostString, aPosX + 23, aPosY + 85, Sexy::FONT_BRIANNETOD12, Color::Black, DS_ALIGN_CENTER);
+		// The legacy 95 BRIANNETOD12 atlas can map runtime-generated digits to
+		// the same source cell. PICO129 preserves the actual price glyphs.
+		PvzpDrawString(g, aCostString, aPosX + 23, aPosY + 85, Sexy::FONT_PICO129, Color::Black, DS_ALIGN_CENTER);
 	}
 	if (IsComingSoon(theItemType))
 	{
