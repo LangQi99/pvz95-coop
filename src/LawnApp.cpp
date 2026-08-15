@@ -119,7 +119,8 @@ namespace
 	constexpr uint64_t LAN_CURSOR_KEEPALIVE_INTERVAL = 50;
 	constexpr uint64_t LAN_CURSOR_TIMEOUT = 300;
 	constexpr uint64_t LAN_INPUT_DELAY = 12;
-	constexpr uint64_t LAN_TICK_SYNC_INTERVAL = 1;
+	constexpr uint64_t LAN_TICK_SYNC_INTERVAL = 5;
+	constexpr uint32_t LAN_SESSION_BARRIER_TIMEOUT = 3000;
 	constexpr const char* LAN_TRACE_FILE = "lan-sync.log";
 	constexpr std::size_t LAN_TRACE_FILE_BYTES = 4U * 1024U * 1024U;
 	constexpr std::size_t LAN_TRACE_BACKUP_COUNT = 3;
@@ -1846,7 +1847,13 @@ void LawnApp::UpdateFrames()
 			mEffectSystem->ProcessDeleteQueue();
 		}
 
+		// Gameplay observes Reanimation loop counts and timed-event crossings.
+		// Use the integer animation clock only for an advancing LAN simulation
+		// tick; single-player and presentation-only updates keep retail behavior.
+		const bool aDeterministicLanUpdate = anAdvanceLanBoard && mLanSessionStart.has_value() && mLanSessionBegun;
+		ReanimationSetDeterministicUpdates(aDeterministicLanUpdate);
 		SexyApp::UpdateFrames();
+		ReanimationSetDeterministicUpdates(false);
 		uint64_t aCurrentLanStartId = mLanSessionStart ? mLanSessionStart->mStartId : 0;
 		if (anAdvanceLanBoard && mBoard && aCurrentLanStartId == anAdvancingLanStartId)
 		{
@@ -2103,6 +2110,12 @@ bool LawnApp::LocalMouseButton(int theX, int theY, int theClickCount, bool theDo
 	}
 	if (QueueHitCoin())
 		return true;
+	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SLOT_MACHINE_HANDLE)
+	{
+		QueueLocalLanAction({0, 0, 0, 0, 0, 0,
+			PvzMultiplayer::ActionKind::PULL_SLOT_MACHINE});
+		return true;
+	}
 	if (aHitResult.mObjectType == GameObjectType::OBJECT_TYPE_SCARY_POT)
 	{
 		GridItem* aScaryPot = static_cast<GridItem*>(aHitResult.mObject);
@@ -2417,6 +2430,9 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 	case ActionKind::DROP_USABLE_SEED:
 		return theAction.mParameter != static_cast<uint32_t>(CoinID::COINID_NULL) &&
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
+	case ActionKind::PULL_SLOT_MACHINE:
+		return theAction.mParameter == 0 &&
+			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	}
 	return false;
 }
@@ -2586,6 +2602,7 @@ void LawnApp::UpdateLanSession()
 				{
 					mLanTargetTick = aBegin->mHostTick;
 					mLanWaitingForBegin = false;
+					mLanBarrierStartAppCounter = 0;
 					mLanSessionBegun = true;
 					LanTrace("client begin start=%llu hostTick=%llu\n",
 						static_cast<unsigned long long>(aBegin->mStartId),
@@ -2619,6 +2636,13 @@ void LawnApp::UpdateLanSession()
 				}
 			}
 		}
+	}
+
+	if (mLanWaitingForBegin &&
+		mAppCounter - mLanBarrierStartAppCounter >= LAN_SESSION_BARRIER_TIMEOUT)
+	{
+		AbortLanSession("Timed out while synchronizing the next LAN game.");
+		return;
 	}
 
 	PublishLocalLanCursor();
@@ -2743,6 +2767,8 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 		aHeldCoinId = CoinID::COINID_NULL;
 		return true;
 	}
+	case ActionKind::PULL_SLOT_MACHINE:
+		return mBoard->mChallenge->PullSlotMachine();
 	case ActionKind::SHOVEL_PLANT:
 		return mBoard->ShovelPlantById(static_cast<PlantID>(theAction.mParameter));
 	case ActionKind::FIRE_COB_CANNON:
@@ -2845,6 +2871,28 @@ bool LawnApp::IsBoardInputAt(int theX, int theY)
 		aWidget = aWidget->mParent;
 	}
 	return false;
+}
+
+bool LawnApp::AdvanceLanIntroToAdventure()
+{
+	if (!mLanSessionStart || !mLanSessionBegun || mGameMode != GameMode::GAMEMODE_INTRO)
+		return false;
+
+	// The intro is itself a deterministic LAN simulation.  Starting a second
+	// network session here lets a faster host enter a Ready barrier while a
+	// slower client is still replaying the intro.  Transition both peers at the
+	// same simulation point instead, keeping the start id, RNG stream, action
+	// timeline, and global simulation tick intact.
+	const uint64_t aStartId = mLanSessionStart->mStartId;
+	LanTrace("LAN intro transition in-place start=%llu tick=%llu\n",
+		static_cast<unsigned long long>(aStartId),
+		static_cast<unsigned long long>(mLanSimulationTick));
+	mApplyingLanSessionStart = true;
+	PreNewGame(GameMode::GAMEMODE_ADVENTURE, false);
+	mApplyingLanSessionStart = false;
+	if (mLanSessionStart)
+		mLanSessionStart->mGameMode = static_cast<uint16_t>(GameMode::GAMEMODE_ADVENTURE);
+	return true;
 }
 
 bool LawnApp::BeginLanGame(GameMode theGameMode)
@@ -2950,6 +2998,7 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 	mLanSimulationTick = 0;
 	mLanTargetTick = 0;
 	mLanWaitingForBegin = true;
+	mLanBarrierStartAppCounter = mAppCounter;
 	mLanSessionBegun = false;
 	mLanDesynchronized = false;
 	LanTrace("apply session start role=%s start=%llu seed=%u mode=%u\n", theHost ? "host" : "client",
@@ -3003,6 +3052,7 @@ void LawnApp::MaybeBeginLanSession()
 	}
 	mLanTargetTick = aBegin.mHostTick;
 	mLanWaitingForBegin = false;
+	mLanBarrierStartAppCounter = 0;
 	mLanSessionBegun = true;
 	LanTrace("host begin start=%llu tick=%llu\n", static_cast<unsigned long long>(aBegin.mStartId),
 		static_cast<unsigned long long>(aBegin.mHostTick));
@@ -3042,7 +3092,7 @@ void LawnApp::PublishOrVerifyLanStateHash()
 	PvzMultiplayer::DeterministicHash64 aRandHash;
 	aRandHash.AddString(Sexy::GetRandState());
 	Sexy::PrintF("LAN state tick %llu: full=%016llx core=%016llx grid=%016llx fog=%016llx rows=%016llx waves=%016llx "
-		"seeds=%016llx challenge=%016llx "
+		"seeds=%016llx challenge=%016llx anim=%016llx "
 		"plants=%016llx zombies=%016llx projectiles=%016llx coins=%016llx mowers=%016llx items=%016llx "
 		"rand=%016llx scene=%d main=%u update=%u sun=%d\n",
 		static_cast<unsigned long long>(mLanSimulationTick),
@@ -3054,6 +3104,7 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		static_cast<unsigned long long>(aBoardHash.mWaves),
 		static_cast<unsigned long long>(aBoardHash.mSeedBank),
 		static_cast<unsigned long long>(aBoardHash.mChallenge),
+		static_cast<unsigned long long>(aBoardHash.mGameplayAnimations),
 		static_cast<unsigned long long>(aBoardHash.mPlants),
 		static_cast<unsigned long long>(aBoardHash.mZombies),
 		static_cast<unsigned long long>(aBoardHash.mProjectiles),
@@ -3063,7 +3114,7 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		static_cast<unsigned long long>(aRandHash.Finish()),
 		static_cast<int>(mGameScene), mBoard->mMainCounter, mBoard->mBoardUpdateCounter, mBoard->mSunMoney);
 	LanTrace("state tick=%llu hash=%016llx rand=%016llx scene=%d level=%d main=%u update=%u sun=%d "
-		"core=%016llx grid=%016llx fog=%016llx rows=%016llx waves=%016llx seeds=%016llx challenge=%016llx "
+		"core=%016llx grid=%016llx fog=%016llx rows=%016llx waves=%016llx seeds=%016llx challenge=%016llx anim=%016llx "
 		"plants=%016llx zombies=%016llx projectiles=%016llx coins=%016llx mowers=%016llx items=%016llx\n",
 		static_cast<unsigned long long>(mLanSimulationTick), static_cast<unsigned long long>(aHash),
 		static_cast<unsigned long long>(aRandHash.Finish()), static_cast<int>(mGameScene),
@@ -3075,6 +3126,7 @@ void LawnApp::PublishOrVerifyLanStateHash()
 		static_cast<unsigned long long>(aBoardHash.mWaves),
 		static_cast<unsigned long long>(aBoardHash.mSeedBank),
 		static_cast<unsigned long long>(aBoardHash.mChallenge),
+		static_cast<unsigned long long>(aBoardHash.mGameplayAnimations),
 		static_cast<unsigned long long>(aBoardHash.mPlants),
 		static_cast<unsigned long long>(aBoardHash.mZombies),
 		static_cast<unsigned long long>(aBoardHash.mProjectiles),
@@ -3133,6 +3185,7 @@ void LawnApp::ResetLanGameState()
 	mLanSimulationTick = 0;
 	mLanTargetTick = 0;
 	mLanWaitingForBegin = false;
+	mLanBarrierStartAppCounter = 0;
 	mLanSessionBegun = false;
 	mLanSeedChooserCommitPending = false;
 	mLanSeedChooserCommitSignature = 0;

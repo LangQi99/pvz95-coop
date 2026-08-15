@@ -1290,6 +1290,33 @@ void Challenge::AdvanceCrazyDaveDialog()
 	}
 }
 
+bool Challenge::PullSlotMachine()
+{
+	if (!mApp->IsSlotMachineLevel() || mApp->mGameScene != SCENE_PLAYING)
+		return false;
+
+	// A second pull can already be queued when another player's ordered action
+	// starts the reels. Treat it as a deterministic stale no-op so only the first
+	// action spends sun and advances the RNG.
+	if (mBoard->HasLevelAwardDropped() || mChallengeState != STATECHALLENGE_NORMAL)
+		return true;
+
+	if (!mBoard->TakeSunMoney(25))
+		return true;
+
+	for (int i = 0; i < 3; i++)
+		mBoard->mSeedBank->mSeedPackets[i].SlotMachineStart();
+
+	mApp->ReanimationGet(mReanimChallenge)->PlayReanim(
+		"anim_pull", REANIM_PLAY_ONCE_AND_HOLD, 0, 36.0f);
+	mChallengeState = STATECHALLENGE_SLOT_MACHINE_ROLLING;
+	mBoard->SetTutorialState(TUTORIAL_SLOT_MACHINE_COMPLETED);
+	mBoard->ClearAdvice(ADVICE_NONE);
+	mSlotMachineRollCount++;
+	mApp->PlaySample(Sexy::SOUND_SLOT_MACHINE);
+	return true;
+}
+
 int Challenge::MouseDown(int x, int y, int theClickCount, HitResult* theHitResult)
 {
 	if (mApp->mGameMode == GAMEMODE_CHALLENGE_ZEN_GARDEN)
@@ -1332,23 +1359,7 @@ int Challenge::MouseDown(int x, int y, int theClickCount, HitResult* theHitResul
 	if (mApp->IsSlotMachineLevel() && theHitResult->mObjectType == OBJECT_TYPE_SLOT_MACHINE_HANDLE &&
 		mBoard->mCursorObject->mCursorType == CURSOR_TYPE_NORMAL && mChallengeState == STATECHALLENGE_NORMAL)
 	{
-		if (mBoard->TakeSunMoney(25))
-		{
-			for (int i = 0; i < 3; i++)
-			{
-				mBoard->mSeedBank->mSeedPackets[i].SlotMachineStart();
-			}
-
-			mApp->ReanimationGet(mReanimChallenge)->PlayReanim("anim_pull", REANIM_PLAY_ONCE_AND_HOLD, 0, 36.0f);
-			mChallengeState = STATECHALLENGE_SLOT_MACHINE_ROLLING;
-			mBoard->SetTutorialState(TUTORIAL_SLOT_MACHINE_COMPLETED);
-			mBoard->ClearAdvice(ADVICE_NONE);
-
-			mSlotMachineRollCount++;
-			mApp->PlaySample(Sexy::SOUND_SLOT_MACHINE);
-		}
-
-		return true;
+		return PullSlotMachine();
 	}
 
 	if (mApp->IsWhackAZombieLevel() && theHitResult->mObjectType == OBJECT_TYPE_NONE &&

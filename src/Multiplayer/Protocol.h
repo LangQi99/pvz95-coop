@@ -18,9 +18,9 @@
 
 namespace PvzMultiplayer
 {
-	// Version 13 adds atomic plant/drop actions for usable Vasebreaker seed cards.
-	// Older peers must fail the handshake instead of interpreting those actions.
-	constexpr uint16_t PROTOCOL_VERSION = 13;
+	// Version 14 adds an ordered Slot Machine handle-pull action.
+	// Older peers must fail the handshake instead of swallowing that input.
+	constexpr uint16_t PROTOCOL_VERSION = 14;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
@@ -84,7 +84,8 @@ namespace PvzMultiplayer
 		RESOLVE_PACKET_UPGRADE,
 		SMASH_SCARY_POT,
 		PLANT_USABLE_SEED,
-		DROP_USABLE_SEED
+		DROP_USABLE_SEED,
+		PULL_SLOT_MACHINE
 	};
 
 	enum class CodecError : uint8_t

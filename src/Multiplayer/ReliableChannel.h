@@ -43,11 +43,30 @@ namespace PvzMultiplayer
 		const std::string& GetLastError() const;
 
 	private:
+		enum class OutgoingClass : uint8_t
+		{
+			HANDSHAKE,
+			RELIABLE,
+			CURSOR,
+			TICK_SYNC,
+			STATE_HASH
+		};
+
+		struct OutgoingPacket
+		{
+			std::vector<uint8_t> mBytes;
+			OutgoingClass mClass{OutgoingClass::RELIABLE};
+			uint64_t mCoalesceKey{};
+		};
+
 		void Fail(std::string theError);
+		void DiscardUnsent(bool theDiscardReliable, bool theDiscardPresentation);
+		void DiscardCoalesced(OutgoingClass theClass, uint64_t theKey);
+		void QueuePriorityPacket(OutgoingPacket thePacket);
 
 		TcpSocket mSocket;
 		PacketStreamDecoder mDecoder;
-		std::deque<std::vector<uint8_t>> mOutgoing;
+		std::deque<OutgoingPacket> mOutgoing;
 		size_t mOutgoingOffset{};
 		size_t mQueuedBytes{};
 		ReliableChannelState mState{ReliableChannelState::CONNECTING};

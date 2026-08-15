@@ -10,6 +10,7 @@
 #include "../Lawn/BoardInclude.h"
 #include "../Lawn/Cutscene.h"
 #include "../LawnApp.h"
+#include "../PvzpLib/Reanimator.h"
 #include "../SexyAppFramework/Common.h"
 #endif
 
@@ -95,6 +96,31 @@ namespace PvzMultiplayer
 		{
 			for (T aValue : theValues)
 				theHash.AddI32(static_cast<int32_t>(aValue));
+		}
+
+		void AddGameplayReanimation(DeterministicHash64& h, LawnApp* theApp, ReanimationID theId)
+		{
+			h.AddU32(static_cast<uint32_t>(theId));
+			Reanimation* aReanimation = theApp->ReanimationTryToGet(theId);
+			h.AddBool(aReanimation != nullptr);
+			if (!aReanimation)
+				return;
+
+			AddEnum(h, aReanimation->mReanimationType);
+			h.AddFloat(aReanimation->mAnimTime);
+			h.AddFloat(aReanimation->mAnimRate);
+			AddEnum(h, aReanimation->mLoopType);
+			h.AddBool(aReanimation->mDead);
+			h.AddI32(aReanimation->mFrameStart);
+			h.AddI32(aReanimation->mFrameCount);
+			h.AddI32(aReanimation->mLoopCount);
+			h.AddFloat(aReanimation->mLastFrameTime);
+			h.AddBool(aReanimation->mDeterministicClock.IsInitialized());
+			if (aReanimation->mDeterministicClock.IsInitialized())
+			{
+				h.AddU64(static_cast<uint64_t>(aReanimation->mDeterministicClock.GetPhase()));
+				h.AddU64(static_cast<uint64_t>(aReanimation->mDeterministicClock.GetRemainder()));
+			}
 		}
 
 		void AddPlant(DeterministicHash64& h, const Plant& p)
@@ -188,7 +214,7 @@ namespace PvzMultiplayer
 	{
 		BoardStateHashBreakdown aBreakdown;
 		DeterministicHash64 h;
-		h.AddU32(4); // Canonical hash schema version.
+		h.AddU32(5); // Canonical hash schema version.
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameMode));
 		h.AddI32(static_cast<int32_t>(b.mApp->mGameScene));
 		h.AddI32(b.mApp->mCrazyDaveMessageIndex);
@@ -271,6 +297,25 @@ namespace PvzMultiplayer
 		h.AddI32(c.mChallengeGridX); h.AddI32(c.mChallengeGridY); h.AddI32(c.mScaryPotterPots);
 		h.AddI32(c.mRainCounter); h.AddI32(c.mTreeOfWisdomTalkIndex);
 		aBreakdown.mChallenge = h.Finish();
+
+		// Animation playback is gameplay state in the original engine: plants,
+		// zombies, mowers, grid items, and some challenges use loop counts or
+		// timed-event crossings to attack, die, or change phase. Hash the
+		// referenced animations before those effects become visible elsewhere.
+		h.AddU32(b.mPlants.mSize);
+		for (const Plant* p : b.mPlants)
+			AddGameplayReanimation(h, b.mApp, p->mBodyReanimID);
+		h.AddU32(b.mZombies.mSize);
+		for (const Zombie* z : b.mZombies)
+			AddGameplayReanimation(h, b.mApp, z->mBodyReanimID);
+		h.AddU32(b.mLawnMowers.mSize);
+		for (const LawnMower* m : b.mLawnMowers)
+			AddGameplayReanimation(h, b.mApp, m->mReanimID);
+		h.AddU32(b.mGridItems.mSize);
+		for (const GridItem* i : b.mGridItems)
+			AddGameplayReanimation(h, b.mApp, i->mGridItemReanimID);
+		AddGameplayReanimation(h, b.mApp, c.mReanimChallenge);
+		aBreakdown.mGameplayAnimations = h.Finish();
 
 		h.AddU32(b.mPlants.mSize); for (const Plant* p : b.mPlants) AddPlant(h, *p);
 		aBreakdown.mPlants = h.Finish();

@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include "DataArray.h"
+#include "DeterministicAnimationClock.h"
 #include "FilterEffect.h"
 #include "misc/SexyMatrix.h"
 //using namespace std;
@@ -208,6 +209,7 @@ public:
 	bool                            mEnableExtraOverlayDraw;
 	float                           mLastFrameTime;
 	FilterEffect                    mFilterEffect;
+	DeterministicAnimationClock     mDeterministicClock;
 
 public:
 	Reanimation();
@@ -265,5 +267,6 @@ public:
 void                                ReanimationCreateAtlas(ReanimatorDefinition* theDefinition, ReanimationType theReanimationType);
 void                                ReanimationPreload(ReanimationType theReanimationType);
 void                                BlendTransform(ReanimatorTransform* theResult, const ReanimatorTransform& theTransform1, const ReanimatorTransform& theTransform2, float theBlendFactor);
+void                                ReanimationSetDeterministicUpdates(bool theEnabled);
 
 #endif

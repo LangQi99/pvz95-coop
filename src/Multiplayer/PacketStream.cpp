@@ -12,7 +12,11 @@ namespace PvzMultiplayer
 {
 	namespace
 	{
-		constexpr size_t MAX_QUEUED_MESSAGES = 256;
+		// A board/resource transition can briefly stop the app from draining the
+		// socket while the peer continues to send clock and cursor updates.  Keep
+		// the limit finite, but large enough to absorb a full short-lived TCP
+		// backlog without treating valid LAN traffic as a malformed stream.
+		constexpr size_t MAX_QUEUED_MESSAGES = 4096;
 		constexpr size_t MAX_STREAM_BUFFER = MAX_PACKET_SIZE * MAX_QUEUED_MESSAGES;
 
 		uint32_t ReadPayloadLength(const std::vector<uint8_t>& theBuffer)

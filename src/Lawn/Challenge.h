@@ -129,6 +129,7 @@ public:
 	void         InitZombieWavesFromList(ZombieType* theZombieList, int theListLength);
 	void                    InitZombieWaves();
 	Rect         SlotMachineGetHandleRect();
+	bool                    PullSlotMachine();
 	void                    UpdateSlotMachine();
 	void                    DrawSlotMachine(Graphics* g);
 	int                    UpdateToolTip(int theX, int theY);

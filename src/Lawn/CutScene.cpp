@@ -2280,7 +2280,8 @@ void CutScene::UpdateIntro()
 	}
 	if (mCutsceneTime == TimeIntro_End)
 	{
-		mApp->PreNewGame(GameMode::GAMEMODE_ADVENTURE, false);
+		if (!mApp->AdvanceLanIntroToAdventure())
+			mApp->PreNewGame(GameMode::GAMEMODE_ADVENTURE, false);
 	}
 }
 

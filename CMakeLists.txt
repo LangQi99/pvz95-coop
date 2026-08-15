@@ -436,6 +436,7 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	add_executable(pvz95-deterministic-hash-tests
 		tests/DeterministicHashTests.cpp
 		src/Multiplayer/DeterministicHash.cpp
+		src/PvzpLib/DeterministicAnimationClock.cpp
 	)
 	target_include_directories(pvz95-deterministic-hash-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 	target_compile_features(pvz95-deterministic-hash-tests PRIVATE cxx_std_20)

@@ -42,6 +42,7 @@ namespace PvzMultiplayer
 		uint64_t mWaves{};
 		uint64_t mSeedBank{};
 		uint64_t mChallenge{};
+		uint64_t mGameplayAnimations{};
 		uint64_t mPlants{};
 		uint64_t mZombies{};
 		uint64_t mProjectiles{};

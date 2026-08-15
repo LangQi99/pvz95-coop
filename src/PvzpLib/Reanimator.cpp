@@ -44,6 +44,7 @@ const ReanimationParams* gReanimationParamArray;
 
 namespace
 {
+bool gDeterministicReanimationUpdates = false;
 std::vector<ReanimationParams> gResolvedReanimationParams;
 
 const char* ResolveReanimationFileName(const ReanimationParams& theParams)
@@ -71,6 +72,12 @@ const char* ResolveReanimationFileName(const ReanimationParams& theParams)
 	}
 	return theParams.mReanimFileName;
 }
+
+}
+
+void ReanimationSetDeterministicUpdates(bool theEnabled)
+{
+	gDeterministicReanimationUpdates = theEnabled;
 }
 
 constinit const ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
@@ -361,6 +368,7 @@ Reanimation::Reanimation()
 	mTrackInstances = nullptr;
 	mFilterEffect = FilterEffect::FILTER_EFFECT_NONE;
 	mReanimationType = ReanimationType::REANIM_NONE;
+	mDeterministicClock.Reset();
 }
 
 Reanimation::~Reanimation()
@@ -452,7 +460,16 @@ void Reanimation::Update()
 
 	PVZP_ASSERT(std::isfinite(mAnimRate));
 	mLastFrameTime = mAnimTime;  // save the previous loop position
-	mAnimTime += SECONDS_PER_UPDATE * mAnimRate / mFrameCount;  // advance the loop position
+	int64_t aDeterministicPhase = 0;
+	if (gDeterministicReanimationUpdates)
+	{
+		aDeterministicPhase = mDeterministicClock.Advance(mAnimTime, mAnimRate, mFrameCount);
+		mAnimTime = DeterministicAnimationClock::PhaseToFloat(aDeterministicPhase);
+	}
+	else
+	{
+		mAnimTime += SECONDS_PER_UPDATE * mAnimRate / mFrameCount;  // advance the loop position
+	}
 
 	if (mAnimRate > 0)
 	{
@@ -460,27 +477,35 @@ void Reanimation::Update()
 		{
 		case ReanimLoopType::REANIM_LOOP:
 		case ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME:
-			while (mAnimTime >= 1.0f)
+			while (gDeterministicReanimationUpdates ?
+				aDeterministicPhase >= DeterministicAnimationClock::PHASE_ONE : mAnimTime >= 1.0f)
 			{
 				mLoopCount++;
-				mAnimTime -= 1.0f;
+				if (gDeterministicReanimationUpdates)
+					aDeterministicPhase -= DeterministicAnimationClock::PHASE_ONE;
+				else
+					mAnimTime -= 1.0f;
 			}
 			break;
 		case ReanimLoopType::REANIM_PLAY_ONCE:
 		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME:
-			if (mAnimTime >= 1.0f)
+			if (gDeterministicReanimationUpdates ?
+				aDeterministicPhase >= DeterministicAnimationClock::PHASE_ONE : mAnimTime >= 1.0f)
 			{
 				mLoopCount = 1;
 				mAnimTime = 1.0f;
+				aDeterministicPhase = DeterministicAnimationClock::PHASE_ONE;
 				mDead = true;
 			}
 			break;
 		case ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD:
 		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD:
-			if (mAnimTime >= 1.0f)
+			if (gDeterministicReanimationUpdates ?
+				aDeterministicPhase >= DeterministicAnimationClock::PHASE_ONE : mAnimTime >= 1.0f)
 			{
 				mLoopCount = 1;
 				mAnimTime = 1.0f;
+				aDeterministicPhase = DeterministicAnimationClock::PHASE_ONE;
 			}
 			break;
 		default:
@@ -488,39 +513,51 @@ void Reanimation::Update()
 			break;
 		}
 	}
+
 	else
 	{
 		switch (mLoopType)
 		{
 		case ReanimLoopType::REANIM_LOOP:
 		case ReanimLoopType::REANIM_LOOP_FULL_LAST_FRAME:
-			while (mAnimTime < 0.0f)
+			while (gDeterministicReanimationUpdates ? aDeterministicPhase < 0 : mAnimTime < 0.0f)
 			{
 				mLoopCount++;
-				mAnimTime += 1.0f;
+				if (gDeterministicReanimationUpdates)
+					aDeterministicPhase += DeterministicAnimationClock::PHASE_ONE;
+				else
+					mAnimTime += 1.0f;
 			}
 			break;
 		case ReanimLoopType::REANIM_PLAY_ONCE:
 		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME:
-			if (mAnimTime < 0.0f)
+			if (gDeterministicReanimationUpdates ? aDeterministicPhase < 0 : mAnimTime < 0.0f)
 			{
 				mLoopCount = 1;
 				mAnimTime = 0.0f;
+				aDeterministicPhase = 0;
 				mDead = true;
 			}
 			break;
 		case ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD:
 		case ReanimLoopType::REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD:
-			if (mAnimTime < 0.0f)
+			if (gDeterministicReanimationUpdates ? aDeterministicPhase < 0 : mAnimTime < 0.0f)
 			{
 				mLoopCount = 1;
 				mAnimTime = 0.0f;
+				aDeterministicPhase = 0;
 			}
 			break;
 		default:
 			PVZP_ASSERT(false);
 			break;
 		}
+	}
+
+	if (gDeterministicReanimationUpdates)
+	{
+		mDeterministicClock.PublishPhase(aDeterministicPhase);
+		mAnimTime = mDeterministicClock.GetPublishedPhase();
 	}
 
 	for (int aTrackIndex = 0; aTrackIndex < mDefinition->mTracks.count; aTrackIndex++)

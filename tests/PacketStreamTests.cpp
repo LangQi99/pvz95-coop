@@ -47,6 +47,27 @@ int main()
 	if (aMessages.size() != 2 || aMessages[0] != aHello || aMessages[1] != aCursor)
 		Fail("combined stream produced the wrong messages");
 
+	// More than the old 256-message cap can legitimately accumulate while a
+	// slow client constructs a board.  Such a burst must remain valid and be
+	// drained in order instead of disconnecting the peer.
+	std::vector<uint8_t> aBacklog;
+	constexpr size_t BACKLOG_MESSAGE_COUNT = 512;
+	for (size_t i = 0; i < BACKLOG_MESSAGE_COUNT; ++i)
+	{
+		aCursor = CursorUpdate{4567 + i, static_cast<uint32_t>(i), 32768, 16384, 2, true, 1};
+		aCursorPacket = *Encode(aCursor);
+		aBacklog.insert(aBacklog.end(), aCursorPacket.begin(), aCursorPacket.end());
+	}
+	PacketStreamDecoder aBacklogDecoder;
+	if (!aBacklogDecoder.Feed(aBacklog))
+		Fail("valid transition backlog failed to decode");
+	aMessages = aBacklogDecoder.TakeMessages();
+	if (aMessages.size() != BACKLOG_MESSAGE_COUNT)
+		Fail("transition backlog produced the wrong message count");
+	const auto* aLastCursor = std::get_if<CursorUpdate>(&aMessages.back());
+	if (!aLastCursor || aLastCursor->mSequence != BACKLOG_MESSAGE_COUNT - 1)
+		Fail("transition backlog was not preserved in order");
+
 	PacketStreamDecoder aPartialDecoder;
 	size_t aSplit = aHelloPacket.size() / 2;
 	if (!aPartialDecoder.Feed(std::span<const uint8_t>(aHelloPacket).first(aSplit)) ||

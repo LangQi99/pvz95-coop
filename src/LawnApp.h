@@ -183,6 +183,7 @@ public:
 	bool                            mLocalLanShovelSelected{};
 	bool                            mApplyingLanSessionStart{};
 	bool                            mLanWaitingForBegin{};
+	uint32_t                        mLanBarrierStartAppCounter{};
 	bool                            mLanSessionBegun{};
 	bool                            mLanSeedChooserCommitPending{};
 	uint64_t                        mLanSeedChooserCommitSignature{};
@@ -295,6 +296,7 @@ public:
 	void                            CancelLanSeedChooserConfirmation();
 	bool                            RequestLanSeedChooserStart();
 	bool                            IsBoardInputAt(int theX, int theY);
+	bool                            AdvanceLanIntroToAdventure();
 	bool                            BeginLanGame(GameMode theGameMode);
 	bool                            ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart, bool theHost);
 	void                            MaybeBeginLanSession();

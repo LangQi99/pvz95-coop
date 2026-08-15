@@ -207,7 +207,7 @@ namespace PvzMultiplayer
 		bool IsValidActionKind(uint8_t theValue)
 		{
 			return theValue >= static_cast<uint8_t>(ActionKind::PLANT_SEED) &&
-				theValue <= static_cast<uint8_t>(ActionKind::DROP_USABLE_SEED);
+				theValue <= static_cast<uint8_t>(ActionKind::PULL_SLOT_MACHINE);
 		}
 
 		bool IsValidPlayer(PlayerId thePlayerId)
@@ -254,6 +254,11 @@ namespace PvzMultiplayer
 			if (theAction.mKind == ActionKind::DROP_USABLE_SEED)
 			{
 				return theAction.mParameter != 0 &&
+					theAction.mTargetX == 0 && theAction.mTargetY == 0;
+			}
+			if (theAction.mKind == ActionKind::PULL_SLOT_MACHINE)
+			{
+				return theAction.mParameter == 0 &&
 					theAction.mTargetX == 0 && theAction.mTargetY == 0;
 			}
 

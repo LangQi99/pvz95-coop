@@ -1641,6 +1641,17 @@ void Plant::UpdateCoffeeBean()
 {
 	if (mState == PlantState::STATE_DOINGSPECIAL)
 	{
+		// In LAN play the coffee bean's lifetime must be a gameplay timer, not a
+		// floating-point animation side effect. Otherwise a one-tick difference
+		// in mLoopCount frees a different Plant slot just as another player plants,
+		// permanently changing subsequent DataArray IDs.
+		if (mApp->IsLanGameplayActive())
+		{
+			if (mStateCountdown == 0)
+				Die();
+			return;
+		}
+
 		Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
 		if (aBodyReanim->mLoopCount > 0)
 		{
@@ -4430,6 +4441,14 @@ void Plant::DoSpecial()
 
 		mState = PlantState::STATE_DOINGSPECIAL;
 		PlayBodyReanim("anim_crumble", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 22.0f);
+		if (mApp->IsLanGameplayActive())
+		{
+			Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
+			// Reanimation advances once later in this same Plant::Update. The
+			// countdown begins on the next update, so ceil(frames * 100 / rate)
+			// preserves the original visible completion tick.
+			mStateCountdown = std::max(1, (aBodyReanim->mFrameCount * 100 + 21) / 22);
+		}
 		mApp->PlayFoley(FoleyType::FOLEY_COFFEE);
 
 		break;

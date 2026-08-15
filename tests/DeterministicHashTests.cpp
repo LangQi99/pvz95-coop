@@ -5,7 +5,9 @@
  */
 
 #include "Multiplayer/DeterministicHash.h"
+#include "PvzpLib/DeterministicAnimationClock.h"
 
+#include <bit>
 #include <cstdlib>
 #include <iostream>
 
@@ -43,6 +45,46 @@ int main()
 	DeterministicHash64 aTrue;
 	aTrue.AddBool(true);
 	Require(aFalse.Finish() != aTrue.Finish(), "boolean values collide");
+
+	{
+		DeterministicAnimationClock aClock;
+		float aPhase = 0.0f;
+		for (int i = 0; i < 250; ++i)
+		{
+			aClock.Advance(aPhase, 12.0f, 30);
+			aPhase = aClock.GetPublishedPhase();
+		}
+		Require(aClock.GetPhase() == DeterministicAnimationClock::PHASE_ONE,
+			"integer animation phase accumulated drift");
+		Require(aPhase == 1.0f, "integer animation phase did not reach the loop boundary");
+	}
+
+	{
+		DeterministicAnimationClock aFirst;
+		DeterministicAnimationClock aSecond;
+		float aFirstPhase = 0.1375f;
+		float aSecondPhase = 0.1375f;
+		for (int i = 0; i < 10000; ++i)
+		{
+			aFirst.Advance(aFirstPhase, 17.375f, 47);
+			aSecond.Advance(aSecondPhase, 17.375f, 47);
+			aFirstPhase = aFirst.GetPublishedPhase();
+			aSecondPhase = aSecond.GetPublishedPhase();
+			Require(aFirst.GetPhase() == aSecond.GetPhase(), "equal animation clocks diverged");
+			Require(std::bit_cast<uint32_t>(aFirstPhase) == std::bit_cast<uint32_t>(aSecondPhase),
+				"equal animation clocks published different float bits");
+		}
+	}
+
+	{
+		DeterministicAnimationClock aClock;
+		aClock.Advance(0.25f, 10.0f, 20);
+		const int64_t aBeforeOverride = aClock.GetPhase();
+		aClock.Advance(0.75f, 10.0f, 20);
+		Require(aClock.GetPhase() != aBeforeOverride, "external animation phase override was ignored");
+		Require(aClock.GetPhase() > DeterministicAnimationClock::FloatToPhase(0.75f),
+			"external animation phase override did not resynchronize the clock");
+	}
 
 	std::cout << "Deterministic hash tests passed\n";
 	return 0;
