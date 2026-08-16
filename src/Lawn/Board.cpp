@@ -89,7 +89,11 @@ Board::Board(LawnApp* theApp)
 	mBoardRandSeed = mApp->mAppRandSeed;
 	if (mApp->IsSurvivalMode())
 	{
-		mBoardRandSeed = Rand();
+		// Local survival games traditionally draw a fresh board seed here.  A LAN
+		// peer's global RNG may already have been consumed by local-only lobby/UI
+		// animation, so that draw made the two boards diverge before their first
+		// simulation tick.  SessionStart already supplies a shared, fresh seed.
+		mBoardRandSeed = mApp->IsLanGameplayActive() ? mApp->mAppRandSeed : Rand();
 	}
 	mCoinBankFadeCount = 0;
 	mLevel = 0;

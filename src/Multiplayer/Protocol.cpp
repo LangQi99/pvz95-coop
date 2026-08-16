@@ -267,10 +267,73 @@ namespace PvzMultiplayer
 
 		bool IsValidGameplayProfile(const GameplayProfile& theProfile)
 		{
-			return theProfile.mProfileId != 0 && theProfile.mAdventureLevel >= 1 &&
-				theProfile.mAdventureLevel <= MAX_ADVENTURE_LEVEL &&
-				theProfile.mCoins <= static_cast<uint32_t>(INT32_MAX) &&
-				(theProfile.mFlags & ~SESSION_PROFILE_KNOWN_FLAGS) == 0;
+			if (theProfile.mProfileId == 0 || theProfile.mAdventureLevel < 1 ||
+				theProfile.mAdventureLevel > MAX_ADVENTURE_LEVEL ||
+				theProfile.mCoins > static_cast<uint32_t>(INT32_MAX) ||
+				(theProfile.mFlags & ~SESSION_PROFILE_KNOWN_FLAGS) != 0 ||
+				theProfile.mPottedPlants.size() > GAMEPLAY_POTTED_PLANT_COUNT)
+				return false;
+
+			for (const GameplayPottedPlant& aPlant : theProfile.mPottedPlants)
+			{
+				if (aPlant.mSeedType >= GAMEPLAY_SEED_TYPE_COUNT ||
+					aPlant.mGardenType >= GAMEPLAY_GARDEN_TYPE_COUNT || aPlant.mFacing > 1 ||
+					aPlant.mDrawVariation >= GAMEPLAY_DRAW_VARIATION_COUNT ||
+					aPlant.mPlantAge >= GAMEPLAY_POTTED_PLANT_AGE_COUNT ||
+					aPlant.mPlantNeed >= GAMEPLAY_POTTED_PLANT_NEED_COUNT)
+					return false;
+			}
+			return true;
+		}
+
+		void WriteGameplayPottedPlant(PacketWriter& theWriter, const GameplayPottedPlant& thePlant)
+		{
+			theWriter.WriteU8(thePlant.mSeedType);
+			theWriter.WriteU8(thePlant.mGardenType);
+			theWriter.WriteU32(static_cast<uint32_t>(thePlant.mX));
+			theWriter.WriteU32(static_cast<uint32_t>(thePlant.mY));
+			theWriter.WriteU8(thePlant.mFacing);
+			theWriter.WriteU64(static_cast<uint64_t>(thePlant.mLastWateredTime));
+			theWriter.WriteU8(thePlant.mDrawVariation);
+			theWriter.WriteU8(thePlant.mPlantAge);
+			theWriter.WriteU32(static_cast<uint32_t>(thePlant.mTimesFed));
+			theWriter.WriteU32(static_cast<uint32_t>(thePlant.mFeedingsPerGrow));
+			theWriter.WriteU8(thePlant.mPlantNeed);
+			theWriter.WriteU64(static_cast<uint64_t>(thePlant.mLastNeedFulfilledTime));
+			theWriter.WriteU64(static_cast<uint64_t>(thePlant.mLastFertilizedTime));
+			theWriter.WriteU64(static_cast<uint64_t>(thePlant.mLastChocolateTime));
+			theWriter.WriteU64(static_cast<uint64_t>(thePlant.mFutureAttribute));
+		}
+
+		bool ReadGameplayPottedPlant(PacketReader& theReader, GameplayPottedPlant& thePlant)
+		{
+			uint32_t anX;
+			uint32_t aY;
+			uint32_t aTimesFed;
+			uint32_t aFeedingsPerGrow;
+			uint64_t aLastWateredTime;
+			uint64_t aLastNeedFulfilledTime;
+			uint64_t aLastFertilizedTime;
+			uint64_t aLastChocolateTime;
+			uint64_t aFutureAttribute;
+			if (!theReader.ReadU8(thePlant.mSeedType) || !theReader.ReadU8(thePlant.mGardenType) ||
+				!theReader.ReadU32(anX) || !theReader.ReadU32(aY) || !theReader.ReadU8(thePlant.mFacing) ||
+				!theReader.ReadU64(aLastWateredTime) || !theReader.ReadU8(thePlant.mDrawVariation) ||
+				!theReader.ReadU8(thePlant.mPlantAge) || !theReader.ReadU32(aTimesFed) ||
+				!theReader.ReadU32(aFeedingsPerGrow) || !theReader.ReadU8(thePlant.mPlantNeed) ||
+				!theReader.ReadU64(aLastNeedFulfilledTime) || !theReader.ReadU64(aLastFertilizedTime) ||
+				!theReader.ReadU64(aLastChocolateTime) || !theReader.ReadU64(aFutureAttribute))
+				return false;
+			thePlant.mX = static_cast<int32_t>(anX);
+			thePlant.mY = static_cast<int32_t>(aY);
+			thePlant.mTimesFed = static_cast<int32_t>(aTimesFed);
+			thePlant.mFeedingsPerGrow = static_cast<int32_t>(aFeedingsPerGrow);
+			thePlant.mLastWateredTime = static_cast<int64_t>(aLastWateredTime);
+			thePlant.mLastNeedFulfilledTime = static_cast<int64_t>(aLastNeedFulfilledTime);
+			thePlant.mLastFertilizedTime = static_cast<int64_t>(aLastFertilizedTime);
+			thePlant.mLastChocolateTime = static_cast<int64_t>(aLastChocolateTime);
+			thePlant.mFutureAttribute = static_cast<int64_t>(aFutureAttribute);
+			return true;
 		}
 
 		void WriteGameplayProfile(PacketWriter& theWriter, const GameplayProfile& theProfile)
@@ -284,6 +347,9 @@ namespace PvzMultiplayer
 				theWriter.WriteU32(aRecord);
 			for (uint32_t aPurchase : theProfile.mPurchases)
 				theWriter.WriteU32(aPurchase);
+			theWriter.WriteU16(static_cast<uint16_t>(theProfile.mPottedPlants.size()));
+			for (const GameplayPottedPlant& aPlant : theProfile.mPottedPlants)
+				WriteGameplayPottedPlant(theWriter, aPlant);
 		}
 
 		bool ReadGameplayProfile(PacketReader& theReader, GameplayProfile& theProfile)
@@ -300,6 +366,15 @@ namespace PvzMultiplayer
 			for (uint32_t& aPurchase : theProfile.mPurchases)
 			{
 				if (!theReader.ReadU32(aPurchase))
+					return false;
+			}
+			uint16_t aPottedPlantCount;
+			if (!theReader.ReadU16(aPottedPlantCount) || aPottedPlantCount > GAMEPLAY_POTTED_PLANT_COUNT)
+				return false;
+			theProfile.mPottedPlants.resize(aPottedPlantCount);
+			for (GameplayPottedPlant& aPlant : theProfile.mPottedPlants)
+			{
+				if (!ReadGameplayPottedPlant(theReader, aPlant))
 					return false;
 			}
 			return IsValidGameplayProfile(theProfile);

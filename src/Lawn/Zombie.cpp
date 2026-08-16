@@ -9110,8 +9110,18 @@ void Zombie::PlayDeathAnim(unsigned int theDamageFlags)
 		aDeathAnimRate = 18.0f;
 
 		BossDie();
-		Reanimation* aHeadReanim = mApp->ReanimationGet(mSpecialHeadReanimID);
-		aHeadReanim->PlayReanim("anim_death", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, aDeathAnimRate);
+		Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mSpecialHeadReanimID);
+		if (aHeadReanim)
+		{
+			aHeadReanim->PlayReanim("anim_death", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, aDeathAnimRate);
+		}
+		else
+		{
+			// The driver is cosmetic and is not required for boss defeat or the
+			// final level award.  Continue with the body death animation if its
+			// attachment was already reclaimed.
+			PvzpTraceAndLogLn("Boss death started without driver reanimation");
+		}
 	}
 	else
 	{
@@ -9346,10 +9356,20 @@ void Zombie::UpdateDeath()
 
 		if (aBodyReanim->ShouldTriggerTimedEvent(0.99f))
 		{
-			aHeadReanim->PlayReanim("anim_flag", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 30.0f);
+			if (aHeadReanim)
+			{
+				aHeadReanim->PlayReanim("anim_flag", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 30.0f);
+			}
+			else
+			{
+				// The boss driver is a decorative attachment.  It can already have
+				// been reclaimed while the body is completing its death animation;
+				// losing it must not prevent the level award from being spawned.
+				PvzpTraceAndLogLn("Boss death continued without driver reanimation");
+			}
 		}
 
-		if (aHeadReanim->IsAnimPlaying("anim_flag") && aHeadReanim->mLoopCount > 0)
+		if (aHeadReanim && aHeadReanim->IsAnimPlaying("anim_flag") && aHeadReanim->mLoopCount > 0)
 		{
 			aHeadReanim->PlayReanim("anim_flag_loop", ReanimLoopType::REANIM_LOOP, 20, 17.0f);
 		}

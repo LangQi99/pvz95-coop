@@ -2966,9 +2966,9 @@ bool LawnApp::BeginLanGame(GameMode theGameMode)
 		CaptureGameplayProfile(),
 		std::move(aPlayerNames)
 	};
-	LanTrace("host session start requested start=%llu seed=%u mode=%u players=%zu app=%u\n",
+	LanTrace("host session start requested start=%llu seed=%u mode=%u players=%zu plants=%zu app=%u\n",
 		static_cast<unsigned long long>(aStartId), aSimulationSeed, static_cast<unsigned>(theGameMode),
-		aPlayerCount, mAppCounter);
+		aPlayerCount, aStart.mProfile.mPottedPlants.size(), mAppCounter);
 	// Stage the new barrier separately.  The current session must remain intact
 	// until SESSION_START has actually been queued for every connected peer.
 	SessionBarrier aPendingBarrier;
@@ -3022,9 +3022,9 @@ bool LawnApp::ApplyLanSessionStart(const PvzMultiplayer::SessionStart& theStart,
 	mLanBarrierStartAppCounter = mAppCounter;
 	mLanSessionBegun = false;
 	mLanDesynchronized = false;
-	LanTrace("apply session start role=%s start=%llu seed=%u mode=%u\n", theHost ? "host" : "client",
+	LanTrace("apply session start role=%s start=%llu seed=%u mode=%u plants=%zu\n", theHost ? "host" : "client",
 		static_cast<unsigned long long>(theStart.mStartId), theStart.mSimulationSeed,
-		static_cast<unsigned>(theStart.mGameMode));
+		static_cast<unsigned>(theStart.mGameMode), theStart.mProfile.mPottedPlants.size());
 
 	if (!theHost)
 		InstallLanGameplayProfile(theStart.mProfile);
@@ -3222,6 +3222,12 @@ void LawnApp::ResetLanGameState()
 void LawnApp::InstallLanGameplayProfile(const PvzMultiplayer::GameplayProfile& theProfile)
 {
 	using namespace PvzMultiplayer;
+	static_assert(MAX_POTTED_PLANTS == GAMEPLAY_POTTED_PLANT_COUNT);
+	static_assert(static_cast<size_t>(SeedType::NUM_SEED_TYPES) == GAMEPLAY_SEED_TYPE_COUNT);
+	static_assert(static_cast<size_t>(GardenType::GARDEN_AQUARIUM) + 1 == GAMEPLAY_GARDEN_TYPE_COUNT);
+	static_assert(static_cast<size_t>(DrawVariation::VARIATION_AQUARIUM) + 1 == GAMEPLAY_DRAW_VARIATION_COUNT);
+	static_assert(static_cast<size_t>(PottedPlantAge::PLANTAGE_FULL) + 1 == GAMEPLAY_POTTED_PLANT_AGE_COUNT);
+	static_assert(static_cast<size_t>(PottedPlantNeed::PLANTNEED_PHONOGRAPH) + 1 == GAMEPLAY_POTTED_PLANT_NEED_COUNT);
 
 	if (!mLocalPlayerInfo)
 		mLocalPlayerInfo = mPlayerInfo;
@@ -3236,6 +3242,27 @@ void LawnApp::InstallLanGameplayProfile(const PvzMultiplayer::GameplayProfile& t
 	aProfile.mFinishedAdventure = theProfile.mFinishedAdventure;
 	std::copy(theProfile.mChallengeRecords.begin(), theProfile.mChallengeRecords.end(), aProfile.mChallengeRecords);
 	std::copy(theProfile.mPurchases.begin(), theProfile.mPurchases.end(), aProfile.mPurchases);
+	aProfile.mNumPottedPlants = static_cast<int32_t>(theProfile.mPottedPlants.size());
+	for (size_t anIndex = 0; anIndex < theProfile.mPottedPlants.size(); ++anIndex)
+	{
+		const GameplayPottedPlant& aSource = theProfile.mPottedPlants[anIndex];
+		PottedPlant& aPlant = aProfile.mPottedPlant[anIndex];
+		aPlant.mSeedType = static_cast<SeedType>(aSource.mSeedType);
+		aPlant.mWhichZenGarden = static_cast<GardenType>(aSource.mGardenType);
+		aPlant.mX = aSource.mX;
+		aPlant.mY = aSource.mY;
+		aPlant.mFacing = static_cast<PottedPlant::FacingDirection>(aSource.mFacing);
+		aPlant.mLastWateredTime = aSource.mLastWateredTime;
+		aPlant.mDrawVariation = static_cast<DrawVariation>(aSource.mDrawVariation);
+		aPlant.mPlantAge = static_cast<PottedPlantAge>(aSource.mPlantAge);
+		aPlant.mTimesFed = aSource.mTimesFed;
+		aPlant.mFeedingsPerGrow = aSource.mFeedingsPerGrow;
+		aPlant.mPlantNeed = static_cast<PottedPlantNeed>(aSource.mPlantNeed);
+		aPlant.mLastNeedFulfilledTime = aSource.mLastNeedFulfilledTime;
+		aPlant.mLastFertilizedTime = aSource.mLastFertilizedTime;
+		aPlant.mLastChocolateTime = aSource.mLastChocolateTime;
+		aPlant.mFutureAttribute[0] = aSource.mFutureAttribute;
+	}
 	aProfile.mDidntPurchasePacketUpgrade = (theProfile.mFlags & PROFILE_DIDNT_PURCHASE_PACKET_UPGRADE) != 0;
 	aProfile.mHasWokenStinky = (theProfile.mFlags & PROFILE_HAS_WOKEN_STINKY) != 0;
 	aProfile.mHasUnlockedMinigames = (theProfile.mFlags & PROFILE_HAS_UNLOCKED_MINIGAMES) != 0;
@@ -3276,6 +3303,28 @@ PvzMultiplayer::GameplayProfile LawnApp::CaptureGameplayProfile() const
 		aSnapshot.mChallengeRecords.begin());
 	std::copy(std::begin(mPlayerInfo->mPurchases), std::end(mPlayerInfo->mPurchases),
 		aSnapshot.mPurchases.begin());
+	const int aPottedPlantCount = std::clamp(mPlayerInfo->mNumPottedPlants, 0, MAX_POTTED_PLANTS);
+	aSnapshot.mPottedPlants.reserve(static_cast<size_t>(aPottedPlantCount));
+	for (int anIndex = 0; anIndex < aPottedPlantCount; ++anIndex)
+	{
+		const PottedPlant& aPlant = mPlayerInfo->mPottedPlant[anIndex];
+		aSnapshot.mPottedPlants.push_back(GameplayPottedPlant{
+			static_cast<uint8_t>(aPlant.mSeedType),
+			static_cast<uint8_t>(aPlant.mWhichZenGarden),
+			aPlant.mX,
+			aPlant.mY,
+			static_cast<uint8_t>(aPlant.mFacing),
+			aPlant.mLastWateredTime,
+			static_cast<uint8_t>(aPlant.mDrawVariation),
+			static_cast<uint8_t>(aPlant.mPlantAge),
+			aPlant.mTimesFed,
+			aPlant.mFeedingsPerGrow,
+			static_cast<uint8_t>(aPlant.mPlantNeed),
+			aPlant.mLastNeedFulfilledTime,
+			aPlant.mLastFertilizedTime,
+			aPlant.mLastChocolateTime,
+			aPlant.mFutureAttribute[0]});
+	}
 	if (mPlayerInfo->mDidntPurchasePacketUpgrade) aSnapshot.mFlags |= PROFILE_DIDNT_PURCHASE_PACKET_UPGRADE;
 	if (mPlayerInfo->mHasWokenStinky) aSnapshot.mFlags |= PROFILE_HAS_WOKEN_STINKY;
 	if (mPlayerInfo->mHasUnlockedMinigames) aSnapshot.mFlags |= PROFILE_HAS_UNLOCKED_MINIGAMES;

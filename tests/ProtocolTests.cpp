@@ -53,6 +53,8 @@ int main()
 	aProfile.mFlags = PROFILE_HAS_UNLOCKED_MINIGAMES | PROFILE_HAS_SEEN_UPSELL;
 	aProfile.mChallengeRecords[7] = 3;
 	aProfile.mPurchases[4] = 1002;
+	aProfile.mPottedPlants.push_back(GameplayPottedPlant{
+		38, 0, 4, 2, 1, 123456789, 7, 3, 4, 5, 2, 123456000, 123455000, 123454000, 0});
 	std::array<std::string, MAX_PLAYERS> aPlayerNames{"房主", "Guest", "", ""};
 
 	ExpectRoundTrip(DiscoveryQuery{0x1020304050607080ULL});
@@ -81,6 +83,13 @@ int main()
 	auto aSessionPacket = Encode(Message(aMaximumNameStart));
 	if (!aSessionPacket || aSessionPacket->size() > MAX_PACKET_SIZE)
 		Fail("session start with player names exceeds the packet limit");
+	SessionStart aMaximumGardenStart = aSessionStart;
+	aMaximumGardenStart.mProfile.mPottedPlants.resize(GAMEPLAY_POTTED_PLANT_COUNT,
+		GameplayPottedPlant{38, 0, 4, 2, 1, 123456789, 7, 3, 4, 5, 2, 123456000, 123455000, 123454000, 0});
+	aSessionPacket = Encode(Message(aMaximumGardenStart));
+	if (!aSessionPacket || aSessionPacket->size() > MAX_PACKET_SIZE)
+		Fail("session start with a full Zen Garden exceeds the packet limit");
+	ExpectRoundTrip(aMaximumGardenStart);
 	ExpectRoundTrip(SessionReady{0x1020304050607080ULL, 2});
 	ExpectRoundTrip(SessionBegin{4590, 0x1020304050607080ULL});
 	ExpectRoundTrip(TickSync{4595, 0x1020304050607080ULL});
@@ -115,6 +124,14 @@ int main()
 		Fail("invalid cursor color encoded successfully");
 	if (Encode(Message(DiscoveryOffer{1, 43096, 1, MAX_PLAYERS, 0x50563935, ""})))
 		Fail("empty session name encoded successfully");
+	SessionStart anInvalidGardenStart = aSessionStart;
+	anInvalidGardenStart.mProfile.mPottedPlants[0].mGardenType = GAMEPLAY_GARDEN_TYPE_COUNT;
+	if (Encode(Message(anInvalidGardenStart)))
+		Fail("invalid Zen Garden plant encoded successfully");
+	anInvalidGardenStart = aSessionStart;
+	anInvalidGardenStart.mProfile.mPottedPlants.resize(GAMEPLAY_POTTED_PLANT_COUNT + 1);
+	if (Encode(Message(anInvalidGardenStart)))
+		Fail("oversized Zen Garden profile encoded successfully");
 	if (Encode(Message(CursorUpdate{1, 1, 0, 0, MAX_PLAYERS, true})))
 		Fail("invalid cursor player encoded successfully");
 	if (Encode(Message(CursorUpdate{1, 1, 0, 0, 1, true,

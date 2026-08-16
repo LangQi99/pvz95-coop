@@ -18,13 +18,13 @@
 
 namespace PvzMultiplayer
 {
-	// Version 14 adds an ordered Slot Machine handle-pull action.
-	// Older peers must fail the handshake instead of swallowing that input.
-	constexpr uint16_t PROTOCOL_VERSION = 14;
+	// Version 15 carries the host's Zen Garden plants in the gameplay profile.
+	// Older peers must fail the handshake instead of starting with an empty garden.
+	constexpr uint16_t PROTOCOL_VERSION = 15;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
-	constexpr size_t MAX_PACKET_SIZE = 1024;
+	constexpr size_t MAX_PACKET_SIZE = 16 * 1024;
 	constexpr size_t PACKET_HEADER_SIZE = 12;
 	constexpr size_t MAX_PLAYER_NAME_LENGTH = 24;
 	constexpr size_t MAX_SESSION_NAME_LENGTH = 48;
@@ -38,6 +38,12 @@ namespace PvzMultiplayer
 	constexpr uint16_t MAX_SCARY_POT_GRID_Y = 5;
 	constexpr size_t GAMEPLAY_CHALLENGE_RECORD_COUNT = 100;
 	constexpr size_t GAMEPLAY_PURCHASE_COUNT = 80;
+	constexpr size_t GAMEPLAY_POTTED_PLANT_COUNT = 200;
+	constexpr uint8_t GAMEPLAY_SEED_TYPE_COUNT = 53;
+	constexpr uint8_t GAMEPLAY_GARDEN_TYPE_COUNT = 4;
+	constexpr uint8_t GAMEPLAY_DRAW_VARIATION_COUNT = 18;
+	constexpr uint8_t GAMEPLAY_POTTED_PLANT_AGE_COUNT = 4;
+	constexpr uint8_t GAMEPLAY_POTTED_PLANT_NEED_COUNT = 5;
 
 	using PlayerId = uint8_t;
 
@@ -193,6 +199,27 @@ namespace PvzMultiplayer
 
 	constexpr uint32_t SESSION_PROFILE_KNOWN_FLAGS = (1U << 12) - 1;
 
+	struct GameplayPottedPlant
+	{
+		uint8_t mSeedType{};
+		uint8_t mGardenType{};
+		int32_t mX{};
+		int32_t mY{};
+		uint8_t mFacing{};
+		int64_t mLastWateredTime{};
+		uint8_t mDrawVariation{};
+		uint8_t mPlantAge{};
+		int32_t mTimesFed{};
+		int32_t mFeedingsPerGrow{};
+		uint8_t mPlantNeed{};
+		int64_t mLastNeedFulfilledTime{};
+		int64_t mLastFertilizedTime{};
+		int64_t mLastChocolateTime{};
+		int64_t mFutureAttribute{};
+
+		bool operator==(const GameplayPottedPlant&) const = default;
+	};
+
 	struct GameplayProfile
 	{
 		uint32_t mProfileId{};
@@ -202,6 +229,7 @@ namespace PvzMultiplayer
 		uint32_t mFlags{};
 		std::array<uint32_t, GAMEPLAY_CHALLENGE_RECORD_COUNT> mChallengeRecords{};
 		std::array<uint32_t, GAMEPLAY_PURCHASE_COUNT> mPurchases{};
+		std::vector<GameplayPottedPlant> mPottedPlants;
 
 		bool operator==(const GameplayProfile&) const = default;
 	};
