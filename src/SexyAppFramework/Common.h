@@ -298,10 +298,10 @@ inline bool IsOpeningPunctuation(char32_t theChar)
 {
 	switch (theChar)
 	{
-	case U'〈': case U'《': case U'「': case U'『':
-	case U'【': case U'〔': case U'〖': case U'〘':
-	case U'〚':
-	case U'（': case U'［': case U'｛':
+	case U'\u3008': case U'\u300A': case U'\u300C': case U'\u300E':
+	case U'\u3010': case U'\u3014': case U'\u3016': case U'\u3018':
+	case U'\u301A':
+	case U'\uFF08': case U'\uFF3B': case U'\uFF5B':
 	case U'\u2018': case U'\u201A': case U'\u201B': case U'\u201C':  // ' ‚ ‛ "
 		return true;
 	default:
@@ -314,15 +314,15 @@ inline bool IsClosingPunctuation(char32_t theChar)
 {
 	switch (theChar)
 	{
-	case U'〉': case U'》': case U'」': case U'』':
-	case U'】': case U'〕': case U'〗': case U'〙':
-	case U'〛':
-	case U'）': case U'］': case U'｝':
+	case U'\u3009': case U'\u300B': case U'\u300D': case U'\u300F':
+	case U'\u3011': case U'\u3015': case U'\u3017': case U'\u3019':
+	case U'\u301B':
+	case U'\uFF09': case U'\uFF3D': case U'\uFF5D':
 	case U'\u2019': case U'\u201D':  // ’ ”
-	case U'、': case U'。':
-	case U'，': case U'．':
-	case U'！': case U'？':
-	case U'：': case U'；':
+	case U'\u3001': case U'\u3002':
+	case U'\uFF0C': case U'\uFF0E':
+	case U'\uFF01': case U'\uFF1F':
+	case U'\uFF1A': case U'\uFF1B':
 		return true;
 	default:
 		return false;
