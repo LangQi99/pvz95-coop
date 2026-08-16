@@ -444,6 +444,21 @@ if(BUILD_TESTING AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND 
 	target_compile_definitions(pvz95-deterministic-hash-tests PRIVATE PVZ95_HASH_PRIMITIVES_ONLY)
 	add_test(NAME pvz95-deterministic-hash COMMAND pvz95-deterministic-hash-tests)
 
+	add_executable(pvz95-random-state-tests
+		tests/RandomStateTests.cpp
+		src/SexyAppFramework/Common.cpp
+		src/SexyAppFramework/misc/Debug.cpp
+		src/SexyAppFramework/misc/MTRand.cpp
+	)
+	target_include_directories(pvz95-random-state-tests PRIVATE
+		${PROJECT_SOURCE_DIR}/src/SexyAppFramework
+		${SDL2_INCLUDE_DIRS}
+	)
+	target_compile_features(pvz95-random-state-tests PRIVATE cxx_std_20)
+	target_link_libraries(pvz95-random-state-tests PRIVATE ${SDL2_LINK_TARGET})
+	set_target_properties(pvz95-random-state-tests PROPERTIES CXX_EXTENSIONS OFF)
+	add_test(NAME pvz95-random-state COMMAND pvz95-random-state-tests)
+
 	add_executable(pvz95-rolling-log-tests
 		tests/RollingLogTests.cpp
 		src/Multiplayer/RollingLog.cpp

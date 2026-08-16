@@ -5875,7 +5875,22 @@ void Board::Update()
 		mStoreButton->Update();
 	}
 
-	mApp->mEffectSystem->Update();
+	// Particle emitters, trails and reanimation shake are presentation state.
+	// Their update counts can legitimately differ between peers when windows
+	// have different focus/render histories.  PvZ's original global RNG also
+	// powers gameplay, so letting those visual-only updates consume it makes a
+	// later sun/zombie/plant roll diverge even though every LAN action matched.
+	// Keep visual randomness, but do not let it advance the gameplay RNG stream.
+	if (mApp->IsLanGameplayActive())
+	{
+		const std::string aGameplayRandState = Sexy::GetRandState();
+		mApp->mEffectSystem->Update();
+		Sexy::SetRandState(aGameplayRandState);
+	}
+	else
+	{
+		mApp->mEffectSystem->Update();
+	}
 	mAdvice->Update();
 	UpdateTutorial();
 

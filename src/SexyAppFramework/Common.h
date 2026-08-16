@@ -134,6 +134,7 @@ int					Rand(int range);
 float				Rand(float range);
 void				SRand(ulong theSeed);
 std::string			GetRandState();
+void				SetRandState(std::string_view theState);
 extern std::string	VFormat(const char* fmt, va_list argPtr);
 extern std::string	StrFormat(const char* fmt ...);
 std::string			GetAppDataFolder();

@@ -1643,6 +1643,27 @@ void LawnApp::CheckForGameEnd()
 	if (mBoard == nullptr || !mBoard->mLevelComplete)
 		return;
 
+	// The regular host clock is sent every 100 simulation ticks.  A level can
+	// finish between those boundaries (for example at tick 60998), leaving the
+	// client parked forever on an almost-complete fade while the host has already
+	// constructed the award screen.  Publish the exact terminal tick before the
+	// board is destroyed so every client runs the remaining partial interval and
+	// reaches the same reward/plant-description screen locally.
+	if (mLanCoordinator && mLanSessionStart && mLanSessionBegun &&
+		mLanCoordinator->GetMode() == PvzMultiplayer::LanMode::HOSTING)
+	{
+		PvzMultiplayer::TickSync aTerminalTick{
+			mLanSimulationTick, mLanSessionStart->mStartId};
+		if (!mLanCoordinator->BroadcastFromHost(aTerminalTick))
+		{
+			AbortLanSession("Could not synchronize the completed LAN level.");
+			return;
+		}
+		LanTrace("host terminal tick start=%llu tick=%llu\n",
+			static_cast<unsigned long long>(aTerminalTick.mStartId),
+			static_cast<unsigned long long>(aTerminalTick.mHostTick));
+	}
+
 	bool aUnlockedNewChallenge = UpdatePlayerProfileForFinishingLevel();
 
 	if (IsAdventureMode())

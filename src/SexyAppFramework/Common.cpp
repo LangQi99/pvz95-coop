@@ -115,6 +115,11 @@ std::string Sexy::GetRandState()
 	return gMTRand.Serialize();
 }
 
+void Sexy::SetRandState(std::string_view theState)
+{
+	gMTRand.SRand(std::string(theState));
+}
+
 std::string Sexy::GetAppDataFolder()
 {
 	return PathToU8(Sexy::gAppDataFolder);
