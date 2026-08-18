@@ -15,6 +15,14 @@ namespace PvzMultiplayer
 	{
 		constexpr size_t MAX_OUTGOING_BYTES = MAX_PACKET_SIZE * 256;
 		constexpr size_t RECEIVE_BUFFER_SIZE = 4096;
+		// Do not drain an arbitrarily large TCP backlog in one Poll call.  The
+		// caller cannot take decoded messages until Poll returns, so an active
+		// peer (especially several cursor producers during a loading stall) could
+		// otherwise fill PacketStreamDecoder's finite queue and be reported as a
+		// malformed packet stream.  A bounded batch keeps the UI responsive and
+		// lets ClientSession/HostSession drain messages between receive batches.
+		constexpr size_t MAX_RECEIVE_BATCH_MESSAGES = 512;
+		constexpr size_t MAX_RECEIVE_BATCH_BYTES = 256 * 1024;
 	}
 
 	ReliableChannel::ReliableChannel(TcpSocket theSocket) :
@@ -203,7 +211,9 @@ namespace PvzMultiplayer
 		}
 
 		std::array<uint8_t, RECEIVE_BUFFER_SIZE> aBuffer{};
-		while (true)
+		size_t aReceivedThisPoll = 0;
+		while (mDecoder.GetQueuedMessageCount() < MAX_RECEIVE_BATCH_MESSAGES &&
+			aReceivedThisPoll < MAX_RECEIVE_BATCH_BYTES)
 		{
 			auto aResult = mSocket.Receive(aBuffer);
 			if (aResult.mStatus == SocketIoStatus::WOULD_BLOCK)
@@ -223,6 +233,7 @@ namespace PvzMultiplayer
 				Fail("invalid reliable packet stream: " + std::string(GetCodecErrorName(mDecoder.GetError())));
 				return mState;
 			}
+			aReceivedThisPoll += aResult.mByteCount;
 		}
 
 		return mState;

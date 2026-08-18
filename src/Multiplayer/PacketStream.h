@@ -22,6 +22,7 @@ namespace PvzMultiplayer
 
 		CodecError GetError() const;
 		size_t GetBufferedByteCount() const;
+		size_t GetQueuedMessageCount() const;
 
 	private:
 		std::vector<uint8_t> mBuffer;

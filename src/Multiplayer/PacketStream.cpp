@@ -58,7 +58,7 @@ namespace PvzMultiplayer
 			}
 			if (mMessages.size() >= MAX_QUEUED_MESSAGES)
 			{
-				mError = CodecError::PACKET_TOO_LARGE;
+				mError = CodecError::MESSAGE_BACKLOG_FULL;
 				return false;
 			}
 
@@ -90,5 +90,10 @@ namespace PvzMultiplayer
 	size_t PacketStreamDecoder::GetBufferedByteCount() const
 	{
 		return mBuffer.size();
+	}
+
+	size_t PacketStreamDecoder::GetQueuedMessageCount() const
+	{
+		return mMessages.size();
 	}
 }

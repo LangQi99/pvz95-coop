@@ -91,6 +91,32 @@ int main()
 	if (!aReceivedWelcome)
 		Fail("client did not receive welcome");
 
+	// A busy peer can leave thousands of small packets in the TCP receive
+	// buffer while this process is loading or temporarily starved.  Poll must
+	// return in bounded batches so its decoder can be drained instead of
+	// failing at the internal message-queue limit.
+	constexpr uint32_t BURST_ACTION_COUNT = 5000;
+	for (uint32_t i = 0; i < BURST_ACTION_COUNT; ++i)
+	{
+		Message anAction = GameAction{i + 1, 100 + i, 1,
+			static_cast<uint16_t>(i % 9), static_cast<uint16_t>(i % 6), 0,
+			ActionKind::PLANT_SEED};
+		if (!aServer->Queue(anAction))
+			Fail("server could not queue burst action");
+	}
+	uint32_t aBurstReceived = 0;
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	while (std::chrono::steady_clock::now() < aDeadline && aBurstReceived < BURST_ACTION_COUNT)
+	{
+		aServer->Poll();
+		aClient.Poll();
+		if (aClient.GetState() != ReliableChannelState::CONNECTED)
+			Fail("client failed while draining a valid burst");
+		aBurstReceived += static_cast<uint32_t>(aClient.TakeMessages().size());
+	}
+	if (aBurstReceived != BURST_ACTION_COUNT)
+		Fail("valid burst was not fully drained");
+
 	// A lifecycle root must not sit behind obsolete actions or high-frequency
 	// telemetry from the previous board.  This is the failure mode that used to
 	// strand a lagging client in the first-run intro while the host waited on the

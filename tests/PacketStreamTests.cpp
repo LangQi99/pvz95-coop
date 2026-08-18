@@ -61,12 +61,30 @@ int main()
 	PacketStreamDecoder aBacklogDecoder;
 	if (!aBacklogDecoder.Feed(aBacklog))
 		Fail("valid transition backlog failed to decode");
+	if (aBacklogDecoder.GetQueuedMessageCount() != BACKLOG_MESSAGE_COUNT)
+		Fail("transition backlog queue count was wrong");
 	aMessages = aBacklogDecoder.TakeMessages();
 	if (aMessages.size() != BACKLOG_MESSAGE_COUNT)
 		Fail("transition backlog produced the wrong message count");
+	if (aBacklogDecoder.GetQueuedMessageCount() != 0)
+		Fail("taking transition backlog did not drain the queue");
 	const auto* aLastCursor = std::get_if<CursorUpdate>(&aMessages.back());
 	if (!aLastCursor || aLastCursor->mSequence != BACKLOG_MESSAGE_COUNT - 1)
 		Fail("transition backlog was not preserved in order");
+
+	// The decoder still has a defensive finite cap.  If a caller fails to drain
+	// it, report the actual backlog condition rather than misdiagnosing valid
+	// packet bytes as an oversized frame.
+	std::vector<uint8_t> anUndrainedBacklog;
+	constexpr size_t UNDRAINED_MESSAGE_COUNT = 4097;
+	for (size_t i = 0; i < UNDRAINED_MESSAGE_COUNT; ++i)
+		anUndrainedBacklog.insert(anUndrainedBacklog.end(), aCursorPacket.begin(), aCursorPacket.end());
+	PacketStreamDecoder anUndrainedDecoder;
+	if (anUndrainedDecoder.Feed(anUndrainedBacklog) ||
+		anUndrainedDecoder.GetError() != CodecError::MESSAGE_BACKLOG_FULL)
+	{
+		Fail("undrained message backlog was not identified correctly");
+	}
 
 	PacketStreamDecoder aPartialDecoder;
 	size_t aSplit = aHelloPacket.size() / 2;

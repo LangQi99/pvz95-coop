@@ -738,6 +738,7 @@ namespace PvzMultiplayer
 		case CodecError::UNKNOWN_MESSAGE: return "unknown message";
 		case CodecError::BAD_LENGTH: return "bad length";
 		case CodecError::INVALID_PAYLOAD: return "invalid payload";
+		case CodecError::MESSAGE_BACKLOG_FULL: return "message backlog full";
 		}
 		return "unknown error";
 	}

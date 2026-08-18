@@ -103,7 +103,8 @@ namespace PvzMultiplayer
 		UNSUPPORTED_VERSION,
 		UNKNOWN_MESSAGE,
 		BAD_LENGTH,
-		INVALID_PAYLOAD
+		INVALID_PAYLOAD,
+		MESSAGE_BACKLOG_FULL
 	};
 
 	struct DiscoveryQuery
