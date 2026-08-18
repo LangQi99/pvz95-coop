@@ -45,6 +45,7 @@ namespace
 int main()
 {
 	using namespace PvzMultiplayer;
+	static_assert(PROTOCOL_VERSION == 16);
 	GameplayProfile aProfile;
 	aProfile.mProfileId = 17;
 	aProfile.mAdventureLevel = 34;
@@ -142,8 +143,7 @@ int main()
 	if (Encode(Message(GameAction{1, 1, 0, 0, 0, 1,
 		static_cast<ActionKind>(static_cast<uint8_t>(ActionKind::PULL_SLOT_MACHINE) + 1)})))
 		Fail("out-of-range game action kind encoded successfully");
-	if (Encode(Message(GameAction{1, 1, 2406, 0, 0, 1, ActionKind::ADVANCE_CRAZY_DAVE_DIALOG})))
-		Fail("client-owned Crazy Dave action encoded successfully");
+	ExpectRoundTrip(GameAction{1, 1, 2406, 0, 0, 1, ActionKind::ADVANCE_CRAZY_DAVE_DIALOG});
 	if (Encode(Message(GameAction{1, 1, MAX_CRAZY_DAVE_MESSAGE_INDEX + 1, 0, 0, 0,
 		ActionKind::ADVANCE_CRAZY_DAVE_DIALOG})))
 		Fail("out-of-range Crazy Dave message encoded successfully");

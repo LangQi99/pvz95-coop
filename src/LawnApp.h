@@ -283,6 +283,7 @@ public:
 	void                            PublishLocalLanCursor();
 	bool                            QueueLocalLanAction(PvzMultiplayer::GameAction theAction);
 	bool                            HandleLanCrazyDaveAdvanceInput();
+	bool                            IsLanCrazyDaveDialogActive();
 	bool                            IsLocalLanShovelSelected() const;
 	bool                            IsValidLanAction(const PvzMultiplayer::GameAction& theAction) const;
 	bool                            ApplyLanAction(const PvzMultiplayer::GameAction& theAction);

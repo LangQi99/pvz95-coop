@@ -2233,35 +2233,43 @@ bool LawnApp::HandleLanCrazyDaveAdvanceInput()
 	{
 		return false;
 	}
-
-	bool anIntroDialog = mGameScene == GameScenes::SCENE_LEVEL_INTRO && mBoard->mCutScene &&
-		mBoard->mCutScene->IsShowingCrazyDave();
-	bool aScaryPotterDialog = mGameScene == GameScenes::SCENE_PLAYING &&
-		mBoard->IsScaryPotterDaveTalking();
-	if (!anIntroDialog && !aScaryPotterDialog)
+	if (!IsLanCrazyDaveDialogActive())
 		return false;
 
 	LanMode aMode = mLanCoordinator->GetMode();
 	if (aMode != LanMode::HOSTING && aMode != LanMode::CONNECTED)
 		return false;
 
-	if (aMode == LanMode::HOSTING)
-	{
-		bool aQueued = QueueLocalLanAction({0, 0,
-			static_cast<uint32_t>(mCrazyDaveMessageIndex), 0, 0, 0,
-			ActionKind::ADVANCE_CRAZY_DAVE_DIALOG});
-		LanTrace("host Dave advance request sim=%llu message=%d queued=%d\n",
-			static_cast<unsigned long long>(mLanSimulationTick), mCrazyDaveMessageIndex,
-			aQueued ? 1 : 0);
-	}
-	else
-	{
-		// Dialog progression is deliberately host-authoritative.  A client click
-		// is consumed locally and waits for the host's ordered action.
-		LanTrace("client ignored Dave advance request sim=%llu message=%d\n",
-			static_cast<unsigned long long>(mLanSimulationTick), mCrazyDaveMessageIndex);
-	}
+	// A guest click is only a request.  The host validates its current page,
+	// assigns the simulation tick, and rebroadcasts the ordered action.
+	bool aQueued = QueueLocalLanAction({0, 0,
+		static_cast<uint32_t>(mCrazyDaveMessageIndex), 0, 0, 0,
+		ActionKind::ADVANCE_CRAZY_DAVE_DIALOG});
+	LanTrace("%s Dave advance request sim=%llu message=%d queued=%d\n",
+		aMode == LanMode::HOSTING ? "host" : "client",
+		static_cast<unsigned long long>(mLanSimulationTick), mCrazyDaveMessageIndex,
+		aQueued ? 1 : 0);
 	return true;
+}
+
+bool LawnApp::IsLanCrazyDaveDialogActive()
+{
+	if (!mBoard || mCrazyDaveMessageIndex < 0)
+		return false;
+	if (mGameScene == GameScenes::SCENE_LEVEL_INTRO && mBoard->mCutScene &&
+		mBoard->mCutScene->IsShowingCrazyDave())
+	{
+		return true;
+	}
+	if (mGameScene != GameScenes::SCENE_PLAYING)
+		return false;
+	if (mBoard->IsScaryPotterDaveTalking())
+		return true;
+	bool aGardenDialog = mZenGarden &&
+		(mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
+			mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM);
+	return aGardenDialog && !GetDialog(Dialogs::DIALOG_STORE) &&
+		!GetDialog(Dialogs::DIALOG_ZEN_SELL);
 }
 
 bool LawnApp::IsLocalLanShovelSelected() const
@@ -2433,8 +2441,7 @@ bool LawnApp::IsValidLanAction(const PvzMultiplayer::GameAction& theAction) cons
 	case ActionKind::CONFIRM_SEED_CHOICES:
 		return true;
 	case ActionKind::ADVANCE_CRAZY_DAVE_DIALOG:
-		return theAction.mPlayerId == 0 &&
-			theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
+		return theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
 			theAction.mTargetX == 0 && theAction.mTargetY == 0;
 	case ActionKind::WHACK_ZOMBIE:
 		return theAction.mParameter == 0;
@@ -2494,6 +2501,14 @@ void LawnApp::UpdateLanSession()
 		LanTrace("mode changed mode=%u localPlayer=%u status=\"%s\"\n",
 			static_cast<unsigned>(aMode), aLocalPlayerId,
 			mLanCoordinator->GetStatusText().c_str());
+		if (aMode == LanMode::FAILED && !GetDialog(Dialogs::DIALOG_MESSAGE))
+		{
+			std::string aMessage = mLanCoordinator->GetStatusText() +
+				"\n\nLocal version: " + mProductVersion +
+				"\nAll players must use the same release and ruleset.";
+			LawnMessageBox(Dialogs::DIALOG_MESSAGE, "LAN CONNECTION FAILED", aMessage.c_str(),
+				"[DIALOG_BUTTON_OK]", "", Dialog::BUTTONS_FOOTER);
+		}
 	}
 
 	if (aMode == LanMode::HOSTING)
@@ -2533,14 +2548,16 @@ void LawnApp::UpdateLanSession()
 					anAcceptedInput.mKind == ActionKind::CHOOSE_IMITATER ||
 					anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
 				bool aClientTriedToConfirm = anAcceptedInput.mKind == ActionKind::CONFIRM_SEED_CHOICES;
-				bool aClientTriedToAdvanceDave =
-					anAcceptedInput.mKind == ActionKind::ADVANCE_CRAZY_DAVE_DIALOG;
+				bool aDaveAction = anAcceptedInput.mKind == ActionKind::ADVANCE_CRAZY_DAVE_DIALOG;
+				bool aWrongDaveDialog = aDaveAction &&
+					(mCrazyDaveMessageIndex != static_cast<int>(anAcceptedInput.mParameter) ||
+						!IsLanCrazyDaveDialogActive());
 				bool aWrongScene = aSeedChooserAction &&
 					(!mSeedChooserScreen || !mBoard || !mBoard->mCutScene ||
 						!mBoard->mCutScene->mSeedChoosing || mGameScene != GameScenes::SCENE_LEVEL_INTRO);
 				bool aChooserLocked = aSeedChooserAction && mLanSeedChooserCommitPending;
 				if (!mLanSessionBegun || !IsValidLanAction(anAcceptedInput) ||
-					aClientTriedToConfirm || aClientTriedToAdvanceDave || aWrongScene || aChooserLocked)
+					aClientTriedToConfirm || aWrongDaveDialog || aWrongScene || aChooserLocked)
 				{
 					LanTrace("host rejected remote action local=%llu begun=%d seq=%u player=%u kind=%u\n",
 						static_cast<unsigned long long>(mLanSimulationTick), mLanSessionBegun ? 1 : 0,
@@ -2831,6 +2848,13 @@ bool LawnApp::ApplyLanAction(const PvzMultiplayer::GameAction& theAction)
 		if (mGameScene == GameScenes::SCENE_PLAYING && mBoard->IsScaryPotterDaveTalking())
 		{
 			mBoard->mChallenge->AdvanceCrazyDaveDialog();
+			return true;
+		}
+		if (mGameScene == GameScenes::SCENE_PLAYING && mZenGarden &&
+			(mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
+				mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM))
+		{
+			mZenGarden->AdvanceCrazyDaveDialog();
 			return true;
 		}
 		return false;

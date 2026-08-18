@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -177,6 +178,46 @@ namespace PvzMultiplayer
 		Ipv4Endpoint anEndpoint;
 		std::memcpy(anEndpoint.mAddress.data(), &anAddress.s_addr, anEndpoint.mAddress.size());
 		anEndpoint.mPort = thePort;
+		return anEndpoint;
+	}
+
+	std::optional<Ipv4Endpoint> Ipv4Endpoint::Resolve(std::string_view theHost, uint16_t thePort)
+	{
+		if (auto anEndpoint = Parse(theHost, thePort))
+			return anEndpoint;
+		if (theHost.empty() || theHost.size() > 253 ||
+			theHost.find('\0') != std::string_view::npos || thePort == 0)
+		{
+			return std::nullopt;
+		}
+		if (!AcquireSocketRuntime())
+			return std::nullopt;
+
+		std::string aHostString(theHost);
+		addrinfo aHints{};
+		aHints.ai_family = AF_INET;
+		aHints.ai_socktype = SOCK_STREAM;
+		aHints.ai_protocol = IPPROTO_TCP;
+		addrinfo* aResults = nullptr;
+		int aResult = getaddrinfo(aHostString.c_str(), nullptr, &aHints, &aResults);
+		std::optional<Ipv4Endpoint> anEndpoint;
+		if (aResult == 0)
+		{
+			for (addrinfo* anEntry = aResults; anEntry; anEntry = anEntry->ai_next)
+			{
+				if (anEntry->ai_family != AF_INET || !anEntry->ai_addr ||
+					anEntry->ai_addrlen < static_cast<decltype(anEntry->ai_addrlen)>(sizeof(sockaddr_in)))
+				{
+					continue;
+				}
+				anEndpoint = FromSockAddr(*reinterpret_cast<const sockaddr_in*>(anEntry->ai_addr));
+				anEndpoint->mPort = thePort;
+				break;
+			}
+		}
+		if (aResults)
+			freeaddrinfo(aResults);
+		ReleaseSocketRuntime();
 		return anEndpoint;
 	}
 

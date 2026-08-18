@@ -15,6 +15,32 @@ namespace PvzMultiplayer
 	namespace
 	{
 		constexpr auto DIRECT_JOIN_TIMEOUT = std::chrono::seconds(10);
+
+		std::string DescribeRejection(const Reject& theReject)
+		{
+			switch (theReject.mReason)
+			{
+			case RejectReason::PROTOCOL_MISMATCH:
+				return "Game version mismatch. Every player must use the same PvZ 95 Co-op release.";
+			case RejectReason::RULESET_MISMATCH:
+				return "Ruleset mismatch. Every player must select the same ruleset and game release.";
+			default:
+				return theReject.mMessage.empty() ? "The host rejected the connection" : theReject.mMessage;
+			}
+		}
+
+		std::string DescribeHandshakeFailure(const ClientSession& theSession)
+		{
+			const std::string& anError = theSession.GetLastError();
+			if (anError.find("unsupported version") != std::string::npos)
+				return "Game version mismatch. Every player must use the same PvZ 95 Co-op release.";
+			if (!theSession.GetWelcome())
+			{
+				std::string aPrefix = anError.empty() ? "The connection failed during the handshake." : anError;
+				return aPrefix + " Check that every player uses the same game release, then verify the address, port, and firewall.";
+			}
+			return anError;
+		}
 	}
 
 	bool LanCoordinator::StartHosting(std::string theSessionName, std::string theHostName, uint32_t theRulesetId,
@@ -138,9 +164,16 @@ namespace PvzMultiplayer
 		{
 			for (const auto& aSession : mDiscoveryClient.Poll())
 			{
-				if (aSession.mOffer.mRulesetId != mRulesetId ||
-					aSession.mOffer.mPlayerCount >= aSession.mOffer.mMaxPlayers)
+				if (aSession.mOffer.mRulesetId != mRulesetId)
+				{
+					mStatusText = "Found an incompatible LAN room. Use the same game version and ruleset.";
 					continue;
+				}
+				if (aSession.mOffer.mPlayerCount >= aSession.mOffer.mMaxPlayers)
+				{
+					mStatusText = "Found a compatible LAN room, but it is full.";
+					continue;
+				}
 
 				ClientSessionConfig aConfig{
 					aSession.mGameEndpoint,
@@ -191,13 +224,15 @@ namespace PvzMultiplayer
 					std::to_string(static_cast<unsigned int>(mClientSession.GetWelcome()->mPlayerId) + 1);
 				break;
 			case ClientSessionState::REJECTED:
-				SetError(mClientSession.GetReject() ? mClientSession.GetReject()->mMessage : "The host rejected the connection");
+				SetError(mClientSession.GetReject() ? DescribeRejection(*mClientSession.GetReject()) :
+					"The host rejected the connection");
 				break;
 			case ClientSessionState::CLOSED:
-				SetError("The host closed the connection");
+				SetError(mClientSession.GetWelcome() ? "The host closed the connection" :
+					"The host closed the connection during the handshake. The game versions may not match; every player must use the same release.");
 				break;
 			case ClientSessionState::FAILED:
-				SetError(mClientSession.GetLastError());
+				SetError(DescribeHandshakeFailure(mClientSession));
 				break;
 			default:
 				break;
@@ -206,7 +241,7 @@ namespace PvzMultiplayer
 			if (mMode == LanMode::JOINING && mDirectJoinDeadline &&
 				std::chrono::steady_clock::now() >= *mDirectJoinDeadline)
 			{
-				SetError("The direct connection timed out");
+				SetError("The direct connection timed out. Check the host address or domain, game port, firewall, and that everyone uses the same release.");
 				return;
 			}
 		}

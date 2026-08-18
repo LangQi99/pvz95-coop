@@ -28,6 +28,13 @@ int main()
 	if (!aParsedLoopback || *aParsedLoopback != Ipv4Endpoint::Loopback(1234) ||
 		aParsedLoopback->AddressString() != "127.0.0.1" || Ipv4Endpoint::Parse("not-an-ip", 1234))
 		Fail("IPv4 endpoint conversion failed");
+	auto aResolvedLoopback = Ipv4Endpoint::Resolve("localhost", 4321);
+	if (!aResolvedLoopback || aResolvedLoopback->mPort != 4321 ||
+		aResolvedLoopback->mAddress != Ipv4Endpoint::Loopback(4321).mAddress ||
+		Ipv4Endpoint::Resolve("", 4321) || Ipv4Endpoint::Resolve("localhost", 0))
+	{
+		Fail("IPv4 host-name resolution failed");
+	}
 
 	DiscoveryOffer anOffer{0x8877665544332211ULL, 43096, 1, 4, 0x50563935, "Loopback PvZ 95"};
 	LanDiscoveryHost aHost;

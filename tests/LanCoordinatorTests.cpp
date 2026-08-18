@@ -275,6 +275,35 @@ int main()
 		aHost.GetStatusText().find("TCP port " + std::to_string(aHostGamePort)) == std::string::npos)
 		Fail("coordinator host status lost the player count or TCP port after a direct join");
 
+	aDirectClient.Stop();
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline &&
+		aHost.GetHostSession().GetLobby().GetPlayerCount() != 1)
+	{
+		aHost.Poll();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aHost.GetHostSession().GetLobby().GetPlayerCount() != 1)
+		Fail("coordinator host did not observe the direct client leaving");
+
+	LanCoordinator aWrongRulesetClient;
+	if (!aWrongRulesetClient.StartDirectJoining("Wrong Rules", 0x12345678, aDirectEndpoint))
+		Fail("ruleset mismatch client failed before the handshake: " +
+			aWrongRulesetClient.GetStatusText());
+	aDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (std::chrono::steady_clock::now() < aDeadline &&
+		aWrongRulesetClient.GetMode() != LanMode::FAILED)
+	{
+		aHost.Poll();
+		aWrongRulesetClient.Poll();
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	if (aWrongRulesetClient.GetMode() != LanMode::FAILED ||
+		aWrongRulesetClient.GetStatusText().find("Ruleset mismatch") == std::string::npos ||
+		aWrongRulesetClient.GetStatusText().find("same ruleset and game release") == std::string::npos)
+		Fail("ruleset mismatch did not produce an actionable user-facing error: " +
+			aWrongRulesetClient.GetStatusText());
+
 	LanCoordinator anInvalidDirectClient;
 	if (anInvalidDirectClient.StartDirectJoining("Guest", 0x50563935, Ipv4Endpoint::Loopback(0)) ||
 		anInvalidDirectClient.GetMode() != LanMode::FAILED)

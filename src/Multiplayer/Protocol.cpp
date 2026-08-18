@@ -227,8 +227,7 @@ namespace PvzMultiplayer
 				return false;
 			if (theAction.mKind == ActionKind::ADVANCE_CRAZY_DAVE_DIALOG)
 			{
-				return theAction.mPlayerId == 0 &&
-					theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
+				return theAction.mParameter <= MAX_CRAZY_DAVE_MESSAGE_INDEX &&
 					theAction.mTargetX == 0 && theAction.mTargetY == 0;
 			}
 			if (theAction.mKind == ActionKind::WHACK_ZOMBIE)

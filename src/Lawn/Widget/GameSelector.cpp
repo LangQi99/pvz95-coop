@@ -630,7 +630,9 @@ void GameSelector::Draw(Graphics* g)
 	{
 		g->SetFont(Sexy::FONT_BRIANNETOD16);
 		g->SetColor(Color(48, 30, 16));
-		g->DrawString(mApp->mLanCoordinator->GetStatusText(), 193, 506);
+		g->WriteWordWrapped(Rect(193, 475, 560, 36),
+			mApp->mLanCoordinator->GetStatusText(),
+			Sexy::FONT_BRIANNETOD16->GetLineSpacing(), -1);
 	}
 }
 

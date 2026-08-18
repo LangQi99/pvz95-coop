@@ -25,6 +25,7 @@ namespace PvzMultiplayer
 		static Ipv4Endpoint Loopback(uint16_t thePort);
 		static Ipv4Endpoint Broadcast(uint16_t thePort);
 		static std::optional<Ipv4Endpoint> Parse(std::string_view theAddress, uint16_t thePort);
+		static std::optional<Ipv4Endpoint> Resolve(std::string_view theHost, uint16_t thePort);
 		std::string AddressString() const;
 
 		bool operator==(const Ipv4Endpoint&) const = default;

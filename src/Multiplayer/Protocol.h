@@ -18,9 +18,10 @@
 
 namespace PvzMultiplayer
 {
-	// Version 15 carries the host's Zen Garden plants in the gameplay profile.
-	// Older peers must fail the handshake instead of starting with an empty garden.
-	constexpr uint16_t PROTOCOL_VERSION = 15;
+	// Version 16 lets any player request host-ordered Crazy Dave progression,
+	// including the first Zen Garden tutorial.  Older peers must fail the
+	// handshake instead of disagreeing about the profile mutations it performs.
+	constexpr uint16_t PROTOCOL_VERSION = 16;
 	constexpr uint16_t DEFAULT_DISCOVERY_PORT = 43095;
 	constexpr uint16_t DEFAULT_GAME_PORT = 43096;
 	constexpr uint8_t MAX_PLAYERS = 4;
